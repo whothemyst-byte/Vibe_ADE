@@ -51,11 +51,19 @@ function loadEnvFile(filePath: string): void {
 function ensureRuntimeEnvLoaded(): void {
   const cwd = process.cwd();
   const appPath = app.getAppPath();
+  const resourcesPath = process.resourcesPath;
+  const exeDir = path.dirname(process.execPath);
+  const userDataDir = app.getPath('userData');
   const candidates = [
     path.join(cwd, '.env'),
     path.join(cwd, '.env.local'),
     path.join(appPath, '.env'),
-    path.join(appPath, '.env.local')
+    path.join(appPath, '.env.local'),
+    path.join(resourcesPath, '.env'),
+    path.join(resourcesPath, '.env.local'),
+    path.join(exeDir, '.env'),
+    path.join(exeDir, '.env.local'),
+    path.join(userDataDir, 'vibe-ade.env')
   ];
   for (const candidate of candidates) {
     loadEnvFile(candidate);

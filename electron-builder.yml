@@ -7,6 +7,12 @@ files:
   - dist/**
   - out/**
   - package.json
+extraResources:
+  - from: .
+    to: .
+    filter:
+      - .env
+      - .env.local
 asar: true
 asarUnpack:
   - node_modules/node-pty/**
