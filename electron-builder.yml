@@ -1,0 +1,32 @@
+appId: com.vibeade.desktop
+productName: Vibe-ADE
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - out/**
+  - package.json
+asar: true
+asarUnpack:
+  - node_modules/node-pty/**
+npmRebuild: true
+win:
+  signAndEditExecutable: false
+  verifyUpdateCodeSignature: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+extraMetadata:
+  main: dist/main/index.js
+nsis:
+  artifactName: ${productName}-${version}-setup-${arch}.${ext}
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+portable:
+  artifactName: ${productName}-${version}-portable-${arch}.${ext}

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vibe-ADE - Active Workspace</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3b82f6",
+                        "background-light": "#f8fafc",
+                        "background-dark": "#0a0a0c",
+                        "panel-dark": "#121214",
+                        "border-dark": "#1f1f23",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "8px",
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        .terminal-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 18px;
+            background-color: #3b82f6;
+            vertical-align: middle;
+            margin-left: 4px;
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink {
+            from, to { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #2d2d30;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #3e3e42;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 h-screen flex flex-col">
+<header class="h-10 bg-slate-100 dark:bg-[#0f0f12] border-b border-slate-200 dark:border-border-dark flex items-center justify-between px-2 flex-shrink-0 select-none">
+<div class="flex items-center gap-1 h-full">
+<div class="px-2 flex items-center">
+<svg fill="none" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg">
+<path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#3b82f6" stroke="#3b82f6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="flex items-center h-full gap-0.5 ml-2">
+<div class="bg-white dark:bg-panel-dark border-x border-t border-slate-200 dark:border-border-dark h-[34px] mt-[6px] px-4 flex items-center gap-2 rounded-t-md text-xs font-medium text-primary shadow-sm">
+<span class="material-icons-round text-base">grid_view</span>
+                    Workspace 1
+                    <span class="material-icons-round text-sm hover:bg-slate-200 dark:hover:bg-white/10 p-0.5 rounded cursor-pointer">close</span>
+</div>
+<button class="px-3 h-full flex items-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
+<span class="material-icons-round text-lg">add</span>
+</button>
+</div>
+</div>
+<div class="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest pointer-events-none">
+            Vibe-ADE
+        </div>
+<div class="flex items-center h-full">
+<div class="flex items-center gap-4 mr-4 text-slate-400 dark:text-slate-500">
+<span class="material-icons-round text-base cursor-pointer hover:text-primary transition-colors">search</span>
+<span class="material-icons-round text-base cursor-pointer hover:text-primary transition-colors">settings</span>
+</div>
+<div class="flex h-full">
+<button class="w-10 h-full flex items-center justify-center hover:bg-slate-200 dark:hover:bg-white/5 transition-colors">
+<svg fill="currentColor" height="1" viewBox="0 0 10 1" width="10"><rect height="1" width="10"></rect></svg>
+</button>
+<button class="w-10 h-full flex items-center justify-center hover:bg-slate-200 dark:hover:bg-white/5 transition-colors">
+<svg fill="none" height="10" stroke="currentColor" viewBox="0 0 10 10" width="10"><rect height="9" width="9" x="0.5" y="0.5"></rect></svg>
+</button>
+<button class="w-12 h-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors">
+<svg fill="none" height="10" stroke="currentColor" viewBox="0 0 10 10" width="10"><path d="M1 1L9 9M9 1L1 9" stroke-width="1.2"></path></svg>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-grow flex bg-slate-50 dark:bg-background-dark p-2 gap-2 overflow-hidden">
+<div class="flex-1 flex flex-col bg-white dark:bg-panel-dark rounded-lg border border-slate-200 dark:border-border-dark overflow-hidden shadow-sm">
+<div class="h-9 flex items-center justify-between px-3 bg-slate-50 dark:bg-[#16161a] border-b border-slate-200 dark:border-border-dark">
+<div class="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+<span class="material-icons-round text-sm opacity-70">terminal</span>
+<span class="flex items-center gap-1">
+                        user@vibe-ade
+                        <span class="opacity-50 mx-1">/</span>
+<span class="material-icons-round text-sm opacity-60">folder</span>
+                        ~
+                    </span>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-1 hover:bg-slate-200 dark:hover:bg-white/5 rounded transition-colors">
+<span class="material-icons-round text-sm text-slate-400">more_horiz</span>
+</button>
+</div>
+</div>
+<div class="flex-grow p-4 font-mono text-[13px] leading-relaxed custom-scrollbar overflow-y-auto bg-white dark:bg-panel-dark">
+<div class="text-slate-400 dark:text-slate-500 mb-2">Vibe-ADE Shell v1.0.4 - Welcome, Matthew</div>
+<div class="flex items-center">
+<span class="text-emerald-500 font-semibold mr-2">user@vibe-ade</span>
+<span class="text-primary font-medium mr-2">~</span>
+<span class="text-slate-400 mr-2">%</span>
+<span class="terminal-cursor"></span>
+</div>
+</div>
+</div>
+<div class="flex-1 flex flex-col bg-white dark:bg-panel-dark rounded-lg border border-slate-200 dark:border-border-dark overflow-hidden shadow-sm">
+<div class="h-9 flex items-center justify-between px-3 bg-slate-50 dark:bg-[#16161a] border-b border-slate-200 dark:border-border-dark">
+<div class="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+<span class="material-icons-round text-sm opacity-70">terminal</span>
+<span class="flex items-center gap-1">
+                        user@vibe-ade
+                        <span class="opacity-50 mx-1">/</span>
+<span class="material-icons-round text-sm opacity-60">folder</span>
+                        ~
+                    </span>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-1 hover:bg-slate-200 dark:hover:bg-white/5 rounded transition-colors">
+<span class="material-icons-round text-sm text-slate-400">more_horiz</span>
+</button>
+</div>
+</div>
+<div class="flex-grow p-4 font-mono text-[13px] leading-relaxed custom-scrollbar overflow-y-auto bg-white dark:bg-panel-dark">
+<div class="flex items-center">
+<span class="text-emerald-500 font-semibold mr-2">user@vibe-ade</span>
+<span class="text-primary font-medium mr-2">~</span>
+<span class="text-slate-400 mr-2">%</span>
+<span class="terminal-cursor"></span>
+</div>
+</div>
+</div>
+</main>
+<footer class="h-6 bg-primary dark:bg-primary/90 text-white flex items-center justify-between px-3 text-[11px] font-medium flex-shrink-0 select-none">
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1 cursor-pointer hover:bg-white/10 px-1 rounded transition-colors">
+<span class="material-icons-round text-[14px]">sync</span>
+<span>Main</span>
+</div>
+<div class="flex items-center gap-1 cursor-pointer hover:bg-white/10 px-1 rounded transition-colors">
+<span class="material-icons-round text-[14px]">error_outline</span>
+<span>0</span>
+<span class="material-icons-round text-[14px]">warning_amber</span>
+<span>2</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="cursor-pointer hover:bg-white/10 px-1 rounded transition-colors">Spaces: 4</span>
+<span class="cursor-pointer hover:bg-white/10 px-1 rounded transition-colors">UTF-8</span>
+<span class="cursor-pointer hover:bg-white/10 px-1 rounded transition-colors">Line 1, Col 1</span>
+<div class="flex items-center gap-1 cursor-pointer hover:bg-white/10 px-1 rounded transition-colors">
+<span class="material-icons-round text-[14px]">notifications</span>
+</div>
+</div>
+</footer>
+<button class="fixed bottom-10 right-6 w-10 h-10 bg-white dark:bg-panel-dark border border-slate-200 dark:border-border-dark rounded-full flex items-center justify-center shadow-lg text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-all" onclick="document.documentElement.classList.toggle('dark')">
+<span class="material-icons-round">contrast</span>
+</button>
+
+</body></html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vibe-ADE - Create New Workspace</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3b82f6",
+                        "background-light": "#f3f4f6",
+                        "background-dark": "#0a0a0c",
+                        "surface-dark": "#16161a",
+                        "border-dark": "#2d2d33",
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "4px",
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            background-image: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0c 100%);
+            min-height: 100vh;
+        }
+        .glass-modal {
+            background: rgba(22, 22, 26, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .layout-grid-item {
+            transition: all 0.2s ease;
+        }
+        .layout-grid-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .layout-grid-item.active {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center font-sans text-gray-200">
+<div class="fixed inset-0 z-0 flex flex-col p-4 filter blur-md opacity-30 select-none pointer-events-none">
+<header class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 bg-primary rounded flex items-center justify-center">
+<span class="material-icons-Outlined text-white text-sm">bolt</span>
+</div>
+<h1 class="font-bold text-xl tracking-tight">Vibe-ADE</h1>
+</div>
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-full bg-gray-800"></div>
+</div>
+</header>
+<div class="grid grid-cols-2 gap-4 flex-1">
+<div class="bg-surface-dark border border-border-dark rounded-lg p-4 font-mono text-sm">
+<span class="text-green-400">user@vibe-ade:~$</span> ls -la<br/>
+                total 0<br/>
+                drwxr-xr-x  2 user user  64 Feb 22 10:00 .<br/>
+                drwxr-xr-x  2 user user  64 Feb 22 10:00 ..
+            </div>
+<div class="bg-surface-dark border border-border-dark rounded-lg p-4 font-mono text-sm">
+<span class="text-green-400">user@vibe-ade:~$</span> _
+            </div>
+</div>
+</div>
+<div class="fixed inset-0 bg-black/60 z-10 flex items-center justify-center p-4">
+<div class="glass-modal w-full max-w-[480px] rounded-lg shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
+<div class="px-6 py-4 flex items-center justify-between border-b border-white/5">
+<h2 class="text-lg font-medium text-white">New Workspace</h2>
+<button class="text-gray-400 hover:text-white transition-colors">
+<span class="material-icons-Outlined text-lg">close</span>
+</button>
+</div>
+<div class="p-6 space-y-8">
+<section>
+<label class="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-4">Layout</label>
+<div class="grid grid-cols-3 gap-3">
+<button class="layout-grid-item flex flex-col items-center justify-center p-4 border border-border-dark rounded-md gap-3">
+<div class="w-10 h-7 bg-gray-700/50 rounded-sm"></div>
+<span class="text-xs text-gray-400">Single</span>
+</button>
+<button class="layout-grid-item active flex flex-col items-center justify-center p-4 border rounded-md gap-3">
+<div class="w-10 h-7 flex gap-[2px]">
+<div class="flex-1 bg-primary rounded-sm"></div>
+<div class="flex-1 bg-primary rounded-sm"></div>
+</div>
+<span class="text-xs text-primary font-medium">2</span>
+</button>
+<button class="layout-grid-item flex flex-col items-center justify-center p-4 border border-border-dark rounded-md gap-3">
+<div class="w-10 h-7 grid grid-cols-2 grid-rows-2 gap-[2px]">
+<div class="bg-gray-700/50 rounded-sm"></div>
+<div class="bg-gray-700/50 rounded-sm"></div>
+<div class="bg-gray-700/50 rounded-sm"></div>
+<div class="bg-gray-700/50 rounded-sm"></div>
+</div>
+<span class="text-xs text-gray-400">4</span>
+</button>
+<button class="layout-grid-item flex flex-col items-center justify-center p-4 border border-border-dark rounded-md gap-3">
+<div class="w-10 h-7 grid grid-cols-3 grid-rows-2 gap-[2px]">
+<div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div>
+<div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div>
+</div>
+<span class="text-xs text-gray-400">6</span>
+</button>
+<button class="layout-grid-item flex flex-col items-center justify-center p-4 border border-border-dark rounded-md gap-3">
+<div class="w-10 h-7 grid grid-cols-4 grid-rows-2 gap-[1px]">
+<div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div>
+<div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div>
+</div>
+<span class="text-xs text-gray-400">8</span>
+</button>
+<button class="layout-grid-item flex flex-col items-center justify-center p-4 border border-border-dark rounded-md gap-3">
+<div class="w-10 h-7 grid grid-cols-5 grid-rows-2 gap-[1px]">
+<div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div>
+<div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div><div class="bg-gray-700/50 rounded-sm"></div>
+</div>
+<span class="text-xs text-gray-400">10</span>
+</button>
+</div>
+<p class="mt-4 text-center text-[11px] text-gray-500 italic">Side-by-side horizontal split</p>
+</section>
+<section>
+<label class="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">Directory</label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+<span class="material-icons-Outlined text-primary text-lg">folder</span>
+</div>
+<input class="w-full bg-black/40 border border-border-dark rounded-md pl-10 pr-20 py-2.5 text-sm text-gray-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" readonly="" type="text" value="~"/>
+<button class="absolute inset-y-1.5 right-1.5 px-3 bg-gray-800 hover:bg-gray-700 text-xs font-medium rounded text-gray-300 transition-colors">
+                            Browse
+                        </button>
+</div>
+</section>
+<section class="pt-2">
+<button class="w-full flex items-center justify-between text-gray-400 hover:text-white transition-colors group">
+<div class="flex items-center gap-2">
+<span class="material-icons-Outlined text-sm transition-transform group-hover:translate-x-0.5">chevron_right</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">AI Agents</span>
+</div>
+<span class="text-[10px] text-gray-600 font-medium">optional</span>
+</button>
+</section>
+</div>
+<div class="p-6 bg-black/20 border-t border-white/5 flex justify-end gap-3">
+<button class="px-5 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors rounded">
+                    Cancel
+                </button>
+<button class="bg-primary hover:bg-blue-600 text-white px-8 py-2 text-sm font-semibold rounded shadow-lg shadow-primary/20 transition-all active:scale-95">
+                    Next
+                </button>
+</div>
+</div>
+</div>
+<div class="fixed hidden bg-gray-900 text-white text-[10px] px-2 py-1 rounded border border-white/10 pointer-events-none z-50" id="tooltip">
+        Default home directory
+    </div>
+
+</body></html>

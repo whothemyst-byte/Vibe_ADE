@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vibe-ADE - Welcome</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3B82F6",
+                        "background-light": "#F9FAFB",
+                        "background-dark": "#0B0B0E",
+                        "card-dark": "#16161A",
+                        "border-dark": "#27272A",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "8px",
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .windows-button-hover:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .windows-close-hover:hover {
+            background-color: #E81123 !important;
+            color: white !important;
+        }
+        .glass-glow {
+            box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+<header class="flex items-center justify-between h-8 bg-white/5 dark:bg-black/20 border-b border-gray-200 dark:border-white/5 select-none">
+<div class="flex items-center px-3 gap-2">
+<div class="w-4 h-4 flex items-center justify-center">
+<span class="material-icons-round text-[14px] text-primary">terminal</span>
+</div>
+<span class="text-[11px] font-medium opacity-60">Vibe-ADE</span>
+<div class="flex items-center gap-1 ml-4 opacity-40">
+<span class="text-[10px]">No workspaces open</span>
+<span class="material-icons-round text-[14px]">add</span>
+</div>
+</div>
+<div class="flex h-full">
+<button class="windows-button-hover w-12 flex items-center justify-center transition-colors">
+<span class="material-icons-round text-[14px]">remove</span>
+</button>
+<button class="windows-button-hover w-12 flex items-center justify-center transition-colors">
+<span class="material-icons-round text-[14px]">check_box_outline_blank</span>
+</button>
+<button class="windows-close-hover w-12 flex items-center justify-center transition-colors">
+<span class="material-icons-round text-[14px]">close</span>
+</button>
+</div>
+</header>
+<main class="flex-1 flex flex-col items-center justify-center px-6 pb-12">
+<div class="flex flex-col items-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+<div class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+<div class="relative flex items-center gap-3 mb-2">
+<span class="material-icons-round text-5xl text-primary drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">bolt</span>
+<h1 class="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400 dark:from-white dark:to-slate-500">
+                        Vibe-ADE
+                    </h1>
+</div>
+</div>
+<p class="text-xl font-medium text-primary/90 mt-2 tracking-wide">
+                Build The Future.
+            </p>
+</div>
+<div class="flex flex-col sm:flex-row gap-4 mb-12">
+<button class="group flex items-center gap-3 bg-primary hover:bg-blue-600 text-white px-8 py-3.5 rounded-lg font-medium transition-all shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-95">
+<span class="material-icons-round text-[18px]">terminal</span>
+<span>New Workspace</span>
+</button>
+<button class="group flex items-center gap-3 bg-transparent border border-gray-300 dark:border-white/10 hover:bg-white/5 px-8 py-3.5 rounded-lg font-medium transition-all active:scale-95">
+<span class="material-icons-round text-[18px] opacity-60">folder_open</span>
+<span>Open Project</span>
+</button>
+</div>
+<div class="w-full max-w-2xl glass-glow bg-white dark:bg-card-dark border border-gray-200 dark:border-border-dark rounded-xl p-8 overflow-hidden relative">
+<div class="flex items-center gap-2 mb-8 opacity-40 uppercase tracking-widest text-[10px] font-bold">
+<span class="material-icons-round text-[16px]">keyboard</span>
+<span>Keyboard Shortcuts</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+<div class="space-y-4">
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">New Workspace</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + T</code>
+</div>
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">New Terminal</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + N</code>
+</div>
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">Split Right</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + D</code>
+</div>
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">Split Down</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + Shift + D</code>
+</div>
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">Close Pane</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + W</code>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">Navigate Panes</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + [ / ]</code>
+</div>
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">Navigate Workspaces</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + Alt + [ / ]</code>
+</div>
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">Search Terminal</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + F</code>
+</div>
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">Quick Open File</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + P</code>
+</div>
+<div class="flex justify-between items-center group cursor-default">
+<span class="text-slate-600 dark:text-slate-400 text-sm group-hover:text-primary transition-colors">Settings</span>
+<code class="font-mono text-[11px] bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/10 opacity-70">Ctrl + ,</code>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-12 flex flex-col items-center gap-4">
+<div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+<span class="material-icons-round text-[14px] text-yellow-500">lightbulb</span>
+<span>Tip: Use <code class="font-mono text-[10px] bg-gray-200 dark:bg-white/10 px-1 rounded">Ctrl + T</code> to create workspaces from templates</span>
+</div>
+<label class="flex items-center gap-2 cursor-pointer group">
+<div class="relative flex items-center">
+<input class="peer appearance-none w-3 h-3 border border-gray-300 dark:border-white/20 rounded-sm checked:bg-primary checked:border-primary transition-all" type="checkbox"/>
+<span class="material-icons-round absolute text-[10px] text-white opacity-0 peer-checked:opacity-100 pointer-events-none">check</span>
+</div>
+<span class="text-[11px] text-slate-400 dark:text-slate-500 group-hover:text-slate-300 transition-colors">Don't show on startup</span>
+</label>
+</div>
+</main>
+<button class="fixed bottom-6 right-6 w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-all group">
+<span class="material-icons-round text-[20px] opacity-40 group-hover:opacity-100 group-hover:rotate-45 transition-all">settings</span>
+</button>
+
+</body></html>

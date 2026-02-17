@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vibe-ADE - Authentication</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3B82F6",
+                        "background-light": "#F3F4F6",
+                        "background-dark": "#0B0C10",
+                        "surface-dark": "#161B22",
+                        "border-dark": "#30363D",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "8px",
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .vibe-gradient {
+            background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent),
+                        radial-gradient(circle at bottom left, rgba(147, 51, 234, 0.1), transparent);
+        }
+        .window-shadow {
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex items-center justify-center vibe-gradient p-4">
+<div class="fixed top-4 left-4 flex gap-2 opacity-40">
+<div class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-600"></div>
+<div class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-600"></div>
+<div class="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-600"></div>
+</div>
+<div class="w-full max-w-[440px] bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-xl window-shadow overflow-hidden transition-all duration-300">
+<div class="h-10 flex items-center justify-between px-4 border-b border-slate-100 dark:border-border-dark bg-slate-50/50 dark:bg-black/20">
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 flex items-center justify-center">
+<svg class="w-full h-full text-primary" fill="currentColor" viewBox="0 0 24 24">
+<path d="M13 10V3L4 14H11V21L20 10H13Z"></path>
+</svg>
+</div>
+<span class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-widest">Vibe-ADE Authentication</span>
+</div>
+<div class="flex items-center">
+<button class="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-icons-round text-sm">remove</span>
+</button>
+<button class="p-1 hover:bg-red-500 hover:text-white transition-colors">
+<span class="material-icons-round text-sm">close</span>
+</button>
+</div>
+</div>
+<div class="p-8 space-y-8">
+<div class="text-center space-y-3">
+<div class="inline-flex items-center justify-center gap-3">
+<div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
+<svg class="w-6 h-6 text-primary" fill="currentColor" viewBox="0 0 24 24">
+<path d="M13 10V3L4 14H11V21L20 10H13Z"></path>
+</svg>
+</div>
+<h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Vibe-ADE</h1>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Sign in to access your terminal workspace</p>
+</div>
+<div class="space-y-4">
+<button class="w-full h-12 bg-primary hover:bg-blue-600 active:scale-[0.98] text-white font-semibold rounded-lg flex items-center justify-center gap-3 transition-all shadow-lg shadow-primary/20">
+<span class="material-icons-round">open_in_browser</span>
+<span>Sign in with Browser</span>
+</button>
+<div class="relative py-2 flex items-center justify-center">
+<div class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-slate-200 dark:border-border-dark"></div>
+</div>
+<span class="relative bg-white dark:bg-surface-dark px-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">OR</span>
+</div>
+<button class="w-full h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-200 dark:border-border-dark text-slate-700 dark:text-slate-200 font-medium rounded-lg active:scale-[0.98] transition-all">
+                    Create an account
+                </button>
+</div>
+<div class="animate-in fade-in slide-in-from-bottom-2 duration-500">
+<div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-500/20 p-4 rounded-lg flex items-start gap-3">
+<span class="material-icons-round text-red-500 text-xl flex-shrink-0">error_outline</span>
+<div class="space-y-1">
+<p class="text-sm font-semibold text-red-800 dark:text-red-400">Authentication Error</p>
+<p class="text-xs text-red-700 dark:text-red-300/80 leading-relaxed font-mono">
+                            Invalid auth callback - missing state parameter. Please try again or check your connection.
+                        </p>
+</div>
+</div>
+</div>
+<div class="text-center pt-2">
+<p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed max-w-[280px] mx-auto">
+                    By signing in, you agree to our 
+                    <a class="text-primary hover:underline font-medium" href="#">Terms of Service</a> 
+                    and 
+                    <a class="text-primary hover:underline font-medium" href="#">Privacy Policy</a>
+</p>
+</div>
+</div>
+<div class="px-4 py-2 bg-slate-50 dark:bg-black/40 border-t border-slate-100 dark:border-border-dark flex items-center justify-between">
+<div class="flex items-center gap-3 text-[10px] text-slate-400 font-mono">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Online</span>
+<span>v1.0.4-stable</span>
+</div>
+<div class="flex items-center gap-2 opacity-50">
+<span class="material-icons-round text-[12px]">settings</span>
+</div>
+</div>
+</div>
+<button class="fixed bottom-6 right-6 w-10 h-10 rounded-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark flex items-center justify-center shadow-lg hover:scale-110 transition-transform" onclick="document.documentElement.classList.toggle('dark')">
+<span class="material-icons-round text-slate-600 dark:text-slate-400">contrast</span>
+</button>
+
+</body></html>
