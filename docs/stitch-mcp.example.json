@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://stitch.withgoogle.com/api/mcp/sse"
+      ]
+    }
+  }
+}

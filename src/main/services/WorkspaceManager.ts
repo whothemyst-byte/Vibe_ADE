@@ -1,11 +1,71 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { AppState, LayoutNode, PaneAgentState, TaskItem, WorkspaceState } from '@shared/types';
+import type { AppState, LayoutNode, PaneAgentState, TaskItem, TaskPriority, TaskStatus, WorkspaceState } from '@shared/types';
 import { DEFAULT_TEMPLATES } from './templates';
 
 interface PersistedState extends AppState {
   version: 1;
+}
+
+const DEFAULT_TASK_PRIORITY: TaskPriority = 'medium';
+const TASK_STATUSES: TaskStatus[] = ['backlog', 'in-progress', 'done'];
+
+function normalizeTaskOrder(tasks: TaskItem[]): TaskItem[] {
+  const byStatus: Record<TaskStatus, TaskItem[]> = {
+    backlog: [],
+    'in-progress': [],
+    done: []
+  };
+
+  for (const task of tasks) {
+    byStatus[task.status].push(task);
+  }
+
+  const normalized: TaskItem[] = [];
+  for (const status of TASK_STATUSES) {
+    const ordered = byStatus[status].sort((a, b) => {
+      const byOrder = (a.order ?? 0) - (b.order ?? 0);
+      if (byOrder !== 0) {
+        return byOrder;
+      }
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+    ordered.forEach((task, index) => {
+      normalized.push({ ...task, order: index + 1 });
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeTask(task: TaskItem): TaskItem {
+  return {
+    ...task,
+    priority: task.priority ?? DEFAULT_TASK_PRIORITY,
+    labels: Array.isArray(task.labels) ? task.labels.map((label) => label.trim()).filter(Boolean) : [],
+    archived: task.archived ?? false,
+    order: task.order ?? 0
+  };
+}
+
+function normalizeWorkspace(workspace: WorkspaceState): WorkspaceState {
+  return {
+    ...workspace,
+    tasks: normalizeTaskOrder((workspace.tasks ?? []).map(normalizeTask))
+  };
+}
+
+function normalizePersistedState(state: PersistedState): PersistedState {
+  const workspaces = state.workspaces.map(normalizeWorkspace);
+  const activeWorkspaceId = workspaces.some((workspace) => workspace.id === state.activeWorkspaceId)
+    ? state.activeWorkspaceId
+    : (workspaces[0]?.id ?? null);
+  return {
+    version: 1,
+    activeWorkspaceId,
+    workspaces
+  };
 }
 
 function createDefaultLayout(): LayoutNode {
@@ -40,11 +100,11 @@ export class WorkspaceManager {
 
   async initialize(): Promise<void> {
     try {
-      this.state = await this.loadState(this.statePath);
+      this.state = normalizePersistedState(await this.loadState(this.statePath));
     } catch (primaryError) {
       console.warn('Failed to load primary state file, attempting backup...', primaryError);
       try {
-        this.state = await this.loadState(this.backupPath);
+        this.state = normalizePersistedState(await this.loadState(this.backupPath));
         console.info('Loaded state from backup file');
         await this.persist();
       } catch (backupError) {
@@ -100,15 +160,16 @@ export class WorkspaceManager {
   async clone(workspaceId: string, newName: string): Promise<WorkspaceState> {
     const source = this.requireWorkspace(workspaceId);
     const now = new Date().toISOString();
+    const normalizedSource = normalizeWorkspace(source);
     const clone: WorkspaceState = {
-      ...structuredClone(source),
+      ...structuredClone(normalizedSource),
       id: uuidv4(),
       name: newName,
       createdAt: now,
       updatedAt: now,
-      tasks: source.tasks.map((task: TaskItem) => ({ ...task, id: uuidv4(), createdAt: now, updatedAt: now })),
+      tasks: normalizedSource.tasks.map((task: TaskItem) => ({ ...task, id: uuidv4(), createdAt: now, updatedAt: now })),
       paneAgents: Object.fromEntries(
-        Object.entries(source.paneAgents).map(([paneId, state]) => {
+        Object.entries(normalizedSource.paneAgents).map(([paneId, state]) => {
           const next: PaneAgentState = {
             ...state,
             running: false
@@ -150,17 +211,20 @@ export class WorkspaceManager {
     if (index < 0) {
       throw new Error('Workspace not found');
     }
-    workspace.updatedAt = new Date().toISOString();
-    this.state.workspaces[index] = workspace;
+    const normalizedWorkspace = normalizeWorkspace({
+      ...workspace,
+      updatedAt: new Date().toISOString()
+    });
+    this.state.workspaces[index] = normalizedWorkspace;
     await this.persist();
   }
 
   async replaceState(nextState: AppState): Promise<void> {
-    this.state = {
+    this.state = normalizePersistedState({
       version: 1,
       activeWorkspaceId: nextState.activeWorkspaceId,
       workspaces: nextState.workspaces
-    };
+    });
     await this.persist();
   }
 
@@ -193,6 +257,6 @@ export class WorkspaceManager {
     if (parsed.version !== 1 || !Array.isArray(parsed.workspaces)) {
       throw new Error('Invalid persisted state');
     }
-    return parsed;
+    return normalizePersistedState(parsed);
   }
 }

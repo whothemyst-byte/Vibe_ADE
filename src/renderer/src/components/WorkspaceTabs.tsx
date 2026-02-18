@@ -150,10 +150,10 @@ export function WorkspaceTabs(): JSX.Element {
           aria-label="Agent Panel"
           onClick={() => toggleAgentPanel()}
         >
-          {'\u2699'}
+          {'\uD83E\uDD16'}
         </button>
         <button className="top-button icon-top-button" title="Settings" aria-label="Settings" onClick={openSettings}>
-          {'\u22EE'}
+          {'\u2699\uFE0F'}
         </button>
       </div>
 

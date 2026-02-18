@@ -46,8 +46,13 @@ describe('registerIpcHandlers', () => {
       }))
     };
 
+    const workspaceRoot = process.cwd();
+
     const workspaceManager = {
-      list: vi.fn(() => ({ activeWorkspaceId: null, workspaces: [] })),
+      list: vi.fn(() => ({
+        activeWorkspaceId: 'w1',
+        workspaces: [{ id: 'w1', rootDir: workspaceRoot }]
+      })),
       templates: vi.fn(() => []),
       create: vi.fn(),
       clone: vi.fn(),
@@ -86,7 +91,7 @@ describe('registerIpcHandlers', () => {
     const result = (await structuredHandler({}, {
       paneId: 'p1',
       shell: 'powershell',
-      cwd: 'C:\\',
+      cwd: workspaceRoot,
       command: 'Remove-Item .\\tmp -Recurse'
     })) as { warning?: string };
 

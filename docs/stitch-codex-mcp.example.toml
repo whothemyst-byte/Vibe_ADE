@@ -1,0 +1,7 @@
+[mcp_servers.stitch]
+url = "https://stitch.withgoogle.com/api/mcp/sse"
+bearer_token_env_var = "STITCH_API_KEY"
+
+[mcp_servers.stitch.env]
+# Replace with your actual Stitch API key (raw key, no "Bearer " prefix).
+STITCH_API_KEY = "YOUR_STITCH_API_KEY"

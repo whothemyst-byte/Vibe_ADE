@@ -261,7 +261,7 @@ export class CloudSyncManager {
     if (!configured) {
       throw new Error('Cloud sync is not configured. Missing SUPABASE_URL / SUPABASE_ANON_KEY.');
     }
-    const session = await this.authManager.getSession();
+    const session = await this.authManager.getSessionWithToken();
     if (!session) {
       throw new Error('No authenticated user session.');
     }

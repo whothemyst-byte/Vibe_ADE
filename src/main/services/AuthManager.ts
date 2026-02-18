@@ -29,8 +29,11 @@ export interface AuthSessionView {
     id: string;
     email: string | null;
   };
-  accessToken: string;
   expiresAt: number;
+}
+
+export interface AuthSessionWithToken extends AuthSessionView {
+  accessToken: string;
 }
 
 export class AuthManager {
@@ -46,6 +49,17 @@ export class AuthManager {
   }
 
   async getSession(): Promise<AuthSessionView | null> {
+    const session = await this.getSessionWithToken();
+    if (!session) {
+      return null;
+    }
+    return {
+      user: session.user,
+      expiresAt: session.expiresAt
+    };
+  }
+
+  async getSessionWithToken(): Promise<AuthSessionWithToken | null> {
     this.ensureConfigured();
     const state = await this.readState();
     if (!state) {
@@ -273,7 +287,7 @@ export class AuthManager {
     return message ?? `Supabase request failed with ${status}`;
   }
 
-  private toView(state: PersistedAuthState): AuthSessionView {
+  private toView(state: PersistedAuthState): AuthSessionWithToken {
     return {
       user: state.user,
       accessToken: state.accessToken,

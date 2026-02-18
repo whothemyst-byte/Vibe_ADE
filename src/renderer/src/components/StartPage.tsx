@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import type { LayoutPresetId } from '@renderer/services/layoutPresets';
+import { loadShortcuts, type ShortcutAction } from '@renderer/services/preferences';
 
 interface LayoutOption {
   id: LayoutPresetId;
@@ -17,18 +18,23 @@ const LAYOUT_OPTIONS: LayoutOption[] = [
   { id: '12-pane-grid', label: '10+', panes: 10 }
 ];
 
-const SHORTCUTS: Array<{ label: string; combo: string }> = [
-  { label: 'New Workspace', combo: 'Ctrl + T' },
-  { label: 'New Terminal', combo: 'Ctrl + N' },
-  { label: 'Split Right', combo: 'Ctrl + D' },
-  { label: 'Split Down', combo: 'Ctrl + Shift + D' },
-  { label: 'Close Pane', combo: 'Ctrl + W' },
-  { label: 'Navigate Panes', combo: 'Ctrl + [ / ]' },
-  { label: 'Navigate Workspaces', combo: 'Ctrl + Alt + [ / ]' },
-  { label: 'Search Terminal', combo: 'Ctrl + F' },
-  { label: 'Quick Open File', combo: 'Ctrl + P' },
-  { label: 'Settings', combo: 'Ctrl + ,' }
-];
+const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
+  toggleCommandPalette: 'Command Palette',
+  openSettings: 'Settings',
+  openStartPage: 'Start Page',
+  toggleTaskBoard: 'Task Board',
+  toggleAgentPanel: 'Agent Panel',
+  createTaskQuick: 'Quick Task',
+  toggleTaskArchived: 'Archived Filter',
+  resetTaskFilters: 'Reset Task Filters'
+};
+
+function formatShortcut(combo: string): string {
+  return combo
+    .split('+')
+    .map((part) => part.trim())
+    .join(' + ');
+}
 
 export function StartPage(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
@@ -43,6 +49,11 @@ export function StartPage(): JSX.Element {
   const [rootDir, setRootDir] = useState('C:\\');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState<LayoutPresetId>('2-pane-vertical');
+  const shortcuts = loadShortcuts();
+  const shortcutRows = (Object.entries(shortcuts) as Array<[ShortcutAction, string]>).map(([action, combo]) => ({
+    label: SHORTCUT_LABELS[action],
+    combo: formatShortcut(combo)
+  }));
 
   const createEnvironment = async (): Promise<void> => {
     if (!name.trim() || !rootDir.trim()) {
@@ -76,7 +87,7 @@ export function StartPage(): JSX.Element {
             <div className="start-shortcuts">
               <div className="start-shortcuts-title">Keyboard Shortcuts</div>
               <div className="start-shortcuts-grid">
-                {SHORTCUTS.map((item) => (
+                {shortcutRows.map((item) => (
                   <div key={item.label} className="start-shortcut-row">
                     <span>{item.label}</span>
                     <code>{item.combo}</code>
@@ -86,7 +97,6 @@ export function StartPage(): JSX.Element {
             </div>
 
             <div className="start-tip-row">
-              <div className="start-tip">Tip: Use Ctrl + T to create workspaces from templates</div>
               <label className="start-toggle-label">
                 <input type="checkbox" />
                 <span>Don&apos;t show on startup</span>
@@ -94,7 +104,7 @@ export function StartPage(): JSX.Element {
             </div>
 
             <button className="start-settings-fab" onClick={() => openSettings()} title="Settings">
-              {'\u2699'}
+              {'\uD83D\uDEE0\uFE0F'}
             </button>
           </>
         )}
@@ -150,6 +160,7 @@ export function StartPage(): JSX.Element {
                       </button>
                     ))}
                   </div>
+                  <p className="layout-choice-helper">Side-by-side horizontal split</p>
                 </section>
 
                 <section>
@@ -168,6 +179,13 @@ export function StartPage(): JSX.Element {
                       Browse
                     </button>
                   </div>
+                </section>
+
+                <section className="start-create-optional-row">
+                  <button type="button" className="start-create-optional-button">
+                    <span>AI Agents</span>
+                    <small>optional</small>
+                  </button>
                 </section>
               </div>
 

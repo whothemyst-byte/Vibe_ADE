@@ -4,7 +4,6 @@ import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import type { PaneId, WorkspaceState } from '@shared/types';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
-import { CommandBlocks } from './CommandBlocks';
 
 interface TerminalPaneProps {
   paneId: PaneId;
@@ -16,6 +15,7 @@ interface TerminalPaneProps {
 }
 
 const startedSessions = new Set<PaneId>();
+const paneViewportById = new Map<PaneId, number>();
 
 export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneDragStart, onPaneDragEnd }: TerminalPaneProps): JSX.Element {
   const sectionRef = useRef<HTMLElement | null>(null);
@@ -28,13 +28,12 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   const closingPaneRef = useRef(false);
   const suppressBootOutputRef = useRef(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
-  const [commandLogOpen, setCommandLogOpen] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const removePaneFromLayout = useWorkspaceStore((s) => s.removePaneFromLayout);
 
   const shell = workspace.paneShells[paneId] ?? 'cmd';
-  const blocks = useMemo(() => workspace.commandBlocks[paneId] ?? [], [paneId, workspace.commandBlocks]);
   const agentState = workspace.paneAgents[paneId];
+  const isActivePane = workspace.activePaneId === paneId;
   const statusClass = agentState?.attached ? 'agent' : sessionReady ? 'running' : 'idle';
 
   const resolveTerminalTheme = (): { background: string; foreground: string; cursor: string } => {
@@ -70,6 +69,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       fontSize: 13,
       lineHeight: 1.2,
       letterSpacing: 0,
+      scrollback: 100000,
       theme: resolveTerminalTheme()
     });
     const fitAddon = new FitAddon();
@@ -82,7 +82,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
         return;
       }
       sessionStartRequested = true;
-      if (!startedSessions.has(paneId)) {
+      const startFreshSession = (): void => {
         startedSessions.add(paneId);
         void window.vibeAde.terminal
           .startSession({
@@ -110,9 +110,37 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
               sessionStartRequested = false;
             }
           });
-      } else {
-        setSessionReady(true);
-      }
+      };
+
+      void window.vibeAde.terminal
+        .getSessionSnapshot(paneId)
+        .then((snapshot) => {
+          if (disposed || !opened) {
+            return;
+          }
+          if (snapshot) {
+            startedSessions.add(paneId);
+            if (snapshot.history) {
+              terminal.write(snapshot.history);
+            }
+            setSessionReady(true);
+            const previousViewport = paneViewportById.get(paneId);
+            if (typeof previousViewport === 'number') {
+              requestAnimationFrame(() => {
+                if (!disposed) {
+                  terminal.scrollToLine(previousViewport);
+                }
+              });
+            }
+            return;
+          }
+          startFreshSession();
+        })
+        .catch(() => {
+          if (!disposed) {
+            startFreshSession();
+          }
+        });
     };
 
     const scheduleFit = (): void => {
@@ -149,8 +177,6 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       terminal.open(containerRef.current);
       opened = true;
       scheduleFit();
-      terminal.clear();
-      terminal.focus();
     }
 
     const inputDisposable = terminal.onData((data) => {
@@ -220,6 +246,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       scheduleFitRef.current = null;
       suppressAutoCloseOnExitRef.current = false;
       closingPaneRef.current = false;
+      paneViewportById.set(paneId, terminal.buffer.active.viewportY);
       terminalRef.current = null;
       fitAddonRef.current = null;
       inputDisposable.dispose();
@@ -284,7 +311,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
     <section
       ref={sectionRef}
       tabIndex={0}
-      className={workspace.activePaneId === paneId ? 'terminal-pane active' : 'terminal-pane'}
+      className={isActivePane ? 'terminal-pane active' : 'terminal-pane'}
       onMouseDown={() => {
         onFocus();
         sectionRef.current?.focus();
@@ -335,14 +362,6 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
             </div>
           )}
         </div>
-      </div>
-
-      <div className="command-log-region">
-        <button className="command-log-toggle" onClick={() => setCommandLogOpen((open) => !open)}>
-          <span>{commandLogOpen ? 'v' : '>'}</span>
-          <span>Command Blocks ({blocks.length})</span>
-        </button>
-        {commandLogOpen && <CommandBlocks paneId={paneId} blocks={blocks} workspace={workspace} />}
       </div>
 
       <div ref={containerRef} className="xterm-host" />

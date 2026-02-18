@@ -11,7 +11,10 @@ export type ShortcutAction =
   | 'openSettings'
   | 'openStartPage'
   | 'toggleTaskBoard'
-  | 'toggleAgentPanel';
+  | 'toggleAgentPanel'
+  | 'createTaskQuick'
+  | 'toggleTaskArchived'
+  | 'resetTaskFilters';
 
 export type ShortcutBindings = Record<ShortcutAction, string>;
 
@@ -23,7 +26,10 @@ export const DEFAULT_SHORTCUTS: ShortcutBindings = {
   openSettings: 'Ctrl+,',
   openStartPage: 'Ctrl+T',
   toggleTaskBoard: 'Ctrl+J',
-  toggleAgentPanel: 'Ctrl+L'
+  toggleAgentPanel: 'Ctrl+L',
+  createTaskQuick: 'Ctrl+Shift+J',
+  toggleTaskArchived: 'Ctrl+Alt+J',
+  resetTaskFilters: 'Ctrl+Alt+R'
 };
 
 const DEFAULT_AGENT_PREFS: AgentPreferences = {
@@ -47,7 +53,10 @@ export function loadShortcuts(): ShortcutBindings {
       openSettings: typeof parsed.openSettings === 'string' ? parsed.openSettings : DEFAULT_SHORTCUTS.openSettings,
       openStartPage: typeof parsed.openStartPage === 'string' ? parsed.openStartPage : DEFAULT_SHORTCUTS.openStartPage,
       toggleTaskBoard: typeof parsed.toggleTaskBoard === 'string' ? parsed.toggleTaskBoard : DEFAULT_SHORTCUTS.toggleTaskBoard,
-      toggleAgentPanel: typeof parsed.toggleAgentPanel === 'string' ? parsed.toggleAgentPanel : DEFAULT_SHORTCUTS.toggleAgentPanel
+      toggleAgentPanel: typeof parsed.toggleAgentPanel === 'string' ? parsed.toggleAgentPanel : DEFAULT_SHORTCUTS.toggleAgentPanel,
+      createTaskQuick: typeof parsed.createTaskQuick === 'string' ? parsed.createTaskQuick : DEFAULT_SHORTCUTS.createTaskQuick,
+      toggleTaskArchived: typeof parsed.toggleTaskArchived === 'string' ? parsed.toggleTaskArchived : DEFAULT_SHORTCUTS.toggleTaskArchived,
+      resetTaskFilters: typeof parsed.resetTaskFilters === 'string' ? parsed.resetTaskFilters : DEFAULT_SHORTCUTS.resetTaskFilters
     };
   } catch {
     return DEFAULT_SHORTCUTS;
@@ -140,4 +149,3 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   }
   return element.isContentEditable;
 }
-

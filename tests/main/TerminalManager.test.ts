@@ -61,7 +61,7 @@ describe('TerminalManager lifecycle', () => {
     onExitCb?.({ exitCode: 0 });
     expect(exitListener).toHaveBeenCalledWith('pane-a', 0);
 
-    expect(() => manager.sendInput('pane-a', 'x')).toThrow();
+    expect(() => manager.sendInput('pane-a', 'x')).not.toThrow();
 
     manager.startSession({ paneId: 'pane-a', shell: 'powershell', cwd: tempDir });
     manager.stopSession('pane-a');

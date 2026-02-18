@@ -11,7 +11,17 @@ interface TerminalSession {
   shell: ShellType;
   cwd: string;
   process: pty.IPty;
+  history: string;
 }
+
+interface TerminalSessionSnapshot {
+  paneId: PaneId;
+  shell: ShellType;
+  cwd: string;
+  history: string;
+}
+
+const MAX_SESSION_HISTORY_CHARS = 2_000_000;
 
 function getShellCommand(shell: ShellType): { file: string; args: string[] } {
   if (shell === 'cmd') {
@@ -51,6 +61,7 @@ export class TerminalManager {
   private readonly emitter = new EventEmitter();
   private readonly stalePidPath: string;
   private trackedPids = new Set<number>();
+  private persistQueue: Promise<void> = Promise.resolve();
 
   constructor(userDataDir: string) {
     this.stalePidPath = path.join(userDataDir, 'terminal-session-pids.json');
@@ -87,10 +98,11 @@ export class TerminalManager {
       paneId: input.paneId,
       shell: input.shell,
       cwd: input.cwd,
-      process: proc
+      process: proc,
+      history: ''
     };
 
-    proc.onData((data) => this.emitter.emit('data', input.paneId, data));
+    proc.onData((data) => this.emitPaneData(input.paneId, data));
     proc.onExit((e) => {
       this.emitter.emit('exit', input.paneId, e.exitCode);
       this.sessions.delete(input.paneId);
@@ -114,7 +126,7 @@ export class TerminalManager {
   sendInput(paneId: PaneId, input: string): void {
     const session = this.sessions.get(paneId);
     if (!session) {
-      throw new Error(`No terminal session for pane ${paneId}`);
+      return;
     }
     session.process.write(input);
   }
@@ -122,7 +134,7 @@ export class TerminalManager {
   executeInSession(paneId: PaneId, command: string, forceSubmit = false): void {
     const session = this.sessions.get(paneId);
     if (!session) {
-      throw new Error(`No terminal session for pane ${paneId}`);
+      return;
     }
     const nextCommand =
       session.shell === 'cmd' && looksLikePowerShellCommand(command) ? buildPowerShellProxyCommand(command) : command;
@@ -145,6 +157,19 @@ export class TerminalManager {
       return;
     }
     session.process.resize(cols, rows);
+  }
+
+  getSessionSnapshot(paneId: PaneId): TerminalSessionSnapshot | null {
+    const session = this.sessions.get(paneId);
+    if (!session) {
+      return null;
+    }
+    return {
+      paneId: session.paneId,
+      shell: session.shell,
+      cwd: session.cwd,
+      history: session.history
+    };
   }
 
   runStructuredCommand(input: { paneId: PaneId; shell: ShellType; cwd: string; command: string }): Promise<CommandBlock> {
@@ -170,13 +195,13 @@ export class TerminalManager {
       proc.stdout.on('data', (chunk: Buffer) => {
         const data = chunk.toString('utf8');
         block.output += data;
-        this.emitter.emit('data', input.paneId, data);
+        this.emitPaneData(input.paneId, data);
       });
 
       proc.stderr.on('data', (chunk: Buffer) => {
         const data = chunk.toString('utf8');
         block.output += data;
-        this.emitter.emit('data', input.paneId, data);
+        this.emitPaneData(input.paneId, data);
       });
 
       proc.on('error', (error) => {
@@ -204,7 +229,18 @@ export class TerminalManager {
       return;
     }
     this.trackedPids.add(pid);
-    void this.persistTrackedPids();
+    this.schedulePersistTrackedPids();
+  }
+
+  private emitPaneData(paneId: PaneId, data: string): void {
+    const session = this.sessions.get(paneId);
+    if (session) {
+      session.history += data;
+      if (session.history.length > MAX_SESSION_HISTORY_CHARS) {
+        session.history = session.history.slice(-MAX_SESSION_HISTORY_CHARS);
+      }
+    }
+    this.emitter.emit('data', paneId, data);
   }
 
   private untrackPid(pid: number): void {
@@ -212,7 +248,17 @@ export class TerminalManager {
       return;
     }
     this.trackedPids.delete(pid);
-    void this.persistTrackedPids();
+    this.schedulePersistTrackedPids();
+  }
+
+  private schedulePersistTrackedPids(): void {
+    this.persistQueue = this.persistQueue
+      .catch(() => undefined)
+      .then(() => this.persistTrackedPids())
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`Failed to persist tracked PIDs: ${message}`);
+      });
   }
 
   private async cleanupStaleSessions(): Promise<void> {
@@ -291,7 +337,8 @@ export class TerminalManager {
   }
 
   private async persistTrackedPids(): Promise<void> {
-    const tempPath = `${this.stalePidPath}.tmp`;
+    await fs.mkdir(path.dirname(this.stalePidPath), { recursive: true });
+    const tempPath = `${this.stalePidPath}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
     const payload = JSON.stringify({ version: 1, pids: [...this.trackedPids] }, null, 2);
     await fs.writeFile(tempPath, payload, 'utf8');
     await fs.rename(tempPath, this.stalePidPath);

@@ -8,12 +8,28 @@ import { applyAppearanceMode, getStoredAppearanceMode, setStoredAppearanceMode, 
 
 type SettingsTab = 'appearance' | 'shortcuts' | 'task-board' | 'agent' | 'account';
 
+const SETTINGS_TABS: Array<{
+  id: SettingsTab;
+  label: string;
+  description: string;
+  icon: string;
+}> = [
+  { id: 'appearance', label: 'Appearance', description: 'Theme and display', icon: '\uD83C\uDFA8' },
+  { id: 'shortcuts', label: 'Shortcuts', description: 'Keyboard bindings', icon: '\u2328\uFE0F' },
+  { id: 'task-board', label: 'Task Board', description: 'Task history', icon: '\uD83D\uDDC2\uFE0F' },
+  { id: 'agent', label: 'Agent', description: 'Model and runtime', icon: '\uD83E\uDD16' },
+  { id: 'account', label: 'Account', description: 'Cloud and auth', icon: '\uD83D\uDC64' }
+];
+
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; description: string }> = [
   { action: 'toggleCommandPalette', label: 'Command Palette', description: 'Open command palette' },
   { action: 'openSettings', label: 'Settings', description: 'Open settings' },
   { action: 'openStartPage', label: 'Start Page', description: 'Open start page' },
   { action: 'toggleTaskBoard', label: 'Task Board', description: 'Toggle task board view' },
-  { action: 'toggleAgentPanel', label: 'Agent Panel', description: 'Toggle agent panel' }
+  { action: 'toggleAgentPanel', label: 'Agent Panel', description: 'Toggle agent panel' },
+  { action: 'createTaskQuick', label: 'Quick Task', description: 'Create a backlog task and open task board' },
+  { action: 'toggleTaskArchived', label: 'Archived Filter', description: 'Toggle showing archived tasks' },
+  { action: 'resetTaskFilters', label: 'Reset Task Filters', description: 'Clear search, filters, and sort' }
 ];
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -154,7 +170,7 @@ export function SettingsDialog(): JSX.Element {
       <section className="settings-shell" onClick={(event) => event.stopPropagation()}>
         <aside className="settings-sidebar">
           <div className="settings-sidebar-title">
-            <span>{'\u2699'}</span>
+            <span>{'\uD83D\uDEE0\uFE0F'}</span>
             <div>
               <strong>Settings</strong>
               <small>Configuration</small>
@@ -162,11 +178,15 @@ export function SettingsDialog(): JSX.Element {
           </div>
 
           <nav className="settings-nav">
-            <button className={activeTab === 'appearance' ? 'active' : ''} onClick={() => setActiveTab('appearance')}>Appearance</button>
-            <button className={activeTab === 'shortcuts' ? 'active' : ''} onClick={() => setActiveTab('shortcuts')}>Shortcuts</button>
-            <button className={activeTab === 'task-board' ? 'active' : ''} onClick={() => setActiveTab('task-board')}>Task Board</button>
-            <button className={activeTab === 'agent' ? 'active' : ''} onClick={() => setActiveTab('agent')}>Agent</button>
-            <button className={activeTab === 'account' ? 'active' : ''} onClick={() => setActiveTab('account')}>Account</button>
+            {SETTINGS_TABS.map((tab) => (
+              <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
+                <span className="settings-nav-icon">{tab.icon}</span>
+                <span className="settings-nav-text">
+                  <strong>{tab.label}</strong>
+                  <small>{tab.description}</small>
+                </span>
+              </button>
+            ))}
           </nav>
         </aside>
 

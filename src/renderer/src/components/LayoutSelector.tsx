@@ -27,7 +27,7 @@ export function LayoutSelector(): JSX.Element {
         title={`Layout: ${activePreset.label}`}
         aria-label={`Layout: ${activePreset.label}`}
       >
-        {'\u229E'}
+        {'\uD83E\uDDE9'}
       </button>
       {open && (
         <div className="layout-selector-menu" role="menu">

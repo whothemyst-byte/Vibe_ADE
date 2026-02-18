@@ -19,6 +19,7 @@ let templateRunner: TemplateRunner;
 let crashRecoveryManager: CrashRecoveryManager;
 let authManager: AuthManager;
 let cloudSyncManager: CloudSyncManager;
+let finalizingQuit = false;
 
 function loadEnvFile(filePath: string): void {
   if (!fs.existsSync(filePath)) {
@@ -117,7 +118,28 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
-  void terminalManager?.shutdown();
-  void crashRecoveryManager?.markCleanShutdown();
+app.on('before-quit', (event) => {
+  if (finalizingQuit) {
+    return;
+  }
+  finalizingQuit = true;
+  event.preventDefault();
+
+  void (async () => {
+    try {
+      await workspaceManager?.replaceState({
+        activeWorkspaceId: null,
+        workspaces: []
+      });
+    } catch (error) {
+      console.error('Failed to clear workspace state during shutdown:', error);
+    }
+
+    await Promise.allSettled([
+      terminalManager?.shutdown(),
+      crashRecoveryManager?.markCleanShutdown()
+    ]);
+
+    app.exit(0);
+  })();
 });

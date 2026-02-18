@@ -3,47 +3,158 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vibe ADE Downloads</title>
+    <title>Vibe-ADE | Windows Agent Development Environment</title>
     <meta
       name="description"
-      content="Download Vibe ADE for Windows with separate Setup and Portable builds."
+      content="Vibe-ADE is a Windows-native agent development environment for fast terminal workflows, workspace orchestration, and reliable execution."
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script
+      type="module"
+      src="https://unpkg.com/@splinetool/viewer@1.10.55/build/spline-viewer.js"
+    ></script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="bg-grid" aria-hidden="true"></div>
-    <main class="page">
-      <header class="hero">
-        <p class="eyebrow">Vibe ADE</p>
-        <h1>Download for Windows</h1>
-        <p class="subtitle">
-          Choose the installer or the portable executable. Both are official builds.
-        </p>
-      </header>
+    <div class="ambient-blur ambient-one" aria-hidden="true"></div>
+    <div class="ambient-blur ambient-two" aria-hidden="true"></div>
+    <div class="grid-overlay" aria-hidden="true"></div>
 
-      <section class="downloads" aria-label="Download options">
-        <article class="card">
-          <h2>Setup Installer</h2>
-          <p>Best for most users. Adds shortcuts and supports automatic updates.</p>
-          <a
-            class="btn btn-primary"
-            href="./downloads/Vibe-ADE-setup-x64.exe"
-          >
-            Download Setup .exe
-          </a>
-        </article>
+    <header class="site-header">
+      <div class="container nav-shell">
+        <a class="brand" href="#">
+          <span class="brand-dot" aria-hidden="true"></span>
+          <span>Vibe-ADE</span>
+        </a>
+        <nav class="nav-links" aria-label="Primary">
+          <a href="#features">Features</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#download">Download</a>
+        </nav>
+        <a class="btn btn-small btn-ghost" href="#download">Get Windows Build</a>
+      </div>
+    </header>
 
-        <article class="card">
-          <h2>Portable Build</h2>
-          <p>Runs without installation. Keep it on any folder or USB drive.</p>
-          <a
-            class="btn btn-secondary"
-            href="./downloads/Vibe-ADE-portable-x64.exe"
-          >
-            Download Portable .exe
-          </a>
-        </article>
+    <main>
+      <section class="hero section">
+        <div class="hero-bg" aria-hidden="true">
+          <div class="hero-robot">
+            <spline-viewer
+              loading-anim-type="spinner-small-light"
+              url="https://prod.spline.design/BgC9GiQJKP1qrYbs/scene.splinecode"
+            ></spline-viewer>
+          </div>
+        </div>
+        <div class="container hero-grid">
+          <div class="hero-copy reveal">
+            <p class="tag">Windows-native | Agent-first | Terminal-native</p>
+            <h1>Ship faster with a proper agent development cockpit.</h1>
+            <p class="lede">
+              Vibe-ADE combines pane-based terminals, task orchestration, and workspace
+              control in one desktop surface built for software teams.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="./downloads/Vibe-ADE-setup-x64.exe">Download Setup</a>
+              <a class="btn btn-ghost" href="./downloads/Vibe-ADE-portable-x64.exe">Portable Build</a>
+            </div>
+            <ul class="hero-meta">
+              <li>Electron + React + TypeScript</li>
+              <li>Windows optimized shell orchestration</li>
+              <li>Local-first workspace state</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="section">
+        <div class="container">
+          <div class="section-head reveal">
+            <p class="tag">Core Capabilities</p>
+            <h2>Built for real execution, not just prompts.</h2>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card reveal">
+              <h3>Workspace Control</h3>
+              <p>Run isolated projects with tabbed workspaces and reusable layouts.</p>
+            </article>
+            <article class="feature-card reveal">
+              <h3>Parallel Terminals</h3>
+              <p>Split and manage command surfaces with predictable pane behavior.</p>
+            </article>
+            <article class="feature-card reveal">
+              <h3>Task Board</h3>
+              <p>Track active, pending, and done items directly where execution happens.</p>
+            </article>
+            <article class="feature-card reveal">
+              <h3>Safe Command Layer</h3>
+              <p>Guardrails for risky operations before they impact local environments.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="workflow" class="section">
+        <div class="container split">
+          <div class="panel reveal">
+            <p class="tag">3D Flow View</p>
+            <h2>See the system, then execute.</h2>
+            <p>
+              Combine visual context with terminal action so teams can plan and ship from
+              the same environment without context switching.
+            </p>
+            <ol>
+              <li>Create or load workspace.</li>
+              <li>Execute across panes.</li>
+              <li>Track delivery on the embedded board.</li>
+            </ol>
+          </div>
+          <div class="panel reveal visual-panel">
+            <div class="terminal-mock" aria-label="Terminal workflow preview">
+              <p class="terminal-title">workflow.ps1</p>
+              <pre><code>PS C:\vibe-ade&gt; workspace new api-gateway
+PS C:\vibe-ade&gt; pane split --right
+PS C:\vibe-ade&gt; agent run "draft rate limit middleware"
+PS C:\vibe-ade&gt; task move RATE-22 --to in-progress
+PS C:\vibe-ade&gt; git status
+On branch feature/rate-limits
+Changes ready to commit.</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="download" class="section">
+        <div class="container">
+          <div class="section-head reveal">
+            <p class="tag">Download</p>
+            <h2>Choose your Windows build.</h2>
+          </div>
+          <div class="download-grid">
+            <article class="download-card reveal">
+              <h3>Setup Installer</h3>
+              <p>Recommended for most users with installation support and shortcuts.</p>
+              <a class="btn btn-primary" href="./downloads/Vibe-ADE-setup-x64.exe">Download Setup .exe</a>
+            </article>
+            <article class="download-card reveal">
+              <h3>Portable Build</h3>
+              <p>Run directly from folder or USB when you need zero installation.</p>
+              <a class="btn btn-ghost" href="./downloads/Vibe-ADE-portable-x64.exe">Download Portable .exe</a>
+            </article>
+          </div>
+        </div>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <div class="container footer-shell">
+        <p>Vibe-ADE</p>
+        <p>Build the future. Ship the work.</p>
+      </div>
+    </footer>
   </body>
 </html>

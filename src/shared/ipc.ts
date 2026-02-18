@@ -1,4 +1,16 @@
-import type { AgentStructuredOutput, AppState, CommandBlock, PaneId, ShellType, TaskItem, WorkspaceId, WorkspaceState, WorkspaceTemplate } from './types';
+import type {
+  AgentStructuredOutput,
+  AppState,
+  CommandBlock,
+  PaneId,
+  ShellType,
+  TaskItem,
+  TaskPriority,
+  TaskStatus,
+  WorkspaceId,
+  WorkspaceState,
+  WorkspaceTemplate
+} from './types';
 
 export interface TerminalDataEvent {
   paneId: PaneId;
@@ -32,7 +44,6 @@ export interface AuthSession {
     id: string;
     email: string | null;
   };
-  accessToken: string;
   expiresAt: number;
 }
 
@@ -84,6 +95,7 @@ export interface VibeAdeApi {
     sendInput: (paneId: PaneId, input: string) => Promise<void>;
     executeInSession: (paneId: PaneId, command: string, forceSubmit?: boolean) => Promise<void>;
     resize: (paneId: PaneId, cols: number, rows: number) => Promise<void>;
+    getSessionSnapshot: (paneId: PaneId) => Promise<{ paneId: PaneId; shell: ShellType; cwd: string; history: string } | null>;
     runStructuredCommand: (input: { paneId: PaneId; shell: ShellType; cwd: string; command: string }) => Promise<CommandBlock>;
   };
   agent: {
@@ -106,6 +118,43 @@ export interface VibeAdeApi {
     getSyncPreview: () => Promise<CloudSyncPreview>;
     pushLocalState: () => Promise<void>;
     pullRemoteToLocal: () => Promise<void>;
+  };
+  task: {
+    list: (workspaceId: WorkspaceId) => Promise<TaskItem[]>;
+    create: (
+      workspaceId: WorkspaceId,
+      input: {
+        title: string;
+        description?: string;
+        status?: TaskStatus;
+        priority?: TaskPriority;
+        startAt?: string;
+        endAt?: string;
+        dueAt?: string;
+        labels?: string[];
+        paneId?: PaneId;
+      }
+    ) => Promise<TaskItem>;
+    update: (
+      workspaceId: WorkspaceId,
+      taskId: string,
+      patch: Partial<{
+        title: string;
+        description: string;
+        status: TaskStatus;
+        priority: TaskPriority;
+        startAt?: string;
+        endAt?: string;
+        dueAt?: string;
+        labels: string[];
+        paneId?: PaneId;
+        archived: boolean;
+        order: number;
+      }>
+    ) => Promise<TaskItem>;
+    delete: (workspaceId: WorkspaceId, taskId: string) => Promise<void>;
+    move: (workspaceId: WorkspaceId, taskId: string, toStatus: TaskStatus, toIndex: number) => Promise<void>;
+    archive: (workspaceId: WorkspaceId, taskId: string, archived?: boolean) => Promise<void>;
   };
   onTerminalData: (listener: (event: TerminalDataEvent) => void) => () => void;
   onTerminalExit: (listener: (event: TerminalExitEvent) => void) => () => void;

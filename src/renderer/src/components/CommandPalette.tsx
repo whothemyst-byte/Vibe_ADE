@@ -12,7 +12,11 @@ export function CommandPalette(): JSX.Element {
   const setLayoutPreset = useWorkspaceStore((s) => s.setLayoutPreset);
   const addPaneToLayout = useWorkspaceStore((s) => s.addPaneToLayout);
   const addTask = useWorkspaceStore((s) => s.addTask);
+  const setTaskFilters = useWorkspaceStore((s) => s.setTaskFilters);
+  const setTaskSort = useWorkspaceStore((s) => s.setTaskSort);
+  const clearTaskFilters = useWorkspaceStore((s) => s.clearTaskFilters);
   const appState = useWorkspaceStore((s) => s.appState);
+  const taskFilters = useWorkspaceStore((s) => s.ui.taskFilters);
   const activeWorkspace = appState.workspaces.find((w) => w.id === appState.activeWorkspaceId);
 
   const actions = useMemo(() => {
@@ -48,12 +52,47 @@ export function CommandPalette(): JSX.Element {
       {
         id: 'create-task',
         label: 'Create Task',
-        run: () => void addTask('New task')
+        run: () => {
+          toggleTaskBoard(true);
+          void addTask('New task');
+        }
       },
       {
         id: 'toggle-task-board',
         label: 'Open Task Board Tab',
         run: () => toggleTaskBoard(true)
+      },
+      {
+        id: 'toggle-task-archived',
+        label: (taskFilters.archived ?? false) ? 'Task Board: Hide Archived' : 'Task Board: Show Archived',
+        run: () => {
+          toggleTaskBoard(true);
+          setTaskFilters({ archived: !(taskFilters.archived ?? false) });
+        }
+      },
+      {
+        id: 'task-sort-priority',
+        label: 'Task Board: Sort by Priority (High to Low)',
+        run: () => {
+          toggleTaskBoard(true);
+          setTaskSort('priority-desc');
+        }
+      },
+      {
+        id: 'task-sort-updated',
+        label: 'Task Board: Sort by Updated (Newest)',
+        run: () => {
+          toggleTaskBoard(true);
+          setTaskSort('updated-desc');
+        }
+      },
+      {
+        id: 'task-reset-filters',
+        label: 'Task Board: Reset Filters',
+        run: () => {
+          toggleTaskBoard(true);
+          clearTaskFilters();
+        }
       },
       {
         id: 'toggle-agent-panel',
@@ -62,7 +101,21 @@ export function CommandPalette(): JSX.Element {
       },
       ...layoutActions
     ];
-  }, [activeWorkspace, addPaneToLayout, addTask, appState.workspaces, createWorkspace, setActiveWorkspace, setLayoutPreset, toggleAgentPanel, toggleTaskBoard]);
+  }, [
+    activeWorkspace,
+    addPaneToLayout,
+    addTask,
+    appState.workspaces,
+    clearTaskFilters,
+    createWorkspace,
+    setActiveWorkspace,
+    setLayoutPreset,
+    setTaskFilters,
+    setTaskSort,
+    taskFilters.archived,
+    toggleAgentPanel,
+    toggleTaskBoard
+  ]);
 
   const filtered = actions.filter((action) => action.label.toLowerCase().includes(query.toLowerCase()));
 

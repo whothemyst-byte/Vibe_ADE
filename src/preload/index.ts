@@ -19,6 +19,7 @@ const api: VibeAdeApi = {
     executeInSession: (paneId, command, forceSubmit) =>
       ipcRenderer.invoke('terminal:executeInSession', paneId, command, forceSubmit),
     resize: (paneId, cols, rows) => ipcRenderer.invoke('terminal:resize', paneId, cols, rows),
+    getSessionSnapshot: (paneId) => ipcRenderer.invoke('terminal:getSessionSnapshot', paneId),
     runStructuredCommand: (input) => ipcRenderer.invoke('terminal:runStructuredCommand', input)
   },
   agent: {
@@ -41,6 +42,14 @@ const api: VibeAdeApi = {
     getSyncPreview: () => ipcRenderer.invoke('cloud:getSyncPreview'),
     pushLocalState: () => ipcRenderer.invoke('cloud:pushLocalState'),
     pullRemoteToLocal: () => ipcRenderer.invoke('cloud:pullRemoteToLocal')
+  },
+  task: {
+    list: (workspaceId) => ipcRenderer.invoke('task:list', workspaceId),
+    create: (workspaceId, input) => ipcRenderer.invoke('task:create', workspaceId, input),
+    update: (workspaceId, taskId, patch) => ipcRenderer.invoke('task:update', workspaceId, taskId, patch),
+    delete: (workspaceId, taskId) => ipcRenderer.invoke('task:delete', workspaceId, taskId),
+    move: (workspaceId, taskId, toStatus, toIndex) => ipcRenderer.invoke('task:move', workspaceId, taskId, toStatus, toIndex),
+    archive: (workspaceId, taskId, archived) => ipcRenderer.invoke('task:archive', workspaceId, taskId, archived)
   },
   onTerminalData: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);

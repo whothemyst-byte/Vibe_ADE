@@ -61,12 +61,29 @@ export interface PaneAgentState {
 }
 
 export type TaskStatus = 'backlog' | 'in-progress' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskSortMode = 'updated-desc' | 'updated-asc' | 'created-desc' | 'created-asc' | 'priority-desc' | 'priority-asc' | 'due-asc' | 'due-desc';
+
+export interface TaskFilterState {
+  statuses?: TaskStatus[];
+  priorities?: TaskPriority[];
+  labels?: string[];
+  attachedOnly?: boolean;
+  archived?: boolean;
+}
 
 export interface TaskItem {
   id: TaskId;
   title: string;
   description: string;
   status: TaskStatus;
+  priority?: TaskPriority;
+  startAt?: string;
+  endAt?: string;
+  dueAt?: string;
+  labels?: string[];
+  archived?: boolean;
+  order?: number;
   paneId?: PaneId;
   createdAt: string;
   updatedAt: string;

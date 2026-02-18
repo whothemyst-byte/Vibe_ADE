@@ -29,6 +29,9 @@ export function App(): JSX.Element {
   const toggleAgentPanel = useWorkspaceStore((s) => s.toggleAgentPanel);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const openStartPage = useWorkspaceStore((s) => s.openStartPage);
+  const addTask = useWorkspaceStore((s) => s.addTask);
+  const clearTaskFilters = useWorkspaceStore((s) => s.clearTaskFilters);
+  const setTaskFilters = useWorkspaceStore((s) => s.setTaskFilters);
   const cancelCloseWorkspace = useWorkspaceStore((s) => s.cancelCloseWorkspace);
   const confirmCloseWorkspace = useWorkspaceStore((s) => s.confirmCloseWorkspace);
 
@@ -130,6 +133,21 @@ export function App(): JSX.Element {
         toggleTaskBoard();
         return;
       }
+      if (action === 'createTaskQuick') {
+        toggleTaskBoard(true);
+        void addTask('New task');
+        return;
+      }
+      if (action === 'toggleTaskArchived') {
+        toggleTaskBoard(true);
+        setTaskFilters({ archived: !(ui.taskFilters.archived ?? false) });
+        return;
+      }
+      if (action === 'resetTaskFilters') {
+        toggleTaskBoard(true);
+        clearTaskFilters();
+        return;
+      }
       if (action === 'toggleAgentPanel') {
         toggleAgentPanel();
         return;
@@ -144,7 +162,7 @@ export function App(): JSX.Element {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [openSettings, openStartPage, toggleAgentPanel, togglePalette, toggleTaskBoard]);
+  }, [addTask, clearTaskFilters, openSettings, openStartPage, setTaskFilters, toggleAgentPanel, togglePalette, toggleTaskBoard, ui.taskFilters.archived]);
 
   const activeWorkspace = useMemo(
     () => appState.workspaces.find((w) => w.id === appState.activeWorkspaceId),

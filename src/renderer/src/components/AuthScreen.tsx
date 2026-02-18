@@ -140,7 +140,22 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
           <button className="primary auth-submit" onClick={() => void submit()} disabled={submitting || isCooldownActive}>
             {submitting ? 'Please wait...' : isCooldownActive ? `Try again in ${cooldownSecondsRemaining}s` : mode === 'login' ? 'Sign in with Email' : 'Create an account'}
           </button>
+
+          <div className="auth-terms">
+            By signing in, you agree to Terms of Service and Privacy Policy.
+          </div>
         </div>
+
+        <footer className="auth-card-footer">
+          <div className="auth-footer-left">
+            <span className="auth-online-dot" />
+            <span>Online</span>
+            <span>v1.0.4-stable</span>
+          </div>
+          <button type="button" className="auth-footer-settings" title="Settings" aria-label="Settings">
+            {'\uD83D\uDEE0\uFE0F'}
+          </button>
+        </footer>
       </section>
     </div>
   );

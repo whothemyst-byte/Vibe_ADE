@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { AppState, CommandBlock, PaneId, TaskItem, TaskStatus, WorkspaceState } from '@shared/types';
+import type { AppState, CommandBlock, PaneId, TaskFilterState, TaskItem, TaskPriority, TaskSortMode, TaskStatus, WorkspaceState } from '@shared/types';
 import {
   appendPaneToWorkspace,
   collectPaneIds,
@@ -23,6 +23,9 @@ interface UiState {
   paneOrderByWorkspace: Record<string, PaneId[]>;
   unsavedByWorkspace: Record<string, boolean>;
   pendingCloseWorkspaceId: string | null;
+  taskSearch: string;
+  taskFilters: TaskFilterState;
+  taskSort: TaskSortMode;
 }
 
 interface WorkspaceStoreState {
@@ -48,10 +51,28 @@ interface WorkspaceStoreState {
   setLayoutPreset: (presetId: LayoutPresetId) => void;
   appendCommandBlock: (paneId: PaneId, block: CommandBlock) => Promise<void>;
   toggleCommandBlock: (paneId: PaneId, blockId: string) => Promise<void>;
+  createTask: (input: {
+    title: string;
+    description?: string;
+    status?: TaskStatus;
+    priority?: TaskPriority;
+    startAt?: string;
+    endAt?: string;
+    dueAt?: string;
+    labels?: string[];
+    paneId?: PaneId;
+  }) => Promise<void>;
   addTask: (title: string) => Promise<void>;
   updateTask: (taskId: string, patch: Partial<TaskItem>) => Promise<void>;
-  moveTask: (taskId: string, status: TaskStatus) => Promise<void>;
+  moveTask: (taskId: string, status: TaskStatus, toIndex?: number) => Promise<void>;
+  reorderTasks: (status: TaskStatus, orderedTaskIds: string[]) => Promise<void>;
+  archiveTask: (taskId: string, archived?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
+  setTaskSearch: (value: string) => void;
+  setTaskFilters: (patch: Partial<TaskFilterState>) => void;
+  setTaskSort: (mode: TaskSortMode) => void;
+  clearTaskFilters: () => void;
+  getVisibleTasks: (status?: TaskStatus) => TaskItem[];
   setAgentAttachment: (paneId: PaneId, attached: boolean, model?: string) => Promise<void>;
   setAgentRunning: (paneId: PaneId, running: boolean) => Promise<void>;
   setAgentOutput: (paneId: PaneId, output: WorkspaceState['paneAgents'][PaneId]['lastOutput']) => Promise<void>;
@@ -110,6 +131,99 @@ function markDirty(state: WorkspaceStoreState, workspaceId: string): UiState {
   };
 }
 
+const DEFAULT_TASK_PRIORITY: TaskPriority = 'medium';
+const DEFAULT_TASK_SORT: TaskSortMode = 'updated-desc';
+const DEFAULT_TASK_FILTERS: TaskFilterState = { archived: false };
+
+function normalizeLabels(labels: string[] | undefined): string[] {
+  if (!labels) {
+    return [];
+  }
+  return labels.map((label) => label.trim()).filter(Boolean);
+}
+
+function priorityRank(priority: TaskPriority | undefined): number {
+  if (priority === 'high') return 3;
+  if (priority === 'medium') return 2;
+  return 1;
+}
+
+function nextOrder(tasks: TaskItem[], status: TaskStatus): number {
+  const max = tasks
+    .filter((task) => task.status === status)
+    .reduce((acc, task) => Math.max(acc, task.order ?? 0), 0);
+  return max + 1;
+}
+
+function normalizeTasks(tasks: TaskItem[]): TaskItem[] {
+  const byStatus: Record<TaskStatus, TaskItem[]> = {
+    backlog: [],
+    'in-progress': [],
+    done: []
+  };
+  for (const task of tasks) {
+    byStatus[task.status].push({
+      ...task,
+      priority: task.priority ?? DEFAULT_TASK_PRIORITY,
+      labels: normalizeLabels(task.labels),
+      archived: task.archived ?? false,
+      order: task.order ?? 0
+    });
+  }
+  (Object.keys(byStatus) as TaskStatus[]).forEach((status) => {
+    byStatus[status].sort((a, b) => {
+      const byOrder = (a.order ?? 0) - (b.order ?? 0);
+      if (byOrder !== 0) return byOrder;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+    byStatus[status] = byStatus[status].map((task, index) => ({ ...task, order: index + 1 }));
+  });
+  return [...byStatus.backlog, ...byStatus['in-progress'], ...byStatus.done];
+}
+
+function matchesTaskFilters(task: TaskItem, search: string, filters: TaskFilterState): boolean {
+  if ((filters.archived ?? false) !== (task.archived ?? false)) {
+    return false;
+  }
+  if (filters.statuses && filters.statuses.length > 0 && !filters.statuses.includes(task.status)) {
+    return false;
+  }
+  if (filters.priorities && filters.priorities.length > 0 && !filters.priorities.includes(task.priority ?? DEFAULT_TASK_PRIORITY)) {
+    return false;
+  }
+  if (filters.attachedOnly && !task.paneId) {
+    return false;
+  }
+  if (filters.labels && filters.labels.length > 0) {
+    const labels = new Set(task.labels ?? []);
+    if (!filters.labels.some((label) => labels.has(label))) {
+      return false;
+    }
+  }
+  const needle = search.trim().toLowerCase();
+  if (!needle) {
+    return true;
+  }
+  return [task.title, task.description, ...(task.labels ?? []), task.paneId ?? ''].join(' ').toLowerCase().includes(needle);
+}
+
+function sortTasks(tasks: TaskItem[], mode: TaskSortMode): TaskItem[] {
+  const next = [...tasks];
+  next.sort((a, b) => {
+    const aDue = a.endAt ?? a.dueAt;
+    const bDue = b.endAt ?? b.dueAt;
+    if (mode === 'updated-desc') return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    if (mode === 'updated-asc') return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+    if (mode === 'created-desc') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (mode === 'created-asc') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (mode === 'priority-desc') return priorityRank(b.priority) - priorityRank(a.priority);
+    if (mode === 'priority-asc') return priorityRank(a.priority) - priorityRank(b.priority);
+    if (mode === 'due-asc') return (aDue ? new Date(aDue).getTime() : Number.MAX_SAFE_INTEGER) - (bDue ? new Date(bDue).getTime() : Number.MAX_SAFE_INTEGER);
+    return (bDue ? new Date(bDue).getTime() : Number.MIN_SAFE_INTEGER) - (aDue ? new Date(aDue).getTime() : Number.MIN_SAFE_INTEGER);
+  });
+  return next;
+}
+
 export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   appState: {
     activeWorkspaceId: null,
@@ -127,14 +241,24 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     layoutPresetByWorkspace: {},
     paneOrderByWorkspace: {},
     unsavedByWorkspace: {},
-    pendingCloseWorkspaceId: null
+    pendingCloseWorkspaceId: null,
+    taskSearch: '',
+    taskFilters: DEFAULT_TASK_FILTERS,
+    taskSort: DEFAULT_TASK_SORT
   },
   initialize: async () => {
     try {
       const state = await window.vibeAde.workspace.list();
+      const normalizedWorkspaces = state.workspaces.map((workspace) => ({
+        ...workspace,
+        tasks: normalizeTasks(workspace.tasks)
+      }));
       const maps = deriveUiMaps(state.workspaces);
       set((store) => ({
-        appState: state,
+        appState: {
+          ...state,
+          workspaces: normalizedWorkspaces
+        },
         loading: false,
         ui: {
           ...store.ui,
@@ -537,23 +661,35 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       ui: markDirty(state, next.id)
     }));
   },
-  addTask: async (title) => {
+  createTask: async (input) => {
     const current = activeWorkspace(get());
     if (!current) {
+      return;
+    }
+    const title = input.title.trim();
+    if (!title) {
       return;
     }
     const now = new Date().toISOString();
     const nextTask: TaskItem = {
       id: uuidv4(),
       title,
-      description: '',
-      status: 'backlog',
+      description: input.description ?? '',
+      status: input.status ?? 'backlog',
+      priority: input.priority ?? DEFAULT_TASK_PRIORITY,
+      startAt: input.startAt,
+      endAt: input.endAt,
+      dueAt: input.endAt ?? input.dueAt,
+      labels: normalizeLabels(input.labels),
+      archived: false,
+      order: nextOrder(current.tasks, input.status ?? 'backlog'),
+      paneId: input.paneId,
       createdAt: now,
       updatedAt: now
     };
     const next = {
       ...current,
-      tasks: [...current.tasks, nextTask]
+      tasks: normalizeTasks([...current.tasks, nextTask])
     };
     set((state) => ({
       appState: {
@@ -563,21 +699,38 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       ui: markDirty(state, next.id)
     }));
   },
+  addTask: async (title) => {
+    const today = new Date();
+    const startAt = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).toISOString();
+    const endAt = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
+    await get().createTask({ title, startAt, endAt });
+  },
   updateTask: async (taskId, patch) => {
     const current = activeWorkspace(get());
     if (!current) {
       return;
     }
+    const now = new Date().toISOString();
     const next = {
       ...current,
-      tasks: current.tasks.map((task) =>
-        task.id === taskId
-          ? {
+      tasks: normalizeTasks(
+        current.tasks.map((task) => {
+          if (task.id !== taskId) {
+            return task;
+          }
+          const nextStatus = patch.status ?? task.status;
+          const movedStatus = nextStatus !== task.status;
+          return {
             ...task,
             ...patch,
-            updatedAt: new Date().toISOString()
-          }
-          : task
+            title: patch.title !== undefined ? patch.title : task.title,
+            labels: patch.labels !== undefined ? normalizeLabels(patch.labels) : task.labels,
+            priority: patch.priority ?? task.priority ?? DEFAULT_TASK_PRIORITY,
+            status: nextStatus,
+            order: patch.order ?? (movedStatus ? nextOrder(current.tasks, nextStatus) : task.order),
+            updatedAt: now
+          };
+        })
       )
     };
     set((state) => ({
@@ -588,17 +741,26 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       ui: markDirty(state, next.id)
     }));
   },
-  moveTask: async (taskId, status) => {
-    await get().updateTask(taskId, { status });
-  },
-  deleteTask: async (taskId) => {
+  moveTask: async (taskId, status, toIndex) => {
     const current = activeWorkspace(get());
     if (!current) {
       return;
     }
+    const now = new Date().toISOString();
+    const updated = current.tasks.map((task) =>
+      task.id === taskId
+        ? {
+          ...task,
+          status,
+          order: nextOrder(current.tasks, status),
+          updatedAt: now
+        }
+        : task
+    );
+    const normalized = normalizeTasks(updated);
     const next = {
       ...current,
-      tasks: current.tasks.filter((task) => task.id !== taskId)
+      tasks: normalized
     };
     set((state) => ({
       appState: {
@@ -607,6 +769,121 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       },
       ui: markDirty(state, next.id)
     }));
+
+    if (typeof toIndex === 'number') {
+      const movedIdList = normalized
+        .filter((task) => task.status === status)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((task) => task.id);
+      const fromIndex = movedIdList.indexOf(taskId);
+      if (fromIndex !== -1) {
+        movedIdList.splice(fromIndex, 1);
+        const clamped = Math.max(0, Math.min(toIndex, movedIdList.length));
+        movedIdList.splice(clamped, 0, taskId);
+        await get().reorderTasks(status, movedIdList);
+      }
+    }
+  },
+  reorderTasks: async (status, orderedTaskIds) => {
+    const current = activeWorkspace(get());
+    if (!current) {
+      return;
+    }
+    const rank = new Map<string, number>();
+    orderedTaskIds.forEach((taskId, index) => rank.set(taskId, index + 1));
+
+    let fallbackIndex = orderedTaskIds.length;
+    const reordered = current.tasks.map((task) => {
+      if (task.status !== status) {
+        return task;
+      }
+      const forced = rank.get(task.id);
+      if (forced) {
+        return { ...task, order: forced };
+      }
+      fallbackIndex += 1;
+      return { ...task, order: fallbackIndex };
+    });
+
+    const next = {
+      ...current,
+      tasks: normalizeTasks(reordered)
+    };
+
+    set((state) => ({
+      appState: {
+        ...state.appState,
+        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
+      },
+      ui: markDirty(state, next.id)
+    }));
+  },
+  archiveTask: async (taskId, archived = true) => {
+    await get().updateTask(taskId, { archived });
+  },
+  deleteTask: async (taskId) => {
+    const current = activeWorkspace(get());
+    if (!current) {
+      return;
+    }
+    const next = {
+      ...current,
+      tasks: normalizeTasks(current.tasks.filter((task) => task.id !== taskId))
+    };
+    set((state) => ({
+      appState: {
+        ...state.appState,
+        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
+      },
+      ui: markDirty(state, next.id)
+    }));
+  },
+  setTaskSearch: (value) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        taskSearch: value
+      }
+    }));
+  },
+  setTaskFilters: (patch) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        taskFilters: {
+          ...state.ui.taskFilters,
+          ...patch
+        }
+      }
+    }));
+  },
+  setTaskSort: (mode) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        taskSort: mode
+      }
+    }));
+  },
+  clearTaskFilters: () => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        taskSearch: '',
+        taskFilters: DEFAULT_TASK_FILTERS,
+        taskSort: DEFAULT_TASK_SORT
+      }
+    }));
+  },
+  getVisibleTasks: (status) => {
+    const state = get();
+    const workspace = activeWorkspace(state);
+    if (!workspace) {
+      return [];
+    }
+    const filtered = workspace.tasks.filter((task) => matchesTaskFilters(task, state.ui.taskSearch, state.ui.taskFilters));
+    const scoped = status ? filtered.filter((task) => task.status === status) : filtered;
+    return sortTasks(scoped, state.ui.taskSort);
   },
   setAgentAttachment: async (paneId, attached, model) => {
     const current = activeWorkspace(get());
