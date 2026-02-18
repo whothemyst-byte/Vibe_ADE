@@ -28,7 +28,10 @@ const api: VibeAdeApi = {
   },
   system: {
     selectDirectory: () => ipcRenderer.invoke('system:selectDirectory'),
-    setSaveMenuEnabled: (enabled) => ipcRenderer.invoke('system:setSaveMenuEnabled', enabled)
+    setSaveMenuEnabled: (enabled) => ipcRenderer.invoke('system:setSaveMenuEnabled', enabled),
+    readClipboardText: () => ipcRenderer.invoke('system:readClipboardText'),
+    readClipboardImageDataUrl: () => ipcRenderer.invoke('system:readClipboardImageDataUrl'),
+    writeClipboardText: (text) => ipcRenderer.invoke('system:writeClipboardText', text)
   },
   auth: {
     getSession: () => ipcRenderer.invoke('auth:getSession'),

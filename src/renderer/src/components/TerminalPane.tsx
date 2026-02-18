@@ -52,6 +52,19 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
     };
   };
 
+  const pasteFromClipboard = async (): Promise<void> => {
+    const text = await window.vibeAde.system.readClipboardText();
+    if (text.length > 0) {
+      await window.vibeAde.terminal.sendInput(paneId, text);
+      return;
+    }
+
+    const imageDataUrl = await window.vibeAde.system.readClipboardImageDataUrl();
+    if (imageDataUrl) {
+      await window.vibeAde.terminal.sendInput(paneId, imageDataUrl);
+    }
+  };
+
   useEffect(() => {
     let disposed = false;
     let fitRafId: number | null = null;
@@ -178,6 +191,38 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       opened = true;
       scheduleFit();
     }
+
+    terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      if (event.type !== 'keydown') {
+        return true;
+      }
+
+      const withPrimaryModifier = event.ctrlKey || event.metaKey;
+      if (!withPrimaryModifier || event.altKey) {
+        return true;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === 'c') {
+        const selection = terminal.getSelection();
+        if (selection) {
+          event.preventDefault();
+          void window.vibeAde.system.writeClipboardText(selection);
+          return false;
+        }
+        return true;
+      }
+
+      if (key === 'v') {
+        event.preventDefault();
+        void pasteFromClipboard().catch(() => {
+          // Ignore clipboard read failures and keep terminal responsive.
+        });
+        return false;
+      }
+
+      return true;
+    });
 
     const inputDisposable = terminal.onData((data) => {
       if (!disposed) {

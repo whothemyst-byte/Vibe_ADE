@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, type WebContents } from 'electron';
+import { BrowserWindow, clipboard, dialog, ipcMain, type WebContents } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
@@ -29,6 +29,7 @@ const MAX_TASK_TITLE_LENGTH = 200;
 const MAX_TASK_DESCRIPTION_LENGTH = 5_000;
 const MAX_TASK_LABELS = 20;
 const MAX_TASK_LABEL_LENGTH = 32;
+const MAX_CLIPBOARD_TEXT_LENGTH = 1_000_000;
 
 const TASK_STATUSES: TaskStatus[] = ['backlog', 'in-progress', 'done'];
 const TASK_PRIORITIES: TaskPriority[] = ['low', 'medium', 'high'];
@@ -324,6 +325,25 @@ export function registerIpcHandlers(deps: Dependencies): void {
 
   ipcMain.handle('system:setSaveMenuEnabled', (_event, enabled: boolean) => {
     setSaveMenuEnabled(enabled);
+  });
+
+  ipcMain.handle('system:readClipboardText', () => {
+    return clipboard.readText();
+  });
+
+  ipcMain.handle('system:readClipboardImageDataUrl', () => {
+    const image = clipboard.readImage();
+    if (image.isEmpty()) {
+      return null;
+    }
+    return image.toDataURL();
+  });
+
+  ipcMain.handle('system:writeClipboardText', (_event, text: unknown) => {
+    if (typeof text !== 'string' || text.length > MAX_CLIPBOARD_TEXT_LENGTH) {
+      throw new Error('Invalid clipboard text payload');
+    }
+    clipboard.writeText(text);
   });
 
   ipcMain.handle('auth:getSession', () => authManager.getSession());

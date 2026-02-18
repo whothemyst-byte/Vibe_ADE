@@ -105,6 +105,9 @@ export interface VibeAdeApi {
   system: {
     selectDirectory: () => Promise<string | null>;
     setSaveMenuEnabled: (enabled: boolean) => Promise<void>;
+    readClipboardText: () => Promise<string>;
+    readClipboardImageDataUrl: () => Promise<string | null>;
+    writeClipboardText: (text: string) => Promise<void>;
   };
   auth: {
     getSession: () => Promise<AuthSession | null>;
