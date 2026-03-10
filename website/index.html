@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vibe-ADE | Windows Agent Development Environment</title>
+    <title>Vibe-ADE | Windows Terminal Workspace</title>
     <meta
       name="description"
-      content="Vibe-ADE is a Windows-native agent development environment for fast terminal workflows, workspace orchestration, and reliable execution."
+      content="Vibe-ADE is a Windows-native terminal workspace with multi-pane layouts, a task board, and a rich theme system for focused execution."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -52,11 +52,11 @@
         </div>
         <div class="container hero-grid">
           <div class="hero-copy reveal">
-            <p class="tag">Windows-native | Agent-first | Terminal-native</p>
-            <h1>Ship faster with a proper agent development cockpit.</h1>
+            <p class="tag">Windows-native | Terminal-first | Workflow-ready</p>
+            <h1>Own your terminals with a focused execution cockpit.</h1>
             <p class="lede">
-              Vibe-ADE combines pane-based terminals, task orchestration, and workspace
-              control in one desktop surface built for software teams.
+              Vibe-ADE combines pane-based terminals, a built-in task board, and workspace
+              control in one desktop surface designed for fast local execution.
             </p>
             <div class="hero-actions">
               <a class="btn btn-primary" href="./downloads/Vibe-ADE-0.3.0-setup-x64.exe">Download Setup</a>
@@ -64,7 +64,8 @@
             </div>
             <ul class="hero-meta">
               <li>Electron + React + TypeScript</li>
-              <li>Windows optimized shell orchestration</li>
+              <li>Multi-pane layouts with drag-resize</li>
+              <li>12 curated themes with system sync</li>
               <li>Local-first workspace state</li>
             </ul>
           </div>
@@ -80,19 +81,19 @@
           <div class="feature-grid">
             <article class="feature-card reveal">
               <h3>Workspace Control</h3>
-              <p>Run isolated projects with tabbed workspaces and reusable layouts.</p>
+              <p>Run isolated projects with tabbed workspaces, fast switching, and saved layouts.</p>
             </article>
             <article class="feature-card reveal">
               <h3>Parallel Terminals</h3>
-              <p>Split and manage command surfaces with predictable pane behavior.</p>
+              <p>Split panes, resize freely, and keep sessions responsive and clean.</p>
             </article>
             <article class="feature-card reveal">
               <h3>Task Board</h3>
-              <p>Track active, pending, and done items directly where execution happens.</p>
+              <p>Plan, track, and finish work inside the same surface as your terminals.</p>
             </article>
             <article class="feature-card reveal">
-              <h3>Safe Command Layer</h3>
-              <p>Guardrails for risky operations before they impact local environments.</p>
+              <h3>Theme System</h3>
+              <p>12 curated themes, system sync, and a clean preview experience.</p>
             </article>
           </div>
         </div>
@@ -101,16 +102,16 @@
       <section id="workflow" class="section">
         <div class="container split">
           <div class="panel reveal">
-            <p class="tag">3D Flow View</p>
-            <h2>See the system, then execute.</h2>
+            <p class="tag">Workflow View</p>
+            <h2>Plan, execute, and track in one place.</h2>
             <p>
-              Combine visual context with terminal action so teams can plan and ship from
-              the same environment without context switching.
+              Keep your work organized with tasks, run commands across panes, and stay in
+              flow without switching tools.
             </p>
             <ol>
-              <li>Create or load workspace.</li>
+              <li>Create or load a workspace.</li>
               <li>Execute across panes.</li>
-              <li>Track delivery on the embedded board.</li>
+              <li>Track progress on the embedded board.</li>
             </ol>
           </div>
           <div class="panel reveal visual-panel">
@@ -118,7 +119,7 @@
               <p class="terminal-title">workflow.ps1</p>
               <pre><code>PS C:\vibe-ade&gt; workspace new api-gateway
 PS C:\vibe-ade&gt; pane split --right
-PS C:\vibe-ade&gt; agent run "draft rate limit middleware"
+PS C:\vibe-ade&gt; npm run dev
 PS C:\vibe-ade&gt; task move RATE-22 --to in-progress
 PS C:\vibe-ade&gt; git status
 On branch feature/rate-limits
