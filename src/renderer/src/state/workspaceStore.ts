@@ -15,7 +15,6 @@ interface UiState {
   commandPaletteOpen: boolean;
   taskBoardTabOpen: boolean;
   activeView: 'workspace' | 'task-board';
-  agentPanelOpen: boolean;
   startPageOpen: boolean;
   startPageMode: 'home' | 'open';
   settingsOpen: boolean;
@@ -73,12 +72,8 @@ interface WorkspaceStoreState {
   setTaskSort: (mode: TaskSortMode) => void;
   clearTaskFilters: () => void;
   getVisibleTasks: (status?: TaskStatus) => TaskItem[];
-  setAgentAttachment: (paneId: PaneId, attached: boolean, model?: string) => Promise<void>;
-  setAgentRunning: (paneId: PaneId, running: boolean) => Promise<void>;
-  setAgentOutput: (paneId: PaneId, output: WorkspaceState['paneAgents'][PaneId]['lastOutput']) => Promise<void>;
   toggleCommandPalette: (open?: boolean) => void;
   toggleTaskBoard: (open?: boolean) => void;
-  toggleAgentPanel: (open?: boolean) => void;
   openStartPage: (mode?: UiState['startPageMode']) => void;
   closeStartPage: () => void;
   openSettings: () => void;
@@ -234,7 +229,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     commandPaletteOpen: false,
     taskBoardTabOpen: false,
     activeView: 'workspace',
-    agentPanelOpen: false,
     startPageOpen: true,
     startPageMode: 'home',
     settingsOpen: false,
@@ -249,10 +243,16 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   initialize: async () => {
     try {
       const state = await window.vibeAde.workspace.list();
-      const normalizedWorkspaces = state.workspaces.map((workspace) => ({
-        ...workspace,
-        tasks: normalizeTasks(workspace.tasks)
-      }));
+      const normalizedWorkspaces = state.workspaces.map((workspace) => {
+        const { paneAgents, selectedModel, ...rest } = workspace as WorkspaceState & {
+          paneAgents?: unknown;
+          selectedModel?: unknown;
+        };
+        return {
+          ...rest,
+          tasks: normalizeTasks(workspace.tasks)
+        };
+      });
       const maps = deriveUiMaps(state.workspaces);
       set((store) => ({
         appState: {
@@ -885,91 +885,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     const scoped = status ? filtered.filter((task) => task.status === status) : filtered;
     return sortTasks(scoped, state.ui.taskSort);
   },
-  setAgentAttachment: async (paneId, attached, model) => {
-    const current = activeWorkspace(get());
-    if (!current) {
-      return;
-    }
-    const currentPaneState = current.paneAgents[paneId] ?? {
-      paneId,
-      attached: false,
-      model: current.selectedModel,
-      running: false
-    };
-    const next = {
-      ...current,
-      paneAgents: {
-        ...current.paneAgents,
-        [paneId]: {
-          ...currentPaneState,
-          attached,
-          model: model ?? currentPaneState.model
-        }
-      }
-    };
-    set((state) => ({
-      appState: {
-        ...state.appState,
-        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
-      },
-      ui: markDirty(state, next.id)
-    }));
-  },
-  setAgentRunning: async (paneId, running) => {
-    const current = activeWorkspace(get());
-    if (!current) {
-      return;
-    }
-    const paneState = current.paneAgents[paneId];
-    if (!paneState) {
-      return;
-    }
-    const next = {
-      ...current,
-      paneAgents: {
-        ...current.paneAgents,
-        [paneId]: {
-          ...paneState,
-          running
-        }
-      }
-    };
-    set((state) => ({
-      appState: {
-        ...state.appState,
-        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
-      },
-      ui: markDirty(state, next.id)
-    }));
-  },
-  setAgentOutput: async (paneId, output) => {
-    const current = activeWorkspace(get());
-    if (!current) {
-      return;
-    }
-    const paneState = current.paneAgents[paneId];
-    if (!paneState) {
-      return;
-    }
-    const next = {
-      ...current,
-      paneAgents: {
-        ...current.paneAgents,
-        [paneId]: {
-          ...paneState,
-          lastOutput: output,
-          running: false
-        }
-      }
-    };
-    set((state) => ({
-      appState: {
-        ...state.appState,
-        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
-      },
-      ui: markDirty(state, next.id)
-    }));
-  },
   toggleCommandPalette: (open) => {
     set((state) => ({
       ui: {
@@ -987,14 +902,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
           (open ?? !state.ui.taskBoardTabOpen)
             ? 'task-board'
             : 'workspace'
-      }
-    }));
-  },
-  toggleAgentPanel: (open) => {
-    set((state) => ({
-      ui: {
-        ...state.ui,
-        agentPanelOpen: open ?? !state.ui.agentPanelOpen
       }
     }));
   },

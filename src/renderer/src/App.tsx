@@ -3,17 +3,16 @@ import { useState } from 'react';
 import type { AuthSession } from '@shared/ipc';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import { useIpcEvents } from '@renderer/hooks/useIpcEvents';
+import { AppMenuBar } from './components/AppMenuBar';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { PaneLayout } from './components/PaneLayout';
 import { TaskBoard } from './components/TaskBoard';
-import { AgentPanel } from './components/AgentPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { StartPage } from './components/StartPage';
 import { SettingsDialog } from './components/SettingsDialog';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { AuthScreen } from './components/AuthScreen';
-import { THEME } from './theme/theme';
 import { applyAppearanceMode, getStoredAppearanceMode } from './theme/appearance';
 import { isTypingTarget, loadShortcuts, toShortcutCombo, type ShortcutAction } from './services/preferences';
 
@@ -26,7 +25,6 @@ export function App(): JSX.Element {
   const ui = useWorkspaceStore((s) => s.ui);
   const togglePalette = useWorkspaceStore((s) => s.toggleCommandPalette);
   const toggleTaskBoard = useWorkspaceStore((s) => s.toggleTaskBoard);
-  const toggleAgentPanel = useWorkspaceStore((s) => s.toggleAgentPanel);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const openStartPage = useWorkspaceStore((s) => s.openStartPage);
   const addTask = useWorkspaceStore((s) => s.addTask);
@@ -36,18 +34,6 @@ export function App(): JSX.Element {
   const confirmCloseWorkspace = useWorkspaceStore((s) => s.confirmCloseWorkspace);
 
   useIpcEvents();
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--bg-primary', THEME.backgroundPrimary);
-    root.style.setProperty('--bg-secondary', THEME.backgroundSecondary);
-    root.style.setProperty('--bg-pane', THEME.paneBackground);
-    root.style.setProperty('--bg-top', THEME.topBarBackground);
-    root.style.setProperty('--accent', THEME.accentPrimary);
-    root.style.setProperty('--accent-2', THEME.accentSecondary);
-    root.style.setProperty('--text', THEME.textPrimary);
-    root.style.setProperty('--muted', THEME.textMuted);
-  }, []);
 
   useEffect(() => {
     const apply = (): void => {
@@ -148,10 +134,6 @@ export function App(): JSX.Element {
         clearTaskFilters();
         return;
       }
-      if (action === 'toggleAgentPanel') {
-        toggleAgentPanel();
-        return;
-      }
       if (action === 'openSettings') {
         openSettings();
         return;
@@ -162,7 +144,7 @@ export function App(): JSX.Element {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [addTask, clearTaskFilters, openSettings, openStartPage, setTaskFilters, toggleAgentPanel, togglePalette, toggleTaskBoard, ui.taskFilters.archived]);
+  }, [addTask, clearTaskFilters, openSettings, openStartPage, setTaskFilters, togglePalette, toggleTaskBoard, ui.taskFilters.archived]);
 
   const activeWorkspace = useMemo(
     () => appState.workspaces.find((w) => w.id === appState.activeWorkspaceId),
@@ -182,13 +164,14 @@ export function App(): JSX.Element {
   }
 
   const showTaskBoardView = ui.taskBoardTabOpen && ui.activeView === 'task-board';
-  const rightRailOpen = ui.agentPanelOpen && !showTaskBoardView;
-  const rightRailClassName = rightRailOpen ? 'right-rail open single-panel' : 'right-rail';
 
   return (
     <ErrorBoundary>
       <div className="app-shell">
-        <WorkspaceTabs />
+        <div className="app-header">
+          <AppMenuBar />
+          <WorkspaceTabs />
+        </div>
 
         <main className="workspace-shell">
           {activeWorkspace ? (
@@ -197,26 +180,14 @@ export function App(): JSX.Element {
                 <TaskBoard workspace={activeWorkspace} />
               </section>
             ) : (
-              <div className={rightRailOpen ? 'workspace-layout with-right-rail' : 'workspace-layout'}>
+              <div className="workspace-layout">
                 <section className="workspace-main">
                   <div className="terminal-region">
-                    <div className={rightRailOpen ? 'terminal-region-scroll' : 'terminal-region-scroll disabled'}>
-                      <PaneLayout workspace={activeWorkspace} enableHorizontalScroll={rightRailOpen} />
+                    <div className="terminal-region-scroll disabled">
+                      <PaneLayout workspace={activeWorkspace} enableHorizontalScroll={false} />
                     </div>
                   </div>
                 </section>
-
-                <aside className={rightRailClassName}>
-                  {ui.agentPanelOpen && (
-                    <section className="side-panel agent-panel-shell">
-                      <header className="side-panel-header">
-                        <h3>Agent Panel</h3>
-                        <button onClick={() => toggleAgentPanel(false)}>Close</button>
-                      </header>
-                      <AgentPanel workspace={activeWorkspace} />
-                    </section>
-                  )}
-                </aside>
               </div>
             )
           ) : (

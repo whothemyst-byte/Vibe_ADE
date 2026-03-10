@@ -4,6 +4,7 @@ import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import type { PaneId, WorkspaceState } from '@shared/types';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { UiIcon } from './UiIcon';
 
 interface TerminalPaneProps {
   paneId: PaneId;
@@ -31,24 +32,54 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   const [sessionReady, setSessionReady] = useState(false);
   const removePaneFromLayout = useWorkspaceStore((s) => s.removePaneFromLayout);
 
-  const shell = workspace.paneShells[paneId] ?? 'cmd';
-  const agentState = workspace.paneAgents[paneId];
+  const shell = workspace.paneShells[paneId] ?? 'powershell';
   const isActivePane = workspace.activePaneId === paneId;
-  const statusClass = agentState?.attached ? 'agent' : sessionReady ? 'running' : 'idle';
+  const statusClass = sessionReady ? 'running' : 'idle';
 
-  const resolveTerminalTheme = (): { background: string; foreground: string; cursor: string } => {
-    const mode = document.documentElement.getAttribute('data-theme');
-    if (mode === 'light') {
-      return {
-        background: '#ffffff',
-        foreground: '#1f2937',
-        cursor: '#2563eb'
-      };
-    }
+  const resolveTerminalTheme = (): {
+    background: string;
+    foreground: string;
+    cursor: string;
+    selectionBackground: string;
+    selectionInactiveBackground: string;
+  } => {
+    const rootStyles = getComputedStyle(document.documentElement);
+    const background = rootStyles.getPropertyValue('--bg-panel').trim() || '#1c212c';
+    const foreground = rootStyles.getPropertyValue('--text').trim() || '#e6e6e6';
+    const accent = rootStyles.getPropertyValue('--accent').trim() || '#3b82f6';
+
+    const withAlpha = (color: string, alpha: number): string => {
+      const normalized = color.trim();
+      if (normalized.startsWith('rgb')) {
+        const values = normalized
+          .replace(/rgba?\(/, '')
+          .replace(')', '')
+          .split(',')
+          .map((value) => Number.parseFloat(value.trim()))
+          .slice(0, 3);
+        if (values.length === 3 && values.every((value) => Number.isFinite(value))) {
+          return `rgba(${values[0]}, ${values[1]}, ${values[2]}, ${alpha})`;
+        }
+      }
+      if (normalized.startsWith('#')) {
+        const hex = normalized.slice(1);
+        const [r, g, b] =
+          hex.length === 3
+            ? hex.split('').map((ch) => Number.parseInt(ch + ch, 16))
+            : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)].map((ch) => Number.parseInt(ch, 16));
+        if ([r, g, b].every((value) => Number.isFinite(value))) {
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+      }
+      return color;
+    };
+
     return {
-      background: '#1c212c',
-      foreground: '#e6e6e6',
-      cursor: '#3b82f6'
+      background,
+      foreground,
+      cursor: accent,
+      selectionBackground: withAlpha(accent, 0.28),
+      selectionInactiveBackground: withAlpha(accent, 0.16)
     };
   };
 
@@ -375,7 +406,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
             aria-label="Terminal actions"
             onClick={() => setActionMenuOpen((open) => !open)}
           >
-            {'\u22EE'}
+            <UiIcon name="ellipsis" className="ui-icon ui-icon-sm" />
           </button>
           {actionMenuOpen && (
             <div className="terminal-actions-menu">

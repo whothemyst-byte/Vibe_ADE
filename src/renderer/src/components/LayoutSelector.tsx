@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { LAYOUT_PRESETS, getPresetById, type LayoutPresetId } from '@renderer/services/layoutPresets';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { UiIcon } from './UiIcon';
 
 export function LayoutSelector(): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -27,7 +28,7 @@ export function LayoutSelector(): JSX.Element {
         title={`Layout: ${activePreset.label}`}
         aria-label={`Layout: ${activePreset.label}`}
       >
-        {'\uD83E\uDDE9'}
+        <UiIcon name="layout" className="ui-icon" />
       </button>
       {open && (
         <div className="layout-selector-menu" role="menu">

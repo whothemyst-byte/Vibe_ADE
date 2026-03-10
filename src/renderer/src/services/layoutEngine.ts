@@ -58,20 +58,11 @@ export function appendPaneToWorkspace(workspace: WorkspaceState): WorkspaceState
     activePaneId: newPaneId,
     paneShells: {
       ...workspace.paneShells,
-      [newPaneId]: workspace.paneShells[basePaneId] ?? 'cmd'
+      [newPaneId]: workspace.paneShells[basePaneId] ?? 'powershell'
     },
     commandBlocks: {
       ...workspace.commandBlocks,
       [newPaneId]: []
-    },
-    paneAgents: {
-      ...workspace.paneAgents,
-      [newPaneId]: {
-        paneId: newPaneId,
-        attached: false,
-        model: workspace.selectedModel,
-        running: false
-      }
     }
   };
 }
@@ -127,10 +118,8 @@ export function removePaneFromWorkspace(workspace: WorkspaceState, paneId: PaneI
 
   const nextPaneShells = { ...workspace.paneShells };
   const nextCommandBlocks = { ...workspace.commandBlocks };
-  const nextPaneAgents = { ...workspace.paneAgents };
   delete nextPaneShells[paneId];
   delete nextCommandBlocks[paneId];
-  delete nextPaneAgents[paneId];
 
   return {
     ...workspace,
@@ -138,7 +127,6 @@ export function removePaneFromWorkspace(workspace: WorkspaceState, paneId: PaneI
     activePaneId: workspace.activePaneId === paneId ? remainingPaneIds[0] : workspace.activePaneId,
     paneShells: nextPaneShells,
     commandBlocks: nextCommandBlocks,
-    paneAgents: nextPaneAgents,
     tasks: workspace.tasks.map((task) => (task.paneId === paneId ? { ...task, paneId: undefined } : task))
   };
 }

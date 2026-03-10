@@ -34,7 +34,9 @@ describe('registerIpcHandlers', () => {
       startSession: vi.fn(),
       stopSession: vi.fn(),
       sendInput: vi.fn(),
+      executeInSession: vi.fn(),
       resize: vi.fn(),
+      getSessionSnapshot: vi.fn(),
       runStructuredCommand: vi.fn(async () => ({
         id: 'b1',
         paneId: 'p1',
@@ -62,12 +64,6 @@ describe('registerIpcHandlers', () => {
       save: vi.fn()
     };
 
-    const agentManager = {
-      onUpdate: vi.fn(() => () => {}),
-      start: vi.fn(),
-      stop: vi.fn()
-    };
-
     const templateRunner = {
       onProgress: vi.fn(() => () => {}),
       run: vi.fn()
@@ -76,16 +72,28 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers({
       workspaceManager: workspaceManager as never,
       terminalManager: terminalManager as never,
-      agentManager: agentManager as never,
       templateRunner: templateRunner as never,
-      webContents: webContents as never
+      authManager: {
+        getSession: vi.fn(),
+        login: vi.fn(),
+        signup: vi.fn(),
+        logout: vi.fn()
+      } as never,
+      cloudSyncManager: {
+        getStatus: vi.fn(),
+        listRemoteWorkspaces: vi.fn(),
+        getSyncPreview: vi.fn(),
+        pushLocalState: vi.fn(),
+        pullRemoteToLocal: vi.fn()
+      } as never,
+      webContents: webContents as never,
+      setSaveMenuEnabled: vi.fn()
     });
 
     const registeredChannels = handle.mock.calls.map((entry) => entry[0]);
     expect(registeredChannels).toContain('workspace:list');
     expect(registeredChannels).toContain('terminal:startSession');
     expect(registeredChannels).toContain('terminal:runStructuredCommand');
-    expect(registeredChannels).toContain('agent:start');
 
     const structuredHandler = getHandler('terminal:runStructuredCommand');
     const result = (await structuredHandler({}, {

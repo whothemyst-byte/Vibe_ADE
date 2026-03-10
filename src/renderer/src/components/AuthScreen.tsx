@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AuthSession } from '@shared/ipc';
+import { UiIcon } from './UiIcon';
 
 interface AuthScreenProps {
   onAuthenticated: (session: AuthSession) => void;
@@ -79,7 +80,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
       <section className="auth-card" onClick={(event) => event.stopPropagation()}>
         <header className="auth-card-header">
           <div className="auth-card-brand">
-            <span>{'\u26A1'}</span>
+            <UiIcon name="bolt" className="ui-icon ui-icon-lg" />
             <small>Vibe-ADE Authentication</small>
           </div>
         </header>
@@ -153,7 +154,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
             <span>v1.0.4-stable</span>
           </div>
           <button type="button" className="auth-footer-settings" title="Settings" aria-label="Settings">
-            {'\uD83D\uDEE0\uFE0F'}
+            <UiIcon name="settings" className="ui-icon" />
           </button>
         </footer>
       </section>

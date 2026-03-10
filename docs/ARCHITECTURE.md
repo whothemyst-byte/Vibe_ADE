@@ -10,7 +10,6 @@ src/
     services/
       WorkspaceManager.ts
       TerminalManager.ts
-      AgentManager.ts
       TemplateRunner.ts
       CommandSafety.ts
       templates.ts
@@ -29,7 +28,6 @@ src/
         TerminalPane.tsx
         CommandBlocks.tsx
         TaskBoard.tsx
-        AgentPanel.tsx
         CommandPalette.tsx
       hooks/useIpcEvents.ts
       services/layoutEngine.ts
@@ -47,7 +45,6 @@ src/
 - `ipc/registerIpcHandlers.ts`: single IPC contract layer.
 - `WorkspaceManager`: JSON-backed workspace persistence with atomic write.
 - `TerminalManager`: pane-scoped PTY sessions + structured command execution.
-- `AgentManager`: local `ollama` orchestration and structured output parser.
 - `TemplateRunner`: sequential template command execution with progress events.
 
 ## React Component Hierarchy
@@ -58,7 +55,6 @@ src/
 - `TerminalPane` (one per pane)
 - `CommandBlocks` (inside each pane)
 - `TaskBoard`
-- `AgentPanel`
 - `CommandPalette`
 
 ## IPC Communication Layer
@@ -82,10 +78,6 @@ Channels:
   - `terminal:runStructuredCommand`
   - Event: `terminal:data`
   - Event: `terminal:exit`
-- Agent:
-  - `agent:start`
-  - `agent:stop`
-  - Event: `agent:update`
 - Template:
   - Event: `template:progress`
 
@@ -96,17 +88,6 @@ Channels:
 - Each pane gets independent process lifecycle.
 - Structured command blocks execute via child process capture and are appended per pane.
 
-## Agent Manager Design
-
-- Starts local model process via `ollama run <model>`.
-- Prompts model to emit strict markdown sections:
-  - `Plan`
-  - `Steps`
-  - `Commands`
-  - `Explanation`
-- Parses output to typed structure.
-- Never auto-executes suggested commands.
-
 ## Workspace Manager Design
 
 Persistent fields:
@@ -114,10 +95,8 @@ Persistent fields:
 - Layout tree
 - Pane shell assignment
 - Active pane
-- Selected model
 - Command block history per pane
 - Task board state
-- Pane-agent attachment state
 
 Storage:
 
@@ -152,15 +131,15 @@ Board behavior:
 ## Build Plan
 
 1. Bootstrapped Electron + React + TypeScript monorepo structure.
-2. Added strict shared type contracts for layout, pane sessions, commands, tasks, and agents.
+2. Added strict shared type contracts for layout, pane sessions, commands, and tasks.
 3. Implemented main-process service layer and IPC routing.
 4. Implemented renderer store + layout engine with persistence calls.
 5. Added xterm-based terminal panes with independent session lifecycle.
 6. Added structured command block UX (collapse, rerun, copy).
-7. Added local Kanban task board and agent panel scaffolding.
-8. Added command palette actions (`Ctrl+K`) for workspace/pane/agent/task toggles.
+7. Added local Kanban task board.
+8. Added command palette actions (`Ctrl+K`) for workspace/pane/task toggles.
 9. Added workspace template execution pipeline with sequential command progress events.
-10. Added destructive command detection warnings and manual-run-only agent flow.
+10. Added destructive command detection warnings.
 
 ## Next Production Hardening Steps
 

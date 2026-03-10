@@ -1,24 +1,25 @@
-import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import type { CloudSyncPreview, CloudSyncStatus, CloudWorkspaceSummary } from '@shared/ipc';
 import type { TaskItem, TaskStatus } from '@shared/types';
 import { useToastStore } from '@renderer/hooks/useToast';
-import { AGENT_MODELS, DEFAULT_SHORTCUTS, loadAgentPreferences, loadShortcuts, saveAgentPreferences, saveShortcuts, toShortcutCombo, type ShortcutAction } from '@renderer/services/preferences';
-import { applyAppearanceMode, getStoredAppearanceMode, setStoredAppearanceMode, type AppearanceMode } from '@renderer/theme/appearance';
+import { DEFAULT_SHORTCUTS, loadShortcuts, saveShortcuts, toShortcutCombo, type ShortcutAction } from '@renderer/services/preferences';
+import { applyAppearanceMode, getStoredAppearanceMode, resolveEffectiveTheme, setStoredAppearanceMode, type AppearanceMode } from '@renderer/theme/appearance';
+import { THEME_DEFINITIONS, THEME_LABELS, THEME_ORDER } from '@renderer/theme/theme';
+import { UiIcon, type UiIconName } from './UiIcon';
 
-type SettingsTab = 'appearance' | 'shortcuts' | 'task-board' | 'agent' | 'account';
+type SettingsTab = 'appearance' | 'shortcuts' | 'task-board' | 'account';
 
 const SETTINGS_TABS: Array<{
   id: SettingsTab;
   label: string;
   description: string;
-  icon: string;
+  icon: UiIconName;
 }> = [
-  { id: 'appearance', label: 'Appearance', description: 'Theme and display', icon: '\uD83C\uDFA8' },
-  { id: 'shortcuts', label: 'Shortcuts', description: 'Keyboard bindings', icon: '\u2328\uFE0F' },
-  { id: 'task-board', label: 'Task Board', description: 'Task history', icon: '\uD83D\uDDC2\uFE0F' },
-  { id: 'agent', label: 'Agent', description: 'Model and runtime', icon: '\uD83E\uDD16' },
-  { id: 'account', label: 'Account', description: 'Cloud and auth', icon: '\uD83D\uDC64' }
+  { id: 'appearance', label: 'Appearance', description: 'Theme and display', icon: 'palette' },
+  { id: 'shortcuts', label: 'Shortcuts', description: 'Keyboard bindings', icon: 'key' },
+  { id: 'task-board', label: 'Task Board', description: 'Task history', icon: 'board' },
+  { id: 'account', label: 'Account', description: 'Cloud and auth', icon: 'user' }
 ];
 
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; description: string }> = [
@@ -26,7 +27,6 @@ const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; description:
   { action: 'openSettings', label: 'Settings', description: 'Open settings' },
   { action: 'openStartPage', label: 'Start Page', description: 'Open start page' },
   { action: 'toggleTaskBoard', label: 'Task Board', description: 'Toggle task board view' },
-  { action: 'toggleAgentPanel', label: 'Agent Panel', description: 'Toggle agent panel' },
   { action: 'createTaskQuick', label: 'Quick Task', description: 'Create a backlog task and open task board' },
   { action: 'toggleTaskArchived', label: 'Archived Filter', description: 'Toggle showing archived tasks' },
   { action: 'resetTaskFilters', label: 'Reset Task Filters', description: 'Clear search, filters, and sort' }
@@ -54,9 +54,9 @@ export function SettingsDialog(): JSX.Element {
   const [syncPreview, setSyncPreview] = useState<CloudSyncPreview | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>(() => getStoredAppearanceMode());
+  const [systemBase, setSystemBase] = useState<'light' | 'dark'>(() => resolveEffectiveTheme('system'));
   const [shortcuts, setShortcuts] = useState(loadShortcuts);
   const [capturingAction, setCapturingAction] = useState<ShortcutAction | null>(null);
-  const [agentPreferences, setAgentPreferences] = useState(loadAgentPreferences);
 
   const refreshCloudData = async (): Promise<void> => {
     const nextStatus = await window.vibeAde.cloud.getStatus();
@@ -91,6 +91,13 @@ export function SettingsDialog(): JSX.Element {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeSettings]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+    const update = (): void => setSystemBase(resolveEffectiveTheme('system'));
+    mediaQuery.addEventListener('change', update);
+    return () => mediaQuery.removeEventListener('change', update);
+  }, []);
 
   const taskHistory = useMemo<TaskHistoryItem[]>(
     () =>
@@ -153,24 +160,24 @@ export function SettingsDialog(): JSX.Element {
     setCapturingAction(null);
   };
 
-  const updateAgentConfig = (patch: Partial<typeof agentPreferences>): void => {
-    const next = { ...agentPreferences, ...patch };
-    setAgentPreferences(next);
-    saveAgentPreferences(next);
-  };
-
-  const themeCards: Array<{ id: AppearanceMode; label: string }> = [
-    { id: 'dark', label: 'Dark' },
-    { id: 'light', label: 'Light' },
-    { id: 'system', label: 'System' }
-  ];
+  const themeCards = THEME_ORDER.map((id) => {
+    const definition = id === 'system' ? null : THEME_DEFINITIONS[id];
+    const base = id === 'system' ? systemBase : definition?.base ?? 'dark';
+    return {
+      id,
+      label: THEME_LABELS[id],
+      base,
+      isSystem: id === 'system',
+      tokens: id === 'system' ? THEME_DEFINITIONS[systemBase].tokens : THEME_DEFINITIONS[id].tokens
+    };
+  });
 
   return (
     <div className="settings-overlay" onClick={() => closeSettings()}>
       <section className="settings-shell" onClick={(event) => event.stopPropagation()}>
         <aside className="settings-sidebar">
           <div className="settings-sidebar-title">
-            <span>{'\uD83D\uDEE0\uFE0F'}</span>
+            <UiIcon name="settings" className="ui-icon" />
             <div>
               <strong>Settings</strong>
               <small>Configuration</small>
@@ -180,7 +187,9 @@ export function SettingsDialog(): JSX.Element {
           <nav className="settings-nav">
             {SETTINGS_TABS.map((tab) => (
               <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
-                <span className="settings-nav-icon">{tab.icon}</span>
+                <span className="settings-nav-icon">
+                  <UiIcon name={tab.icon} className="ui-icon" />
+                </span>
                 <span className="settings-nav-text">
                   <strong>{tab.label}</strong>
                   <small>{tab.description}</small>
@@ -195,7 +204,7 @@ export function SettingsDialog(): JSX.Element {
             <>
               <header className="settings-main-header">
                 <h3>Appearance</h3>
-                <p>Personalize your workspace with light, dark, or system theme.</p>
+                <p>Personalize your workspace with one of the available themes.</p>
               </header>
 
               <section className="theme-grid">
@@ -205,12 +214,54 @@ export function SettingsDialog(): JSX.Element {
                     className={appearanceMode === theme.id ? 'theme-card active' : 'theme-card'}
                     onClick={() => setAppearance(theme.id)}
                   >
-                    <div className="theme-preview">
-                      <span />
-                      <span />
-                      <span />
+                    <div className="theme-card-header">
+                      <div>
+                        <strong className="theme-card-title">{theme.label}</strong>
+                        {theme.isSystem && <small className="theme-card-meta">Matches OS</small>}
+                      </div>
+                      <span className="theme-card-chip">{theme.isSystem ? `Auto ${theme.base}` : theme.base}</span>
                     </div>
-                    <small>{theme.label}</small>
+                    <div
+                      className="theme-preview"
+                      style={
+                        {
+                          borderColor: theme.tokens.border,
+                          background: theme.tokens.bgPanel,
+                          '--preview-bg-header': theme.tokens.bgHeader,
+                          '--preview-bg-panel': theme.tokens.bgPanel,
+                          '--preview-bg-panel-2': theme.tokens.bgPanel2,
+                          '--preview-bg-elev': theme.tokens.bgElev,
+                          '--preview-text': theme.tokens.text,
+                          '--preview-text-muted': theme.tokens.textMuted,
+                          '--preview-accent': theme.tokens.accent,
+                          '--preview-border': theme.tokens.border,
+                          '--preview-border-strong': theme.tokens.borderStrong
+                        } as CSSProperties
+                      }
+                    >
+                      <div className="theme-mini-header">
+                        <span className="theme-mini-dot" />
+                        <span className="theme-mini-dot" />
+                        <span className="theme-mini-dot" />
+                      </div>
+                      <div className="theme-mini-body">
+                        <div className="theme-mini-sidebar">
+                          <div className="theme-mini-line strong" />
+                          <div className="theme-mini-line" />
+                          <div className="theme-mini-line" />
+                          <div className="theme-mini-line short" />
+                        </div>
+                        <div className="theme-mini-main">
+                          <div className="theme-mini-toolbar">
+                            <div className="theme-mini-pill" />
+                            <div className="theme-mini-pill" />
+                            <div className="theme-mini-pill accent" />
+                          </div>
+                          <div className="theme-mini-card" />
+                          <div className="theme-mini-code" />
+                        </div>
+                      </div>
+                    </div>
                   </button>
                 ))}
               </section>
@@ -277,40 +328,6 @@ export function SettingsDialog(): JSX.Element {
                     </article>
                   ))
                 )}
-              </section>
-            </>
-          )}
-
-          {activeTab === 'agent' && (
-            <>
-              <header className="settings-main-header">
-                <h3>Agent</h3>
-                <p>Configure default model and runtime behavior for agents.</p>
-              </header>
-
-              <section className="settings-agent-config">
-                <label>
-                  <span>Default Model</span>
-                  <select
-                    value={agentPreferences.defaultModel}
-                    onChange={(event) => updateAgentConfig({ defaultModel: event.target.value as (typeof AGENT_MODELS)[number] })}
-                  >
-                    {AGENT_MODELS.map((model) => (
-                      <option key={model} value={model}>
-                        {model}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="agent-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={agentPreferences.autoAttachToNewPane}
-                    onChange={(event) => updateAgentConfig({ autoAttachToNewPane: event.target.checked })}
-                  />
-                  <span>Auto attach agent to new panes</span>
-                </label>
               </section>
             </>
           )}

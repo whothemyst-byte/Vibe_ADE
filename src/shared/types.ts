@@ -33,33 +33,6 @@ export interface CommandBlock {
   collapsed: boolean;
 }
 
-export interface AgentStep {
-  title: string;
-  details: string;
-}
-
-export interface AgentCommandSuggestion {
-  command: string;
-  rationale: string;
-  destructive: boolean;
-}
-
-export interface AgentStructuredOutput {
-  raw: string;
-  plan: string;
-  steps: AgentStep[];
-  commands: AgentCommandSuggestion[];
-  explanation: string;
-}
-
-export interface PaneAgentState {
-  paneId: PaneId;
-  attached: boolean;
-  model: string;
-  running: boolean;
-  lastOutput?: AgentStructuredOutput;
-}
-
 export type TaskStatus = 'backlog' | 'in-progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type TaskSortMode = 'updated-desc' | 'updated-asc' | 'created-desc' | 'created-asc' | 'priority-desc' | 'priority-asc' | 'due-asc' | 'due-desc';
@@ -104,10 +77,8 @@ export interface WorkspaceState {
   layout: LayoutNode;
   paneShells: Record<PaneId, ShellType>;
   activePaneId: PaneId;
-  selectedModel: string;
   commandBlocks: Record<PaneId, CommandBlock[]>;
   tasks: TaskItem[];
-  paneAgents: Record<PaneId, PaneAgentState>;
   createdAt: string;
   updatedAt: string;
 }

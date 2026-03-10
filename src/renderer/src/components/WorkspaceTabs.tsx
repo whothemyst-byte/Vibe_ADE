@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { collectPaneIds } from '@renderer/services/layoutEngine';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import { LayoutSelector } from './LayoutSelector';
+import { UiIcon } from './UiIcon';
 
 interface ContextState {
   workspaceId: string;
@@ -23,7 +24,6 @@ export function WorkspaceTabs(): JSX.Element {
   const requestCloseWorkspace = useWorkspaceStore((s) => s.requestCloseWorkspace);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const toggleTaskBoard = useWorkspaceStore((s) => s.toggleTaskBoard);
-  const toggleAgentPanel = useWorkspaceStore((s) => s.toggleAgentPanel);
 
   const [context, setContext] = useState<ContextState | null>(null);
   const [renameState, setRenameState] = useState<RenameState | null>(null);
@@ -66,7 +66,7 @@ export function WorkspaceTabs(): JSX.Element {
     <header className="top-nav" onClick={() => setContext(null)}>
       <div className="top-nav-left app-drag-region">
         <div className="brand-mark" aria-hidden="true">
-          {'\u26A1'}
+          <UiIcon name="bolt" className="ui-icon ui-icon-lg" />
         </div>
         <div className="brand-text">Vibe-ADE</div>
       </div>
@@ -98,7 +98,7 @@ export function WorkspaceTabs(): JSX.Element {
                 title="Close workspace"
                 onClick={() => void requestCloseWorkspace(workspace.id)}
               >
-                {'\u2715'}
+                <UiIcon name="close" className="ui-icon ui-icon-sm" />
               </button>
             </div>
           );
@@ -116,7 +116,7 @@ export function WorkspaceTabs(): JSX.Element {
               title="Close task board"
               onClick={() => toggleTaskBoard(false)}
             >
-              {'\u2715'}
+              <UiIcon name="close" className="ui-icon ui-icon-sm" />
             </button>
           </div>
         )}
@@ -130,7 +130,7 @@ export function WorkspaceTabs(): JSX.Element {
           }
           title="Create workspace"
         >
-          {'\u002B'}
+          <UiIcon name="plus" className="ui-icon" />
         </button>
       </div>
 
@@ -144,16 +144,8 @@ export function WorkspaceTabs(): JSX.Element {
         >
           Task Board
         </button>
-        <button
-          className={ui.agentPanelOpen ? 'top-button active icon-top-button' : 'top-button icon-top-button'}
-          title="Agent Panel"
-          aria-label="Agent Panel"
-          onClick={() => toggleAgentPanel()}
-        >
-          {'\uD83E\uDD16'}
-        </button>
         <button className="top-button icon-top-button" title="Settings" aria-label="Settings" onClick={openSettings}>
-          {'\u2699\uFE0F'}
+          <UiIcon name="settings" className="ui-icon" />
         </button>
       </div>
 

@@ -4,6 +4,7 @@ import { collectPaneIds } from '@renderer/services/layoutEngine';
 import { getPresetById, getPresetSlots } from '@renderer/services/layoutPresets';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import { TerminalPane } from './TerminalPane';
+import { UiIcon } from './UiIcon';
 
 interface PaneLayoutProps {
   workspace: WorkspaceState;
@@ -174,7 +175,7 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
                 />
               ) : (
                 <button className="empty-slot-button" title="Add Terminal" aria-label="Add Terminal" onClick={() => void addPaneToLayout()}>
-                  {'\u2795'}
+                  <UiIcon name="plus" className="ui-icon" />
                 </button>
               )}
             </div>

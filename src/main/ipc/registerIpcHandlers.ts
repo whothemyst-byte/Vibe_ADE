@@ -1,10 +1,9 @@
-import { BrowserWindow, clipboard, dialog, ipcMain, type WebContents } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, type WebContents } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import type { CommandBlock, PaneId, TaskItem, TaskPriority, TaskStatus, WorkspaceId, WorkspaceState } from '@shared/types';
 import { isDestructiveCommand } from '@main/services/CommandSafety';
-import type { AgentManager } from '@main/services/AgentManager';
 import type { AuthManager } from '@main/services/AuthManager';
 import type { CloudSyncManager } from '@main/services/CloudSyncManager';
 import type { TemplateRunner } from '@main/services/TemplateRunner';
@@ -14,7 +13,6 @@ import type { WorkspaceManager } from '@main/services/WorkspaceManager';
 interface Dependencies {
   workspaceManager: WorkspaceManager;
   terminalManager: TerminalManager;
-  agentManager: AgentManager;
   templateRunner: TemplateRunner;
   authManager: AuthManager;
   cloudSyncManager: CloudSyncManager;
@@ -150,6 +148,24 @@ function assertRecord(value: unknown, field: string): asserts value is Record<st
   }
 }
 
+function assertThemeBase(value: unknown): asserts value is 'light' | 'dark' {
+  if (value !== 'light' && value !== 'dark') {
+    throw new Error('Invalid theme base');
+  }
+}
+
+function assertThemeColor(value: unknown): asserts value is string {
+  if (typeof value !== 'string' || value.trim().length === 0 || value.length > 32 || value.includes('\0')) {
+    throw new Error('Invalid theme color');
+  }
+}
+
+function assertMenuAction(value: unknown): asserts value is string {
+  if (typeof value !== 'string' || value.trim().length === 0 || value.length > 64 || value.includes('\0')) {
+    throw new Error('Invalid menu action');
+  }
+}
+
 function assertCommand(value: unknown): asserts value is string {
   assertNonEmptyString(value, 'command');
   if (value.length > MAX_COMMAND_LENGTH || value.includes('\0')) {
@@ -187,7 +203,7 @@ function assertWorkspaceCwd(workspaceManager: WorkspaceManager, cwd: unknown): a
 }
 
 export function registerIpcHandlers(deps: Dependencies): void {
-  const { workspaceManager, terminalManager, agentManager, templateRunner, authManager, cloudSyncManager, webContents, setSaveMenuEnabled } = deps;
+  const { workspaceManager, terminalManager, templateRunner, authManager, cloudSyncManager, webContents, setSaveMenuEnabled } = deps;
 
   const loadWorkspace = (workspaceId: WorkspaceId): WorkspaceState => {
     const state = workspaceManager.list();
@@ -208,10 +224,6 @@ export function registerIpcHandlers(deps: Dependencies): void {
 
   terminalManager.onExit((paneId, exitCode) => {
     webContents.send('terminal:exit', { paneId, exitCode });
-  });
-
-  agentManager.onUpdate((paneId, output) => {
-    webContents.send('agent:update', { paneId, output });
   });
 
   templateRunner.onProgress((event) => {
@@ -252,6 +264,94 @@ export function registerIpcHandlers(deps: Dependencies): void {
 
   ipcMain.handle('workspace:save', (_event, workspace) => {
     return workspaceManager.save(workspace);
+  });
+
+  ipcMain.handle('system:setWindowTheme', (_event, input) => {
+    assertRecord(input, 'theme');
+    assertThemeBase(input.base);
+    assertThemeColor(input.headerColor);
+    const win = BrowserWindow.fromWebContents(webContents);
+    if (!win) {
+      return;
+    }
+    nativeTheme.themeSource = input.base;
+    win.setBackgroundColor(input.headerColor);
+  });
+
+  ipcMain.handle('system:performMenuAction', (_event, action) => {
+    assertMenuAction(action);
+    const win = BrowserWindow.fromWebContents(webContents);
+    if (!win) {
+      return;
+    }
+
+    switch (action) {
+      case 'undo':
+        webContents.undo();
+        return;
+      case 'redo':
+        webContents.redo();
+        return;
+      case 'cut':
+        webContents.cut();
+        return;
+      case 'copy':
+        webContents.copy();
+        return;
+      case 'paste':
+        webContents.paste();
+        return;
+      case 'selectAll':
+        webContents.selectAll();
+        return;
+      case 'reload':
+        webContents.reload();
+        return;
+      case 'forceReload':
+        webContents.reloadIgnoringCache();
+        return;
+      case 'toggleDevTools':
+        webContents.toggleDevTools();
+        return;
+      case 'resetZoom':
+        webContents.setZoomLevel(0);
+        return;
+      case 'zoomIn':
+        webContents.setZoomLevel(webContents.getZoomLevel() + 0.5);
+        return;
+      case 'zoomOut':
+        webContents.setZoomLevel(webContents.getZoomLevel() - 0.5);
+        return;
+      case 'togglefullscreen':
+        win.setFullScreen(!win.isFullScreen());
+        return;
+      case 'minimize':
+        win.minimize();
+        return;
+      case 'zoom':
+        if (win.isMaximized()) {
+          win.unmaximize();
+        } else {
+          win.maximize();
+        }
+        return;
+      case 'close':
+        win.close();
+        return;
+      case 'quit':
+        app.quit();
+        return;
+      case 'about':
+        void dialog.showMessageBox(win, {
+          title: 'About Vibe-ADE',
+          message: 'Vibe-ADE',
+          detail: 'Windows-native Development Environment',
+          buttons: ['OK']
+        });
+        return;
+      default:
+        throw new Error('Unsupported menu action');
+    }
   });
 
   ipcMain.handle('terminal:startSession', (_event, input) => {
@@ -302,14 +402,6 @@ export function registerIpcHandlers(deps: Dependencies): void {
       };
     }
     return block;
-  });
-
-  ipcMain.handle('agent:start', (_event, input) => {
-    agentManager.start(input);
-  });
-
-  ipcMain.handle('agent:stop', (_event, paneId: string) => {
-    agentManager.stop(paneId);
   });
 
   ipcMain.handle('system:selectDirectory', async () => {

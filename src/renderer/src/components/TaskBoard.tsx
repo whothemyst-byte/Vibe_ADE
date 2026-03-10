@@ -24,17 +24,20 @@ const SORT_OPTIONS: Array<{ value: TaskSortMode; label: string }> = [
   { value: 'due-desc', label: 'Due (Latest)' }
 ];
 
-function Icon({ path, className }: { path: string; className?: string }): JSX.Element {
+function Icon({ path, paths, className }: { path?: string; paths?: string[]; className?: string }): JSX.Element {
+  const resolved = paths ?? (path ? [path] : []);
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={path} />
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {resolved.map((item, index) => (
+        <path key={`${item}-${index}`} d={item} />
+      ))}
     </svg>
   );
 }
 
 function SearchIcon({ className }: { className?: string }): JSX.Element {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="11" cy="11" r="6.5" />
       <path d="M16 16l4.5 4.5" />
     </svg>
@@ -53,25 +56,25 @@ function statusActionLabel(status: TaskStatus): string {
   return 'Reopen';
 }
 
-function statusActionPath(status: TaskStatus): string {
-  if (status === 'backlog') return 'M8 6l10 6l-10 6z';
-  if (status === 'in-progress') return 'M5 12l4 4l10 -10';
-  return 'M4 4v6h6 M20 20v-6h-6 M20 10A8 8 0 0 0 6 6 M4 14A8 8 0 0 0 18 18';
+function statusActionPaths(status: TaskStatus): string[] {
+  if (status === 'backlog') return ['M7 5l11 7-11 7z'];
+  if (status === 'in-progress') return ['M20 6L9 17l-5-5'];
+  return ['M4 4v5h5', 'M20 12a8 8 0 1 0-8 8'];
 }
 
-function attachActionPath(): string {
-  return 'M10 14l-2 2a3 3 0 1 1 -4 -4l2 -2 M14 10l2 -2a3 3 0 1 1 4 4l-2 2 M8 12h8';
+function attachActionPaths(): string[] {
+  return ['M21.44 11.05l-8.49 8.49a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l8.49-8.49'];
 }
 
-function archiveActionPath(archived: boolean): string {
+function archiveActionPaths(archived: boolean): string[] {
   if (archived) {
-    return 'M4 4v6h6 M20 20v-6h-6 M20 10A8 8 0 0 0 6 6 M4 14A8 8 0 0 0 18 18';
+    return ['M3 3v6h6', 'M21 12a9 9 0 1 0-9 9'];
   }
-  return 'M4 7h16 M6 7l1 12h10l1 -12 M9 11h6 M9 14h6';
+  return ['M3 7h18', 'M5 7l1 12h12l1-12', 'M10 11h4'];
 }
 
-function deleteActionPath(): string {
-  return 'M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1 -13 M9 7l1 -2h4l1 2';
+function deleteActionPaths(): string[] {
+  return ['M3 6h18', 'M8 6V4h8v2', 'M6 6l1 14h10l1-14', 'M10 11v6', 'M14 11v6'];
 }
 
 function toIsoDate(value: string): string | undefined {
@@ -152,11 +155,11 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
         </div>
         <div className="task-toolbar-actions">
           <button type="button" onClick={() => setFiltersOpen((value) => !value)}>
-            <Icon className="inline-icon" path="M4 6h16 M7 12h10 M10 18h4" />
+            <Icon className="inline-icon" paths={['M4 6h16', 'M4 12h10', 'M14 12h6', 'M4 18h7', 'M13 18h7']} />
             Filters
           </button>
           <button type="button" className="primary-button" onClick={() => setCreateOpen(true)}>
-            <Icon className="inline-icon" path="M12 5v14 M5 12h14" />
+            <Icon className="inline-icon" paths={['M12 5v14', 'M5 12h14']} />
             New Task
           </button>
         </div>
@@ -167,7 +170,7 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
           {grouped.map((column) => (
             <section
               key={column.key}
-              className="task-column"
+              className={`task-column status-${column.key}`}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => {
                 if (draggedTask) {
@@ -191,10 +194,10 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
                       setCreateOpen(true);
                     }}
                   >
-                    <Icon path="M12 5v14 M5 12h14" />
+                    <Icon paths={['M12 5v14', 'M5 12h14']} />
                   </button>
                   <button type="button" className="task-column-action" title="Column actions">
-                    <Icon path="M5 12h.01 M12 12h.01 M19 12h.01" />
+                    <Icon paths={['M6 12h.01', 'M12 12h.01', 'M18 12h.01']} />
                   </button>
                 </div>
               </div>
@@ -258,7 +261,7 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
                             title={statusActionLabel(task.status)}
                             aria-label={statusActionLabel(task.status)}
                           >
-                            <Icon path={statusActionPath(task.status)} />
+                            <Icon paths={statusActionPaths(task.status)} />
                           </button>
                           <button
                             className="task-action-icon"
@@ -266,7 +269,7 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
                             title="Attach to active pane"
                             aria-label="Attach to active pane"
                           >
-                            <Icon path={attachActionPath()} />
+                            <Icon paths={attachActionPaths()} />
                           </button>
                           <button
                             className="task-action-icon"
@@ -274,7 +277,7 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
                             title={task.archived ? 'Unarchive' : 'Archive'}
                             aria-label={task.archived ? 'Unarchive' : 'Archive'}
                           >
-                            <Icon path={archiveActionPath(Boolean(task.archived))} />
+                            <Icon paths={archiveActionPaths(Boolean(task.archived))} />
                           </button>
                           <button
                             className="task-action-icon danger"
@@ -282,7 +285,7 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
                             title="Delete"
                             aria-label="Delete"
                           >
-                            <Icon path={deleteActionPath()} />
+                            <Icon paths={deleteActionPaths()} />
                           </button>
                         </div>
                       </article>
@@ -296,8 +299,8 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
         <aside className={filtersOpen ? 'task-filters-panel open' : 'task-filters-panel'}>
           <header>
             <strong>Filters</strong>
-            <button type="button" onClick={() => setFiltersOpen(false)}>
-              <Icon path="M6 6l12 12 M18 6l-12 12" />
+            <button type="button" className="icon-only-button" onClick={() => setFiltersOpen(false)}>
+              <Icon paths={['M6 6l12 12', 'M18 6l-12 12']} />
             </button>
           </header>
           <label>
@@ -353,8 +356,8 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
           <section className="task-create-modal" onClick={(event) => event.stopPropagation()}>
             <header>
               <h3>Create Task</h3>
-              <button type="button" onClick={() => setCreateOpen(false)}>
-                <Icon path="M6 6l12 12 M18 6l-12 12" />
+              <button type="button" className="icon-only-button" onClick={() => setCreateOpen(false)}>
+                <Icon paths={['M6 6l12 12', 'M18 6l-12 12']} />
               </button>
             </header>
             <div className="task-create-form">

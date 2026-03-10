@@ -1,5 +1,4 @@
 import type {
-  AgentStructuredOutput,
   AppState,
   CommandBlock,
   PaneId,
@@ -22,11 +21,6 @@ export interface TerminalExitEvent {
   exitCode: number;
 }
 
-export interface AgentUpdateEvent {
-  paneId: PaneId;
-  output: AgentStructuredOutput;
-}
-
 export interface TemplateProgressEvent {
   workspaceId: WorkspaceId;
   command: string;
@@ -38,6 +32,26 @@ export interface TemplateProgressEvent {
 export interface MenuActionEvent {
   action: 'new-environment' | 'open-environment' | 'settings' | 'save-environment' | 'save-as-environment';
 }
+
+export type SystemMenuAction =
+  | 'undo'
+  | 'redo'
+  | 'cut'
+  | 'copy'
+  | 'paste'
+  | 'selectAll'
+  | 'reload'
+  | 'forceReload'
+  | 'toggleDevTools'
+  | 'resetZoom'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'togglefullscreen'
+  | 'minimize'
+  | 'zoom'
+  | 'close'
+  | 'quit'
+  | 'about';
 
 export interface AuthSession {
   user: {
@@ -98,13 +112,11 @@ export interface VibeAdeApi {
     getSessionSnapshot: (paneId: PaneId) => Promise<{ paneId: PaneId; shell: ShellType; cwd: string; history: string } | null>;
     runStructuredCommand: (input: { paneId: PaneId; shell: ShellType; cwd: string; command: string }) => Promise<CommandBlock>;
   };
-  agent: {
-    start: (input: { paneId: PaneId; model: string; prompt: string; cwd: string }) => Promise<void>;
-    stop: (paneId: PaneId) => Promise<void>;
-  };
   system: {
     selectDirectory: () => Promise<string | null>;
     setSaveMenuEnabled: (enabled: boolean) => Promise<void>;
+    setWindowTheme: (input: { base: 'light' | 'dark'; headerColor: string }) => Promise<void>;
+    performMenuAction: (action: SystemMenuAction) => Promise<void>;
     readClipboardText: () => Promise<string>;
     readClipboardImageDataUrl: () => Promise<string | null>;
     writeClipboardText: (text: string) => Promise<void>;
@@ -161,7 +173,6 @@ export interface VibeAdeApi {
   };
   onTerminalData: (listener: (event: TerminalDataEvent) => void) => () => void;
   onTerminalExit: (listener: (event: TerminalExitEvent) => void) => () => void;
-  onAgentUpdate: (listener: (event: AgentUpdateEvent) => void) => () => void;
   onTemplateProgress: (listener: (event: TemplateProgressEvent) => void) => () => void;
   onMenuAction: (listener: (event: MenuActionEvent) => void) => () => void;
 }

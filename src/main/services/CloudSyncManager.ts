@@ -7,7 +7,6 @@ interface SupabaseWorkspaceRow {
   user_id: string;
   name: string;
   root_dir: string;
-  selected_model: string | null;
   active_pane_id: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
@@ -20,7 +19,6 @@ interface SupabaseLayoutRow {
   user_id: string;
   layout: LayoutNode;
   pane_shells: Record<PaneId, 'powershell' | 'cmd'>;
-  pane_agents: WorkspaceState['paneAgents'];
   command_blocks: WorkspaceState['commandBlocks'];
   tasks: WorkspaceState['tasks'];
   is_current: boolean;
@@ -135,7 +133,7 @@ export class CloudSyncManager {
       user_id: session.user.id,
       name: workspace.name,
       root_dir: workspace.rootDir,
-      selected_model: workspace.selectedModel,
+      selected_model: null,
       active_pane_id: workspace.activePaneId,
       metadata: {
         local_updated_at: workspace.updatedAt,
@@ -168,7 +166,6 @@ export class CloudSyncManager {
       pane_order: this.collectPaneIds(workspace.layout),
       layout: workspace.layout,
       pane_shells: workspace.paneShells,
-      pane_agents: workspace.paneAgents,
       command_blocks: workspace.commandBlocks,
       tasks: workspace.tasks,
       is_current: true,
@@ -193,12 +190,12 @@ export class CloudSyncManager {
   async pullRemoteState(): Promise<AppState> {
     const { accessToken } = await this.requireSession();
     const workspaces = await this.fetchRows<SupabaseWorkspaceRow[]>(
-      '/rest/v1/workspaces?select=id,name,root_dir,selected_model,active_pane_id,metadata,created_at,updated_at&order=updated_at.desc',
+      '/rest/v1/workspaces?select=id,name,root_dir,active_pane_id,metadata,created_at,updated_at&order=updated_at.desc',
       { method: 'GET' },
       accessToken
     );
     const layouts = await this.fetchRows<SupabaseLayoutRow[]>(
-      '/rest/v1/terminal_layouts?select=id,workspace_id,user_id,layout,pane_shells,pane_agents,command_blocks,tasks,is_current,updated_at&is_current=eq.true',
+      '/rest/v1/terminal_layouts?select=id,workspace_id,user_id,layout,pane_shells,command_blocks,tasks,is_current,updated_at&is_current=eq.true',
       { method: 'GET' },
       accessToken
     );
@@ -223,10 +220,8 @@ export class CloudSyncManager {
           layout,
           paneShells: layoutRow.pane_shells ?? {},
           activePaneId,
-          selectedModel: workspace.selected_model ?? 'llama3.2',
           commandBlocks: layoutRow.command_blocks ?? {},
           tasks: layoutRow.tasks ?? [],
-          paneAgents: layoutRow.pane_agents ?? {},
           createdAt: workspace.created_at,
           updatedAt: layoutRow.updated_at ?? workspace.updated_at
         };

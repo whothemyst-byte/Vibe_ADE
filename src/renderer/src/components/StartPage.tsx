@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import type { LayoutPresetId } from '@renderer/services/layoutPresets';
 import { loadShortcuts, type ShortcutAction } from '@renderer/services/preferences';
+import { UiIcon } from './UiIcon';
 
 interface LayoutOption {
   id: LayoutPresetId;
@@ -23,7 +24,6 @@ const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
   openSettings: 'Settings',
   openStartPage: 'Start Page',
   toggleTaskBoard: 'Task Board',
-  toggleAgentPanel: 'Agent Panel',
   createTaskQuick: 'Quick Task',
   toggleTaskArchived: 'Archived Filter',
   resetTaskFilters: 'Reset Task Filters'
@@ -71,7 +71,9 @@ export function StartPage(): JSX.Element {
           <>
             <header className="start-page-header">
               <div className="start-logo-row">
-                <div className="start-logo-mark">{'\u26A1'}</div>
+                <div className="start-logo-mark">
+                  <UiIcon name="bolt" className="ui-icon ui-icon-xl" />
+                </div>
                 <h1>Vibe-ADE</h1>
               </div>
               <p>Build The Future.</p>
@@ -104,7 +106,7 @@ export function StartPage(): JSX.Element {
             </div>
 
             <button className="start-settings-fab" onClick={() => openSettings()} title="Settings">
-              {'\uD83D\uDEE0\uFE0F'}
+              <UiIcon name="settings" className="ui-icon" />
             </button>
           </>
         )}
@@ -133,7 +135,9 @@ export function StartPage(): JSX.Element {
             <section className="start-create-modal" onClick={(event) => event.stopPropagation()}>
               <header>
                 <h2>New Workspace</h2>
-                <button onClick={() => setShowCreateModal(false)}>{'\u2715'}</button>
+                <button className="icon-only-button" onClick={() => setShowCreateModal(false)}>
+                  <UiIcon name="close" className="ui-icon ui-icon-sm" />
+                </button>
               </header>
 
               <div className="start-create-body">
@@ -181,12 +185,6 @@ export function StartPage(): JSX.Element {
                   </div>
                 </section>
 
-                <section className="start-create-optional-row">
-                  <button type="button" className="start-create-optional-button">
-                    <span>AI Agents</span>
-                    <small>optional</small>
-                  </button>
-                </section>
               </div>
 
               <footer>

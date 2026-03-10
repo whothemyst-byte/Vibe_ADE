@@ -5,7 +5,6 @@ import { createMainWindow } from './windows/mainWindow';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
 import { WorkspaceManager } from './services/WorkspaceManager';
 import { TerminalManager } from './services/TerminalManager';
-import { AgentManager } from './services/AgentManager';
 import { TemplateRunner } from './services/TemplateRunner';
 import { CrashRecoveryManager } from './services/CrashRecoveryManager';
 import { AuthManager } from './services/AuthManager';
@@ -14,12 +13,16 @@ import { installAppMenu, setSaveMenuEnabled } from './windows/appMenu';
 
 let workspaceManager: WorkspaceManager;
 let terminalManager: TerminalManager;
-let agentManager: AgentManager;
 let templateRunner: TemplateRunner;
 let crashRecoveryManager: CrashRecoveryManager;
 let authManager: AuthManager;
 let cloudSyncManager: CloudSyncManager;
 let finalizingQuit = false;
+
+const isDev = !app.isPackaged;
+if (isDev) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'Vibe-ADE-dev'));
+}
 
 function loadEnvFile(filePath: string): void {
   if (!fs.existsSync(filePath)) {
@@ -81,7 +84,6 @@ async function bootstrap(): Promise<void> {
 
   terminalManager = new TerminalManager(userDataPath);
   await terminalManager.initialize();
-  agentManager = new AgentManager();
   templateRunner = new TemplateRunner();
   authManager = new AuthManager(userDataPath);
   cloudSyncManager = new CloudSyncManager({ authManager, workspaceManager });
@@ -91,7 +93,6 @@ async function bootstrap(): Promise<void> {
   registerIpcHandlers({
     workspaceManager,
     terminalManager,
-    agentManager,
     templateRunner,
     authManager,
     cloudSyncManager,

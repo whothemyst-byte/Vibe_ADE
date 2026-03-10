@@ -9,7 +9,7 @@ export function createMainWindow(): BrowserWindow {
     minWidth: 1024,
     minHeight: 700,
     title: 'Vibe-ADE',
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     backgroundColor: '#131722',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -39,6 +39,8 @@ export function createMainWindow(): BrowserWindow {
       );
     }
   }
+
+  win.setMenuBarVisibility(false);
 
   // Add Content Security Policy for security (only in production)
   // In development, Vite needs inline scripts for HMR

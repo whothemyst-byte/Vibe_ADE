@@ -3,17 +3,12 @@ import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 
 export function useIpcEvents(): void {
   const appendCommandBlock = useWorkspaceStore((s) => s.appendCommandBlock);
-  const setAgentOutput = useWorkspaceStore((s) => s.setAgentOutput);
   const openStartPage = useWorkspaceStore((s) => s.openStartPage);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const saveActiveWorkspace = useWorkspaceStore((s) => s.saveActiveWorkspace);
   const saveAsActiveWorkspace = useWorkspaceStore((s) => s.saveAsActiveWorkspace);
 
   useEffect(() => {
-    const unsubscribeAgent = window.vibeAde.onAgentUpdate(({ paneId, output }) => {
-      void setAgentOutput(paneId, output);
-    });
-
     const unsubscribeTemplate = window.vibeAde.onTemplateProgress(({ workspaceId, command, output, success }) => {
       const state = useWorkspaceStore.getState();
       const workspace = state.appState.workspaces.find((w) => w.id === workspaceId);
@@ -48,9 +43,8 @@ export function useIpcEvents(): void {
     });
 
     return () => {
-      unsubscribeAgent();
       unsubscribeTemplate();
       unsubscribeMenu();
     };
-  }, [appendCommandBlock, openSettings, openStartPage, saveActiveWorkspace, saveAsActiveWorkspace, setAgentOutput]);
+  }, [appendCommandBlock, openSettings, openStartPage, saveActiveWorkspace, saveAsActiveWorkspace]);
 }

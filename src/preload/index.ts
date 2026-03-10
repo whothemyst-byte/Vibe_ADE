@@ -22,13 +22,11 @@ const api: VibeAdeApi = {
     getSessionSnapshot: (paneId) => ipcRenderer.invoke('terminal:getSessionSnapshot', paneId),
     runStructuredCommand: (input) => ipcRenderer.invoke('terminal:runStructuredCommand', input)
   },
-  agent: {
-    start: (input) => ipcRenderer.invoke('agent:start', input),
-    stop: (paneId) => ipcRenderer.invoke('agent:stop', paneId)
-  },
   system: {
     selectDirectory: () => ipcRenderer.invoke('system:selectDirectory'),
     setSaveMenuEnabled: (enabled) => ipcRenderer.invoke('system:setSaveMenuEnabled', enabled),
+    setWindowTheme: (input) => ipcRenderer.invoke('system:setWindowTheme', input),
+    performMenuAction: (action) => ipcRenderer.invoke('system:performMenuAction', action),
     readClipboardText: () => ipcRenderer.invoke('system:readClipboardText'),
     readClipboardImageDataUrl: () => ipcRenderer.invoke('system:readClipboardImageDataUrl'),
     writeClipboardText: (text) => ipcRenderer.invoke('system:writeClipboardText', text)
@@ -63,11 +61,6 @@ const api: VibeAdeApi = {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
     ipcRenderer.on('terminal:exit', handler);
     return () => ipcRenderer.off('terminal:exit', handler);
-  },
-  onAgentUpdate: (listener) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
-    ipcRenderer.on('agent:update', handler);
-    return () => ipcRenderer.off('agent:update', handler);
   },
   onTemplateProgress: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);

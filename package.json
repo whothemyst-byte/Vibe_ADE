@@ -1,7 +1,7 @@
 {
   "name": "vibe-ade",
-  "version": "0.1.0",
-  "description": "Windows-native Agent Development Environment",
+  "version": "0.3.0",
+  "description": "Windows-native Development Environment",
   "main": "dist/main/index.js",
   "author": "",
   "license": "MIT",

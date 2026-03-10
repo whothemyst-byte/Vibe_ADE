@@ -87,7 +87,7 @@ export function installAppMenu(win: BrowserWindow): void {
             void dialog.showMessageBox(win, {
               title: 'About Vibe-ADE',
               message: 'Vibe-ADE',
-              detail: 'Windows-native Agent Development Environment',
+              detail: 'Windows-native Development Environment',
               buttons: ['OK']
             });
           }

@@ -6,7 +6,6 @@ export function CommandPalette(): JSX.Element {
   const [query, setQuery] = useState('');
   const togglePalette = useWorkspaceStore((s) => s.toggleCommandPalette);
   const toggleTaskBoard = useWorkspaceStore((s) => s.toggleTaskBoard);
-  const toggleAgentPanel = useWorkspaceStore((s) => s.toggleAgentPanel);
   const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const setLayoutPreset = useWorkspaceStore((s) => s.setLayoutPreset);
@@ -94,11 +93,6 @@ export function CommandPalette(): JSX.Element {
           clearTaskFilters();
         }
       },
-      {
-        id: 'toggle-agent-panel',
-        label: 'Toggle Agent Panel',
-        run: () => toggleAgentPanel()
-      },
       ...layoutActions
     ];
   }, [
@@ -113,7 +107,6 @@ export function CommandPalette(): JSX.Element {
     setTaskFilters,
     setTaskSort,
     taskFilters.archived,
-    toggleAgentPanel,
     toggleTaskBoard
   ]);
 

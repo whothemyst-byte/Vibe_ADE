@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { AppState, LayoutNode, PaneAgentState, TaskItem, TaskPriority, TaskStatus, WorkspaceState } from '@shared/types';
+import type { AppState, LayoutNode, TaskItem, TaskPriority, TaskStatus, WorkspaceState } from '@shared/types';
 import { DEFAULT_TEMPLATES } from './templates';
 
 interface PersistedState extends AppState {
@@ -50,8 +50,16 @@ function normalizeTask(task: TaskItem): TaskItem {
 }
 
 function normalizeWorkspace(workspace: WorkspaceState): WorkspaceState {
+  const { paneAgents, selectedModel, ...rest } = workspace as WorkspaceState & {
+    paneAgents?: unknown;
+    selectedModel?: unknown;
+  };
+  const normalizedPaneShells = Object.fromEntries(
+    Object.entries(rest.paneShells ?? {}).map(([paneId]) => [paneId, 'powershell'])
+  );
   return {
-    ...workspace,
+    ...rest,
+    paneShells: normalizedPaneShells,
     tasks: normalizeTaskOrder((workspace.tasks ?? []).map(normalizeTask))
   };
 }
@@ -134,19 +142,10 @@ export class WorkspaceManager {
       name: input.name,
       rootDir: input.rootDir,
       layout,
-      paneShells: { [firstPaneId]: 'cmd' },
+      paneShells: { [firstPaneId]: 'powershell' },
       activePaneId: firstPaneId,
-      selectedModel: 'llama3.2',
       commandBlocks: { [firstPaneId]: [] },
       tasks: [],
-      paneAgents: {
-        [firstPaneId]: {
-          paneId: firstPaneId,
-          attached: false,
-          model: 'llama3.2',
-          running: false
-        }
-      },
       createdAt: now,
       updatedAt: now
     };
@@ -167,16 +166,7 @@ export class WorkspaceManager {
       name: newName,
       createdAt: now,
       updatedAt: now,
-      tasks: normalizedSource.tasks.map((task: TaskItem) => ({ ...task, id: uuidv4(), createdAt: now, updatedAt: now })),
-      paneAgents: Object.fromEntries(
-        Object.entries(normalizedSource.paneAgents).map(([paneId, state]) => {
-          const next: PaneAgentState = {
-            ...state,
-            running: false
-          };
-          return [paneId, next];
-        })
-      )
+      tasks: normalizedSource.tasks.map((task: TaskItem) => ({ ...task, id: uuidv4(), createdAt: now, updatedAt: now }))
     };
 
     this.state.workspaces.push(clone);

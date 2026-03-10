@@ -1,6 +1,6 @@
 # Vibe-ADE
 
-Windows-native Agent Development Environment built with Electron + React + TypeScript.
+Windows-native Development Environment built with Electron + React + TypeScript.
 
 ## Run
 
