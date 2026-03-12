@@ -71,13 +71,6 @@ export function WorkspaceTabs(): JSX.Element {
 
   return (
     <header className="top-nav" onClick={() => setContext(null)}>
-      <div className="top-nav-left app-drag-region">
-        <div className="brand-mark" aria-hidden="true">
-          <UiIcon name="bolt" className="ui-icon ui-icon-lg" />
-        </div>
-        <div className="brand-text">Vibe-ADE</div>
-      </div>
-
       <div className="top-nav-center app-drag-region">
         {sorted.map((workspace) => {
           const paneCount = collectPaneIds(workspace.layout).length;

@@ -2,13 +2,26 @@ import { BrowserWindow } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 
+function resolveWindowIconPath(): string | undefined {
+  const candidates: string[] = [
+    path.join(process.resourcesPath, 'icon.ico'),
+    path.join(process.resourcesPath, 'build', 'icon.ico'),
+    path.join(process.cwd(), 'build', 'icon.ico')
+  ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate));
+}
+
 export function createMainWindow(): BrowserWindow {
+  const iconPath = resolveWindowIconPath();
+
   const win = new BrowserWindow({
     width: 1680,
     height: 960,
     minWidth: 1024,
     minHeight: 700,
-    title: 'Vibe-ADE',
+    title: '',
+    ...(iconPath ? { icon: iconPath } : {}),
     autoHideMenuBar: true,
     backgroundColor: '#131722',
     webPreferences: {
@@ -41,6 +54,8 @@ export function createMainWindow(): BrowserWindow {
   }
 
   win.setMenuBarVisibility(false);
+  win.on('page-title-updated', (event) => event.preventDefault());
+  win.setTitle('');
 
   // Add Content Security Policy for security (only in production)
   // In development, Vite needs inline scripts for HMR

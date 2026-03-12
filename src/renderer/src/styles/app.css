@@ -271,7 +271,7 @@ button:focus-visible {
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 10px;
   height: 42px;
@@ -280,26 +280,10 @@ button:focus-visible {
   background: var(--bg-header);
 }
 
-.top-nav-left,
 .top-nav-right {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.brand-mark {
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.brand-text {
-  font-size: 11px;
-  color: var(--text-muted);
 }
 
 .top-nav-center {
