@@ -159,4 +159,3 @@ create policy "terminal_layouts_delete_own"
 on public.terminal_layouts
 for delete
 using (auth.uid() = user_id);
-

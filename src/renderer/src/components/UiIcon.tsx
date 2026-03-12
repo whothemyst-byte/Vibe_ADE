@@ -3,12 +3,16 @@ export type UiIconName =
   | 'settings'
   | 'layout'
   | 'plus'
+  | 'minus'
   | 'close'
   | 'ellipsis'
   | 'palette'
   | 'key'
   | 'board'
-  | 'user';
+  | 'user'
+  | 'refresh'
+  | 'play'
+  | 'stop';
 
 type UiIconNode =
   | { type: 'path'; d: string }
@@ -37,6 +41,7 @@ const ICON_PATHS: Record<UiIconName, UiIconNode[]> = {
     { type: 'rect', x: 3, y: 14, width: 7, height: 7, rx: 1 }
   ],
   plus: [{ type: 'path', d: 'M12 5v14' }, { type: 'path', d: 'M5 12h14' }],
+  minus: [{ type: 'path', d: 'M5 12h14' }],
   close: [{ type: 'path', d: 'M6 6l12 12' }, { type: 'path', d: 'M18 6l-12 12' }],
   ellipsis: [{ type: 'path', d: 'M12 5h.01' }, { type: 'path', d: 'M12 12h.01' }, { type: 'path', d: 'M12 19h.01' }],
   palette: [
@@ -61,7 +66,15 @@ const ICON_PATHS: Record<UiIconName, UiIconNode[]> = {
     { type: 'path', d: 'M16 3.128a4 4 0 0 1 0 7.744' },
     { type: 'path', d: 'M22 21v-2a4 4 0 0 0-3-3.87' },
     { type: 'circle', cx: 9, cy: 7, r: 4 }
-  ]
+  ],
+  refresh: [
+    { type: 'path', d: 'M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.36-2.64' },
+    { type: 'path', d: 'M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.36 2.64' },
+    { type: 'path', d: 'M3 16v-4h4' },
+    { type: 'path', d: 'M21 8v4h-4' }
+  ],
+  play: [{ type: 'path', d: 'M8 5v14l11-7z' }],
+  stop: [{ type: 'rect', x: 7, y: 7, width: 10, height: 10, rx: 1 }]
 };
 
 export function UiIcon({

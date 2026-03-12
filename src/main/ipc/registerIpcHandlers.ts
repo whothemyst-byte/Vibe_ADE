@@ -2,13 +2,25 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, type WebCo
 import fs from 'node:fs';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { CommandBlock, PaneId, TaskItem, TaskPriority, TaskStatus, WorkspaceId, WorkspaceState } from '@shared/types';
+import type {
+  CommandBlock,
+  PaneId,
+  TaskItem,
+  TaskPriority,
+  TaskStatus,
+  WorkspaceId,
+  WorkspaceState
+} from '@shared/types';
 import { isDestructiveCommand } from '@main/services/CommandSafety';
 import type { AuthManager } from '@main/services/AuthManager';
 import type { CloudSyncManager } from '@main/services/CloudSyncManager';
 import type { TemplateRunner } from '@main/services/TemplateRunner';
 import type { TerminalManager } from '@main/services/TerminalManager';
 import type { WorkspaceManager } from '@main/services/WorkspaceManager';
+import { swarmManager } from '@main/services/SwarmManager';
+import { swarmEventBus } from '@main/services/SwarmEventBus';
+import type { SwarmEvent } from '@main/types/SwarmEvents';
+import type { AgentState, SwarmState, SwarmTask } from '@main/types/SwarmOrchestration';
 
 interface Dependencies {
   workspaceManager: WorkspaceManager;
@@ -28,6 +40,10 @@ const MAX_TASK_DESCRIPTION_LENGTH = 5_000;
 const MAX_TASK_LABELS = 20;
 const MAX_TASK_LABEL_LENGTH = 32;
 const MAX_CLIPBOARD_TEXT_LENGTH = 1_000_000;
+const MIN_TERMINAL_COLS = 2;
+const MIN_TERMINAL_ROWS = 1;
+const MAX_TERMINAL_COLS = 500;
+const MAX_TERMINAL_ROWS = 200;
 
 const TASK_STATUSES: TaskStatus[] = ['backlog', 'in-progress', 'done'];
 const TASK_PRIORITIES: TaskPriority[] = ['low', 'medium', 'high'];
@@ -43,6 +59,17 @@ function assertPaneId(value: unknown): asserts value is string {
   if (value.length > MAX_PANE_ID_LENGTH || value.includes('\0')) {
     throw new Error('Invalid paneId');
   }
+}
+
+function clampTerminalDimension(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  const rounded = Math.floor(value);
+  if (!Number.isFinite(rounded)) {
+    return fallback;
+  }
+  return Math.max(min, Math.min(max, rounded));
 }
 
 function assertWorkspaceId(value: unknown): asserts value is WorkspaceId {
@@ -205,6 +232,26 @@ function assertWorkspaceCwd(workspaceManager: WorkspaceManager, cwd: unknown): a
 export function registerIpcHandlers(deps: Dependencies): void {
   const { workspaceManager, terminalManager, templateRunner, authManager, cloudSyncManager, webContents, setSaveMenuEnabled } = deps;
 
+  // Bridge swarm events to the renderer for real-time UI.
+  swarmEventBus.attachUiBridge({
+    emitEvent: (event) => {
+      const transcript = toTranscriptEvent(event);
+      if (!transcript) return;
+      webContents.send('swarm:event', { swarmId: event.swarmId, event: transcript });
+    },
+    emitSwarmUpdate: (swarmId, state) => {
+      webContents.send('swarm:update', { swarmId, state: serializeSwarmState(state) });
+    },
+    emitAgentStatus: (swarmId, agent) => {
+      webContents.send('swarm:agent-status', { swarmId, agent });
+    }
+  });
+
+  // Bridge raw agent output for the Swarm "terminal view" in the renderer.
+  swarmManager.onAgentOutput((payload) => {
+    webContents.send('swarm:agent-output', payload);
+  });
+
   const loadWorkspace = (workspaceId: WorkspaceId): WorkspaceState => {
     const state = workspaceManager.list();
     const workspace = state.workspaces.find((item) => item.id === workspaceId);
@@ -357,7 +404,9 @@ export function registerIpcHandlers(deps: Dependencies): void {
   ipcMain.handle('terminal:startSession', (_event, input) => {
     assertPaneId(input?.paneId);
     assertWorkspaceCwd(workspaceManager, input?.cwd);
-    terminalManager.startSession(input);
+    const cols = clampTerminalDimension(input?.cols, 120, MIN_TERMINAL_COLS, MAX_TERMINAL_COLS);
+    const rows = clampTerminalDimension(input?.rows, 30, MIN_TERMINAL_ROWS, MAX_TERMINAL_ROWS);
+    terminalManager.startSession({ ...input, cols, rows });
   });
 
   ipcMain.handle('terminal:stopSession', (_event, paneId: string) => {
@@ -379,10 +428,9 @@ export function registerIpcHandlers(deps: Dependencies): void {
 
   ipcMain.handle('terminal:resize', (_event, paneId: string, cols: number, rows: number) => {
     assertPaneId(paneId);
-    if (!Number.isFinite(cols) || !Number.isFinite(rows)) {
-      throw new Error('Invalid terminal size payload');
-    }
-    terminalManager.resize(paneId, cols, rows);
+    const safeCols = clampTerminalDimension(cols, 120, MIN_TERMINAL_COLS, MAX_TERMINAL_COLS);
+    const safeRows = clampTerminalDimension(rows, 30, MIN_TERMINAL_ROWS, MAX_TERMINAL_ROWS);
+    terminalManager.resize(paneId, safeCols, safeRows);
   });
 
   ipcMain.handle('terminal:getSessionSnapshot', (_event, paneId: string) => {
@@ -705,4 +753,252 @@ export function registerIpcHandlers(deps: Dependencies): void {
     };
     await saveWorkspace(nextWorkspace);
   });
+
+  // ---- QuanSwarm IPC ----
+
+  ipcMain.handle('swarm:create', async (_event, config: unknown) => {
+    try {
+      const validated = validateSwarmCreateConfig(config);
+      const state = await swarmManager.initializeSwarm(validated);
+      return { success: true, swarmState: serializeSwarmState(state) };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('swarm:status', async (_event, swarmId: unknown) => {
+    assertNonEmptyString(swarmId, 'swarmId');
+    return swarmManager.getSwarmStatus(swarmId);
+  });
+
+  ipcMain.handle('swarm:state', async (_event, swarmId: unknown) => {
+    assertNonEmptyString(swarmId, 'swarmId');
+    const state = swarmManager.getSwarmState(swarmId);
+    return serializeSwarmState(state);
+  });
+
+  ipcMain.handle('swarm:events', async (_event, swarmId: unknown, count: unknown = 10) => {
+    assertNonEmptyString(swarmId, 'swarmId');
+    const n = typeof count === 'number' && Number.isFinite(count) ? count : 10;
+    const events = swarmManager.getRecentEvents(swarmId, n);
+    return events.map((e) => serializeSwarmEvent(e));
+  });
+
+  ipcMain.handle('swarm:agentOutput', async (_event, swarmId: unknown, maxLines: unknown = 200) => {
+    assertNonEmptyString(swarmId, 'swarmId');
+    const n = typeof maxLines === 'number' && Number.isFinite(maxLines) ? maxLines : 200;
+    return swarmManager.getAgentOutputSnapshot(swarmId, n);
+  });
+
+  ipcMain.handle('swarm:stop', async (_event, swarmId: unknown) => {
+    assertNonEmptyString(swarmId, 'swarmId');
+    await swarmManager.stopSwarm(swarmId);
+    return { success: true };
+  });
+}
+
+type SwarmCreateAgent = { agentId: string; role: 'coordinator' | 'builder' | 'scout' | 'reviewer'; cliProvider: 'claude' | 'codex' | 'gemini' };
+type SwarmCreateConfig = { swarmId: string; goal: string; codebaseRoot: string; agents: SwarmCreateAgent[] };
+
+function validateSwarmCreateConfig(input: unknown): SwarmCreateConfig {
+  if (!input || typeof input !== 'object') {
+    throw new Error('Invalid swarm:create config');
+  }
+  const obj = input as Record<string, unknown>;
+  assertNonEmptyString(obj.swarmId, 'swarmId');
+  assertNonEmptyString(obj.goal, 'goal');
+  assertNonEmptyString(obj.codebaseRoot, 'codebaseRoot');
+  if (!Array.isArray(obj.agents) || obj.agents.length === 0) {
+    throw new Error('Invalid agents');
+  }
+
+  const agents: SwarmCreateAgent[] = [];
+  for (const raw of obj.agents) {
+    if (!raw || typeof raw !== 'object') {
+      throw new Error('Invalid agents');
+    }
+    const a = raw as Record<string, unknown>;
+    assertNonEmptyString(a.agentId, 'agentId');
+    if (typeof a.role !== 'string' || !['coordinator', 'builder', 'scout', 'reviewer'].includes(a.role)) {
+      throw new Error('Invalid agent role');
+    }
+    if (typeof a.cliProvider !== 'string' || !['claude', 'codex', 'gemini'].includes(a.cliProvider)) {
+      throw new Error('Invalid cliProvider');
+    }
+    agents.push({ agentId: a.agentId, role: a.role as SwarmCreateAgent['role'], cliProvider: a.cliProvider as SwarmCreateAgent['cliProvider'] });
+  }
+
+  return {
+    swarmId: obj.swarmId,
+    goal: obj.goal,
+    codebaseRoot: obj.codebaseRoot,
+    agents
+  };
+}
+
+function serializeSwarmState(state: SwarmState): unknown {
+  const tasks: Record<string, unknown> = {};
+  for (const [id, task] of state.tasks.entries()) {
+    tasks[id] = serializeSwarmTask(task);
+  }
+
+  const agents: Record<string, AgentState> = {};
+  for (const [id, agent] of state.agents.entries()) {
+    agents[id] = agent;
+  }
+
+  const ownership: Record<string, string> = {};
+  for (const [filePath, taskId] of state.fileOwnershipMap.entries()) {
+    ownership[filePath] = taskId;
+  }
+
+  const dependencies: Record<string, string[]> = {};
+  for (const [taskId, deps] of state.dependencies.entries()) {
+    dependencies[taskId] = [...deps];
+  }
+
+  return {
+    swarmId: state.swarmId,
+    overallGoal: state.overallGoal,
+    createdAt: state.createdAt,
+    tasks,
+    agents,
+    fileOwnershipMap: ownership,
+    parallelGroups: state.parallelGroups.map((g) => [...g]),
+    dependencies,
+    sharedContext: state.sharedContext
+  };
+}
+
+function serializeSwarmTask(task: SwarmTask): unknown {
+  return {
+    ...task,
+    fileOwnership: {
+      ...task.fileOwnership,
+      files: Array.from(task.fileOwnership.files)
+    }
+  };
+}
+
+function serializeSwarmEvent(event: SwarmEvent): unknown {
+  // Events may contain SwarmTask instances (with Set). Serialize those fields when present.
+  if (event.type === 'task-created') {
+    return { ...event, task: serializeSwarmTask(event.task) };
+  }
+  if (event.type === 'tasks-decomposed') {
+    return { ...event, tasks: event.tasks.map((t) => serializeSwarmTask(t)) };
+  }
+  return event;
+}
+
+type TranscriptEventType =
+  | 'swarm-started'
+  | 'tasks-decomposed'
+  | 'task-started'
+  | 'task-completed'
+  | 'review-started'
+  | 'review-approved'
+  | 'review-rejected'
+  | 'agent-ready'
+  | 'agent-stopped'
+  | 'agent-blocked'
+  | 'error';
+
+type TranscriptEvent = {
+  id: string;
+  timestamp: number;
+  type: TranscriptEventType;
+  message: string;
+  meta?: Record<string, string>;
+};
+
+function toTranscriptEvent(event: SwarmEvent): TranscriptEvent | null {
+  const id = `${event.type}:${event.timestamp}`;
+  switch (event.type) {
+    case 'swarm-created':
+      return { id, timestamp: event.timestamp, type: 'swarm-started', message: 'Swarm started' };
+    case 'tasks-decomposed':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'tasks-decomposed',
+        message: `Tasks decomposed (${event.taskCount} tasks)`
+      };
+    case 'task-assigned':
+    case 'task-started':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'task-started',
+        message: `${event.agentId} started ${event.taskId}`,
+        meta: { taskId: event.taskId, agentId: event.agentId }
+      };
+    case 'task-completed':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'task-completed',
+        message: `${event.agentId} completed ${event.taskId}`,
+        meta: { taskId: event.taskId, agentId: event.agentId }
+      };
+    case 'task-review-started':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'review-started',
+        message: `${event.reviewerId} started review (${event.taskId})`,
+        meta: { taskId: event.taskId, reviewerId: event.reviewerId }
+      };
+    case 'task-approved':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'review-approved',
+        message: `Review approved ${event.taskId}`,
+        meta: { taskId: event.taskId, reviewerId: event.reviewerId }
+      };
+    case 'task-rejected':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'review-rejected',
+        message: `Review rejected ${event.taskId}`,
+        meta: { taskId: event.taskId, reviewerId: event.reviewerId }
+      };
+    case 'agent-started':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'agent-ready',
+        message: `Agent started: ${event.agentId} (${event.role})`,
+        meta: { agentId: event.agentId, role: event.role }
+      };
+    case 'agent-stopped':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'agent-stopped',
+        message: `Agent stopped: ${event.agentId}`,
+        meta: { agentId: event.agentId }
+      };
+    case 'agent-blocked':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'agent-blocked',
+        message: `Agent blocked: ${event.agentId} (${event.taskId})`,
+        meta: { agentId: event.agentId, taskId: event.taskId }
+      };
+    case 'error-occurred':
+      return {
+        id,
+        timestamp: event.timestamp,
+        type: 'error',
+        message: event.message,
+        meta: { severity: event.severity, component: event.component }
+      };
+    default:
+      return null;
+  }
 }

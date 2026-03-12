@@ -52,6 +52,14 @@ const api: VibeAdeApi = {
     move: (workspaceId, taskId, toStatus, toIndex) => ipcRenderer.invoke('task:move', workspaceId, taskId, toStatus, toIndex),
     archive: (workspaceId, taskId, archived) => ipcRenderer.invoke('task:archive', workspaceId, taskId, archived)
   },
+  swarm: {
+    create: (config) => ipcRenderer.invoke('swarm:create', config),
+    status: (swarmId) => ipcRenderer.invoke('swarm:status', swarmId),
+    state: (swarmId) => ipcRenderer.invoke('swarm:state', swarmId),
+    events: (swarmId, count) => ipcRenderer.invoke('swarm:events', swarmId, count),
+    agentOutput: (swarmId, maxLines) => ipcRenderer.invoke('swarm:agentOutput', swarmId, maxLines),
+    stop: (swarmId) => ipcRenderer.invoke('swarm:stop', swarmId)
+  },
   onTerminalData: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
     ipcRenderer.on('terminal:data', handler);
@@ -71,7 +79,40 @@ const api: VibeAdeApi = {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
     ipcRenderer.on('app:menuAction', handler);
     return () => ipcRenderer.off('app:menuAction', handler);
+  },
+  onSwarmUpdate: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('swarm:update', handler);
+    return () => ipcRenderer.off('swarm:update', handler);
+  },
+  onSwarmAgentStatus: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('swarm:agent-status', handler);
+    return () => ipcRenderer.off('swarm:agent-status', handler);
+  },
+  onSwarmEvent: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('swarm:event', handler);
+    return () => ipcRenderer.off('swarm:event', handler);
   }
 };
 
 contextBridge.exposeInMainWorld('vibeAde', api);
+
+// ---- QuanSwarm UI relay ----
+// Convert main-process IPC events into DOM CustomEvents consumed by SwarmBoard.
+ipcRenderer.on('swarm:update', (_event, payload: { swarmId: string; state: unknown }) => {
+  window.dispatchEvent(new CustomEvent('vibe:swarm-update', { detail: payload }));
+});
+
+ipcRenderer.on('swarm:agent-status', (_event, payload: { swarmId: string; agent: unknown }) => {
+  window.dispatchEvent(new CustomEvent('vibe:agent-status', { detail: payload }));
+});
+
+ipcRenderer.on('swarm:event', (_event, payload: { swarmId: string; event: unknown }) => {
+  window.dispatchEvent(new CustomEvent('vibe:swarm-event', { detail: payload }));
+});
+
+ipcRenderer.on('swarm:agent-output', (_event, payload: { swarmId: string; agentId: string; role: string; data: string; timestamp: number }) => {
+  window.dispatchEvent(new CustomEvent('vibe:swarm-agent-output', { detail: payload }));
+});

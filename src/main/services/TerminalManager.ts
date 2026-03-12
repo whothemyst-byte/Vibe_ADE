@@ -82,15 +82,28 @@ export class TerminalManager {
     return () => this.emitter.off('exit', listener);
   }
 
-  startSession(input: { paneId: PaneId; shell: ShellType; cwd: string }): void {
+  startSession(input: { paneId: PaneId; shell: ShellType; cwd: string; cols?: number; rows?: number }): void {
     this.stopSession(input.paneId);
 
     const shell = getShellCommand(input.shell);
+    const coerce = (value: unknown, fallback: number, min: number, max: number): number => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return fallback;
+      }
+      const rounded = Math.floor(value);
+      if (!Number.isFinite(rounded)) {
+        return fallback;
+      }
+      return Math.max(min, Math.min(max, rounded));
+    };
+
+    const cols = coerce(input.cols, 120, 2, 500);
+    const rows = coerce(input.rows, 30, 1, 200);
     const proc = pty.spawn(shell.file, shell.args, {
       name: 'xterm-256color',
       cwd: input.cwd,
-      cols: 120,
-      rows: 30,
+      cols,
+      rows,
       env: process.env as Record<string, string>
     });
 

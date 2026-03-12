@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Terminal } from 'xterm';
+import { Terminal, type ITheme } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import type { PaneId, WorkspaceState } from '@shared/types';
@@ -17,6 +17,17 @@ interface TerminalPaneProps {
 
 const startedSessions = new Set<PaneId>();
 const paneViewportById = new Map<PaneId, number>();
+
+function clampTerminalDimension(value: number, fallback: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  const rounded = Math.floor(value);
+  if (!Number.isFinite(rounded)) {
+    return fallback;
+  }
+  return Math.max(min, Math.min(max, rounded));
+}
 
 export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneDragStart, onPaneDragEnd }: TerminalPaneProps): JSX.Element {
   const sectionRef = useRef<HTMLElement | null>(null);
@@ -36,17 +47,12 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   const isActivePane = workspace.activePaneId === paneId;
   const statusClass = sessionReady ? 'running' : 'idle';
 
-  const resolveTerminalTheme = (): {
-    background: string;
-    foreground: string;
-    cursor: string;
-    selectionBackground: string;
-    selectionInactiveBackground: string;
-  } => {
+  const resolveTerminalTheme = (): ITheme => {
     const rootStyles = getComputedStyle(document.documentElement);
     const background = rootStyles.getPropertyValue('--bg-panel').trim() || '#1c212c';
     const foreground = rootStyles.getPropertyValue('--text').trim() || '#e6e6e6';
     const accent = rootStyles.getPropertyValue('--accent').trim() || '#3b82f6';
+    const base = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 
     const withAlpha = (color: string, alpha: number): string => {
       const normalized = color.trim();
@@ -74,12 +80,71 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       return color;
     };
 
+    const ansiPalette: Pick<
+      ITheme,
+      | 'black'
+      | 'red'
+      | 'green'
+      | 'yellow'
+      | 'blue'
+      | 'magenta'
+      | 'cyan'
+      | 'white'
+      | 'brightBlack'
+      | 'brightRed'
+      | 'brightGreen'
+      | 'brightYellow'
+      | 'brightBlue'
+      | 'brightMagenta'
+      | 'brightCyan'
+      | 'brightWhite'
+    > =
+      base === 'light'
+        ? {
+            black: '#0f172a',
+            red: '#b91c1c',
+            green: '#047857',
+            yellow: '#7a5c00',
+            blue: '#1d4ed8',
+            magenta: '#a21caf',
+            cyan: '#0e7490',
+            white: '#334155',
+            brightBlack: '#64748b',
+            brightRed: '#dc2626',
+            brightGreen: '#059669',
+            brightYellow: '#8a6b00',
+            brightBlue: '#2563eb',
+            brightMagenta: '#c026d3',
+            brightCyan: '#0891b2',
+            brightWhite: '#0f172a'
+          }
+        : {
+            black: '#111827',
+            red: '#f87171',
+            green: '#34d399',
+            yellow: '#fbbf24',
+            blue: '#60a5fa',
+            magenta: '#c084fc',
+            cyan: '#22d3ee',
+            white: '#e5e7eb',
+            brightBlack: '#9ca3af',
+            brightRed: '#fecaca',
+            brightGreen: '#a7f3d0',
+            brightYellow: '#fde68a',
+            brightBlue: '#93c5fd',
+            brightMagenta: '#ddd6fe',
+            brightCyan: '#a5f3fc',
+            brightWhite: '#f9fafb'
+          };
+
     return {
       background,
       foreground,
+      cursorAccent: background,
       cursor: accent,
       selectionBackground: withAlpha(accent, 0.28),
-      selectionInactiveBackground: withAlpha(accent, 0.16)
+      selectionInactiveBackground: withAlpha(accent, 0.16),
+      ...ansiPalette
     };
   };
 
@@ -106,7 +171,8 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
     closingPaneRef.current = false;
 
     const terminal = new Terminal({
-      convertEol: true,
+      // `convertEol` should be avoided with PTY-backed terminals (node-pty handles newline translation).
+      convertEol: false,
       cursorBlink: false,
       disableStdin: false,
       fontFamily: 'JetBrains Mono, Cascadia Code, Consolas, monospace',
@@ -128,16 +194,21 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       sessionStartRequested = true;
       const startFreshSession = (): void => {
         startedSessions.add(paneId);
+        const cols = clampTerminalDimension(terminal.cols, 120, 2, 500);
+        const rows = clampTerminalDimension(terminal.rows, 30, 1, 200);
         void window.vibeAde.terminal
           .startSession({
             workspaceId: workspace.id,
             paneId,
             shell,
-            cwd: workspace.rootDir
+            cwd: workspace.rootDir,
+            cols,
+            rows
           })
           .then(() => {
             if (!disposed) {
               setSessionReady(true);
+              scheduleFitRef.current?.();
               // Keep startup clean by clearing shell banner/boot noise.
               setTimeout(() => {
                 void window.vibeAde.terminal.executeInSession(paneId, 'cls', true).catch(() => {
@@ -205,7 +276,9 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
         }
         try {
           fitAddon.fit();
-          void window.vibeAde.terminal.resize(paneId, terminal.cols, terminal.rows);
+          const cols = clampTerminalDimension(terminal.cols, 120, 2, 500);
+          const rows = clampTerminalDimension(terminal.rows, 30, 1, 200);
+          void window.vibeAde.terminal.resize(paneId, cols, rows);
           if (!initialFitDone) {
             initialFitDone = true;
             startOrAttachSession();
@@ -261,10 +334,27 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       }
     });
 
-    const themeObserver = new MutationObserver(() => {
-      terminal.options.theme = resolveTerminalTheme();
-    });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    let themeRafId: number | null = null;
+    const scheduleThemeUpdate = (): void => {
+      if (disposed || !opened) {
+        return;
+      }
+      if (themeRafId !== null) {
+        cancelAnimationFrame(themeRafId);
+      }
+      themeRafId = requestAnimationFrame(() => {
+        themeRafId = null;
+        if (disposed || !opened) {
+          return;
+        }
+        terminal.options.theme = resolveTerminalTheme();
+        terminal.refresh(0, Math.max(0, terminal.rows - 1));
+      });
+    };
+
+    const themeObserver = new MutationObserver(scheduleThemeUpdate);
+    // Theme tokens are applied via `documentElement.style.setProperty(...)` (style attribute) and the base mode via `data-theme`.
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
 
     const unsubscribeData = window.vibeAde.onTerminalData((event) => {
       if (!disposed && opened && event.paneId === paneId) {
@@ -316,6 +406,9 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       if (fitRafId !== null) {
         cancelAnimationFrame(fitRafId);
       }
+      if (themeRafId !== null) {
+        cancelAnimationFrame(themeRafId);
+      }
       resizeObserver.disconnect();
       unsubscribeData();
       unsubscribeExit();
@@ -336,11 +429,20 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
     await window.vibeAde.terminal.stopSession(paneId);
     startedSessions.delete(paneId);
     setSessionReady(false);
+    try {
+      fitAddonRef.current?.fit();
+    } catch {
+      // Fit errors can happen transiently during layout changes; fall back to last known size.
+    }
+    const cols = clampTerminalDimension(terminalRef.current?.cols ?? 0, 120, 2, 500);
+    const rows = clampTerminalDimension(terminalRef.current?.rows ?? 0, 30, 1, 200);
     await window.vibeAde.terminal.startSession({
       workspaceId: workspace.id,
       paneId,
       shell,
-      cwd: workspace.rootDir
+      cwd: workspace.rootDir,
+      cols,
+      rows
     });
     suppressBootOutputRef.current = false;
     terminalRef.current?.clear();

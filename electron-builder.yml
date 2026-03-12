@@ -18,6 +18,7 @@ asarUnpack:
   - node_modules/node-pty/**
 npmRebuild: true
 win:
+  icon: build/icon.ico
   signAndEditExecutable: false
   verifyUpdateCodeSignature: false
   target:
@@ -31,6 +32,8 @@ extraMetadata:
   main: dist/main/index.js
 nsis:
   artifactName: ${productName}-${version}-setup-${arch}.${ext}
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true

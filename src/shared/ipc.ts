@@ -92,6 +92,43 @@ export interface CloudSyncPreview {
   conflicts: CloudSyncConflict[];
 }
 
+// ---- QuanSwarm IPC shapes (serializable) ----
+
+export type SwarmAgentRole = 'coordinator' | 'builder' | 'scout' | 'reviewer';
+export type SwarmCliProvider = 'claude' | 'codex' | 'gemini';
+
+export interface SwarmAgentConfig {
+  agentId: string;
+  role: SwarmAgentRole;
+  cliProvider: SwarmCliProvider;
+}
+
+export interface SwarmCreateConfig {
+  swarmId: string;
+  goal: string;
+  codebaseRoot: string;
+  agents: SwarmAgentConfig[];
+}
+
+export type SwarmCreateResult =
+  | { success: true; swarmState: unknown }
+  | { success: false; error: string };
+
+export interface SwarmAgentStatusEvent {
+  swarmId: string;
+  agent: unknown;
+}
+
+export interface SwarmUpdateEvent {
+  swarmId: string;
+  state: unknown;
+}
+
+export interface SwarmTranscriptEvent {
+  swarmId: string;
+  event: unknown;
+}
+
 export interface VibeAdeApi {
   workspace: {
     list: () => Promise<AppState>;
@@ -104,7 +141,14 @@ export interface VibeAdeApi {
     listTemplates: () => Promise<WorkspaceTemplate[]>;
   };
   terminal: {
-    startSession: (input: { workspaceId: WorkspaceId; paneId: PaneId; shell: ShellType; cwd: string }) => Promise<void>;
+    startSession: (input: {
+      workspaceId: WorkspaceId;
+      paneId: PaneId;
+      shell: ShellType;
+      cwd: string;
+      cols?: number;
+      rows?: number;
+    }) => Promise<void>;
     stopSession: (paneId: PaneId) => Promise<void>;
     sendInput: (paneId: PaneId, input: string) => Promise<void>;
     executeInSession: (paneId: PaneId, command: string, forceSubmit?: boolean) => Promise<void>;
@@ -175,4 +219,15 @@ export interface VibeAdeApi {
   onTerminalExit: (listener: (event: TerminalExitEvent) => void) => () => void;
   onTemplateProgress: (listener: (event: TemplateProgressEvent) => void) => () => void;
   onMenuAction: (listener: (event: MenuActionEvent) => void) => () => void;
+  swarm: {
+    create: (config: SwarmCreateConfig) => Promise<SwarmCreateResult>;
+    status: (swarmId: string) => Promise<unknown>;
+    state: (swarmId: string) => Promise<unknown>;
+    events: (swarmId: string, count?: number) => Promise<unknown[]>;
+    agentOutput: (swarmId: string, maxLines?: number) => Promise<unknown[]>;
+    stop: (swarmId: string) => Promise<{ success: true } | { success: false; error: string }>;
+  };
+  onSwarmUpdate: (listener: (event: SwarmUpdateEvent) => void) => () => void;
+  onSwarmAgentStatus: (listener: (event: SwarmAgentStatusEvent) => void) => () => void;
+  onSwarmEvent: (listener: (event: SwarmTranscriptEvent) => void) => () => void;
 }

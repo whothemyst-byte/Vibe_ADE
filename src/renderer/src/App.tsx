@@ -10,6 +10,8 @@ import { TaskBoard } from './components/TaskBoard';
 import { CommandPalette } from './components/CommandPalette';
 import { StartPage } from './components/StartPage';
 import { SettingsDialog } from './components/SettingsDialog';
+import { SwarmDashboardDialog } from './components/SwarmDashboardDialog';
+import { SwarmSessionView } from './components/SwarmSessionView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { AuthScreen } from './components/AuthScreen';
@@ -164,6 +166,7 @@ export function App(): JSX.Element {
   }
 
   const showTaskBoardView = ui.taskBoardTabOpen && ui.activeView === 'task-board';
+  const showSwarmView = ui.activeView === 'swarm' && Boolean(ui.activeSwarmId);
 
   return (
     <ErrorBoundary>
@@ -174,7 +177,9 @@ export function App(): JSX.Element {
         </div>
 
         <main className="workspace-shell">
-          {activeWorkspace ? (
+          {showSwarmView ? (
+            <SwarmSessionView swarmId={ui.activeSwarmId!} />
+          ) : activeWorkspace ? (
             showTaskBoardView ? (
               <section className="task-board-workspace-view">
                 <TaskBoard workspace={activeWorkspace} />
@@ -208,6 +213,7 @@ export function App(): JSX.Element {
 
         {ui.startPageOpen && <StartPage />}
         {ui.settingsOpen && <SettingsDialog />}
+        {ui.swarmDashboardOpen && <SwarmDashboardDialog />}
         {ui.commandPaletteOpen && <CommandPalette />}
         {ui.pendingCloseWorkspaceId && (
           <div className="close-warning-overlay" onClick={cancelCloseWorkspace}>

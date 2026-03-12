@@ -29,6 +29,7 @@ function clampSize(value: number, min = 8): number {
 export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLayoutProps): JSX.Element {
   const addPaneToLayout = useWorkspaceStore((s) => s.addPaneToLayout);
   const reorderPanes = useWorkspaceStore((s) => s.reorderPanes);
+  const movePaneToIndex = useWorkspaceStore((s) => s.movePaneToIndex);
   const syncPaneOrder = useWorkspaceStore((s) => s.syncPaneOrder);
   const setActivePane = useWorkspaceStore((s) => s.setActivePane);
   const ui = useWorkspaceStore((s) => s.ui);
@@ -113,6 +114,17 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
     return nextOrder.slice(0, preset.slots);
   }, [paneIds, paneOrder, preset.slots]);
 
+  const slotByPaneId = useMemo(() => {
+    const map = new Map<PaneId, (typeof slots)[number]>();
+    for (const slot of slots) {
+      const paneId = visiblePaneIds[slot.slotIndex];
+      if (paneId) {
+        map.set(paneId, slot);
+      }
+    }
+    return map;
+  }, [slots, visiblePaneIds]);
+
   const columnStops = useMemo(() => {
     const stops: number[] = [];
     let current = 0;
@@ -146,41 +158,68 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
           gridTemplateRows: rowSizes.map((size) => `${size}fr`).join(' ')
         }}
       >
-        {slots.map((slot) => {
-          const paneId = visiblePaneIds[slot.slotIndex];
+        {visiblePaneIds.map((paneId, index) => {
+          const slot = slotByPaneId.get(paneId);
+          if (!slot) {
+            return null;
+          }
+
           return (
             <div
-              key={`slot-${slot.slotIndex}`}
-              className={paneId ? 'pane-slot filled' : 'pane-slot empty'}
+              key={`pane-${paneId}`}
+              className="pane-slot filled"
               style={{
                 gridColumn: `${slot.columnStart} / span ${slot.columnSpan}`,
                 gridRow: `${slot.rowStart} / span ${slot.rowSpan}`
               }}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => {
-                if (draggedPaneId && paneId && draggedPaneId !== paneId) {
+                if (draggedPaneId && draggedPaneId !== paneId) {
                   reorderPanes(draggedPaneId, paneId);
                 }
                 setDraggedPaneId(null);
               }}
             >
-              {paneId ? (
-                <TerminalPane
-                  paneId={paneId}
-                  displayIndex={slot.slotIndex + 1}
-                  workspace={workspace}
-                  onFocus={() => void setActivePane(paneId)}
-                  onPaneDragStart={() => setDraggedPaneId(paneId)}
-                  onPaneDragEnd={() => setDraggedPaneId(null)}
-                />
-              ) : (
-                <button className="empty-slot-button" title="Add Terminal" aria-label="Add Terminal" onClick={() => void addPaneToLayout()}>
-                  <UiIcon name="plus" className="ui-icon" />
-                </button>
-              )}
+              <TerminalPane
+                paneId={paneId}
+                displayIndex={index + 1}
+                workspace={workspace}
+                onFocus={() => void setActivePane(paneId)}
+                onPaneDragStart={() => setDraggedPaneId(paneId)}
+                onPaneDragEnd={() => setDraggedPaneId(null)}
+              />
             </div>
           );
         })}
+
+        {slots
+          .filter((slot) => !visiblePaneIds[slot.slotIndex])
+          .map((slot) => (
+            <div
+              key={`empty-slot-${slot.slotIndex}`}
+              className="pane-slot empty"
+              style={{
+                gridColumn: `${slot.columnStart} / span ${slot.columnSpan}`,
+                gridRow: `${slot.rowStart} / span ${slot.rowSpan}`
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => {
+                if (draggedPaneId) {
+                  movePaneToIndex(draggedPaneId, slot.slotIndex);
+                }
+                setDraggedPaneId(null);
+              }}
+            >
+              <button
+                className="empty-slot-button"
+                title="Add Terminal"
+                aria-label="Add Terminal"
+                onClick={() => void addPaneToLayout()}
+              >
+                <UiIcon name="plus" className="ui-icon" />
+              </button>
+            </div>
+          ))}
       </div>
 
       {columnStops.map((stop, index) => (

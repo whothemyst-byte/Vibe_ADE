@@ -48,7 +48,14 @@ describe('TerminalManager lifecycle', () => {
     manager.onData(dataListener);
     manager.onExit(exitListener);
 
-    manager.startSession({ paneId: 'pane-a', shell: 'powershell', cwd: tempDir });
+    manager.startSession({ paneId: 'pane-a', shell: 'powershell', cwd: tempDir, cols: 88, rows: 24 });
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock.mock.calls[0]?.[2]).toEqual(
+      expect.objectContaining({
+        cols: 88,
+        rows: 24
+      })
+    );
     manager.sendInput('pane-a', 'echo hi\r');
     manager.resize('pane-a', 140, 50);
 
@@ -66,5 +73,31 @@ describe('TerminalManager lifecycle', () => {
     manager.startSession({ paneId: 'pane-a', shell: 'powershell', cwd: tempDir });
     manager.stopSession('pane-a');
     expect(proc.kill).toHaveBeenCalled();
+  });
+
+  it('clamps invalid initial cols/rows to safe values', async () => {
+    const proc = {
+      pid: 45679,
+      onData: vi.fn(),
+      onExit: vi.fn(),
+      write: vi.fn(),
+      resize: vi.fn(),
+      kill: vi.fn()
+    };
+
+    spawnMock.mockReturnValue(proc);
+
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'vibe-ade-'));
+    const manager = new TerminalManager(tempDir);
+    await manager.initialize();
+
+    manager.startSession({ paneId: 'pane-b', shell: 'powershell', cwd: tempDir, cols: 0, rows: -5 });
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock.mock.calls[0]?.[2]).toEqual(
+      expect.objectContaining({
+        cols: 2,
+        rows: 1
+      })
+    );
   });
 });

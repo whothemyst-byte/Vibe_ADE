@@ -19,6 +19,7 @@ interface MenuDefinition {
 export function AppMenuBar(): JSX.Element {
   const openStartPage = useWorkspaceStore((s) => s.openStartPage);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
+  const openSwarmDashboard = useWorkspaceStore((s) => s.openSwarmDashboard);
   const saveActiveWorkspace = useWorkspaceStore((s) => s.saveActiveWorkspace);
   const saveAsActiveWorkspace = useWorkspaceStore((s) => s.saveAsActiveWorkspace);
 
@@ -94,6 +95,8 @@ export function AppMenuBar(): JSX.Element {
           { label: 'Reload', shortcut: 'Ctrl+R', action: systemAction('reload') },
           { label: 'Force Reload', shortcut: 'Ctrl+Shift+R', action: systemAction('forceReload') },
           { label: 'Toggle DevTools', shortcut: 'Ctrl+Shift+I', action: systemAction('toggleDevTools') },
+          { separator: true, label: 'sep-view-0' },
+          { label: 'Swarm Dashboard', action: () => openSwarmDashboard() },
           { separator: true, label: 'sep-view-1' },
           { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: systemAction('resetZoom') },
           { label: 'Zoom In', shortcut: 'Ctrl+=', action: systemAction('zoomIn') },
@@ -117,7 +120,7 @@ export function AppMenuBar(): JSX.Element {
         items: [{ label: 'About Vibe-ADE', action: systemAction('about') }]
       }
     ],
-    [openSettings, openStartPage, saveActiveWorkspace, saveAsActiveWorkspace, systemAction]
+    [openSettings, openStartPage, openSwarmDashboard, saveActiveWorkspace, saveAsActiveWorkspace, systemAction]
   );
 
   return (

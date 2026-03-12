@@ -654,6 +654,18 @@ html[data-theme='light'] .status-dot {
   background: #64748b;
 }
 
+.status-dot.error {
+  background: #ef4444;
+}
+
+.status-dot.starting {
+  background: #f59e0b;
+}
+
+.status-dot.stopped {
+  background: #94a3b8;
+}
+
 .pane-title {
   font-size: 12px;
   color: var(--text);
@@ -715,6 +727,11 @@ html[data-theme='light'] .status-dot {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-variant-ligatures: none;
+  cursor: default;
+}
+
+.xterm-host .xterm * {
+  cursor: default;
 }
 
 .xterm-host .xterm-viewport {

@@ -44,6 +44,7 @@ export function StartPage(): JSX.Element {
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const openStartPage = useWorkspaceStore((s) => s.openStartPage);
+  const openSwarmDashboard = useWorkspaceStore((s) => s.openSwarmDashboard);
 
   const [name, setName] = useState('My Environment');
   const [rootDir, setRootDir] = useState('C:\\');
@@ -82,6 +83,9 @@ export function StartPage(): JSX.Element {
             <div className="start-actions">
               <button className="primary" onClick={() => setShowCreateModal(true)}>
                 New Workspace
+              </button>
+              <button onClick={() => openSwarmDashboard()}>
+                New Swarm
               </button>
               <button onClick={() => openStartPage('open')}>Open Project</button>
             </div>

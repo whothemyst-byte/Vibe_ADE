@@ -1,0 +1,53 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="72" y1="64" x2="440" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1220"/>
+      <stop offset="0.55" stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#070A10"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(184 144) rotate(65) scale(320 320)">
+      <stop stop-color="#3B82F6" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pane" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#131A2B"/>
+      <stop offset="1" stop-color="#0C111D"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer rounded app tile -->
+  <rect x="44" y="44" width="424" height="424" rx="96" fill="url(#bg)"/>
+  <rect x="44" y="44" width="424" height="424" rx="96" fill="url(#glow)"/>
+  <rect x="44" y="44" width="424" height="424" rx="96" stroke="#3B82F6" stroke-opacity="0.14" stroke-width="4"/>
+
+  <!-- Inner layout (represents environments + panes) -->
+  <rect x="92" y="92" width="328" height="328" rx="42" fill="#0A0F1B" stroke="#23314B" stroke-width="3"/>
+
+  <g opacity="0.98">
+    <rect x="112" y="112" width="156" height="156" rx="26" fill="url(#pane)" stroke="#27324A" stroke-width="2"/>
+    <rect x="244" y="112" width="156" height="156" rx="26" fill="#0B1325" stroke="#27324A" stroke-width="2"/>
+    <rect x="112" y="244" width="156" height="156" rx="26" fill="#0B1325" stroke="#27324A" stroke-width="2"/>
+    <rect x="244" y="244" width="156" height="156" rx="26" fill="url(#pane)" stroke="#27324A" stroke-width="2"/>
+  </g>
+
+  <!-- Terminal prompt (top-left) -->
+  <g transform="translate(130 156)" fill="none" stroke="#FBBF24" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 0 L24 20 L0 40"/>
+  </g>
+  <rect x="174" y="190" width="44" height="12" rx="6" fill="#93C5FD" opacity="0.92"/>
+
+  <!-- Pane dividers / subtle workflow lines -->
+  <path d="M256 128 V384" stroke="#1E2B44" stroke-width="6" stroke-linecap="round" opacity="0.9"/>
+  <path d="M128 256 H384" stroke="#1E2B44" stroke-width="6" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Stylized V mark (bottom-right) -->
+  <g transform="translate(0 0)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M288 284 L314 344 L340 284" stroke="#3B82F6" stroke-width="18"/>
+    <path d="M288 284 L314 344 L340 284" stroke="#93C5FD" stroke-opacity="0.35" stroke-width="6"/>
+  </g>
+
+  <!-- Small nodes (signals / orchestration, but generic) -->
+  <circle cx="312" cy="168" r="10" fill="#22D3EE" opacity="0.9"/>
+  <circle cx="336" cy="200" r="7" fill="#C084FC" opacity="0.85"/>
+  <circle cx="184" cy="312" r="8" fill="#34D399" opacity="0.85"/>
+</svg>

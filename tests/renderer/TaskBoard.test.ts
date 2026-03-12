@@ -18,7 +18,6 @@ function makeWorkspace(): WorkspaceState {
     },
     paneShells: { 'pane-1': 'cmd' },
     activePaneId: 'pane-1',
-    selectedModel: 'llama3.2',
     commandBlocks: { 'pane-1': [] },
     tasks: [
       {
@@ -34,14 +33,6 @@ function makeWorkspace(): WorkspaceState {
         updatedAt: now
       }
     ],
-    paneAgents: {
-      'pane-1': {
-        paneId: 'pane-1',
-        attached: false,
-        model: 'llama3.2',
-        running: false
-      }
-    },
     createdAt: now,
     updatedAt: now
   };

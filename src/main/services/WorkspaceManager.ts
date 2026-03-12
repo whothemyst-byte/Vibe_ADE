@@ -1,11 +1,27 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { AppState, LayoutNode, TaskItem, TaskPriority, TaskStatus, WorkspaceState } from '@shared/types';
+import type {
+  AppState,
+  LayoutNode,
+  TaskItem,
+  TaskPriority,
+  TaskStatus,
+  WorkspaceState
+} from '@shared/types';
 import { DEFAULT_TEMPLATES } from './templates';
 
-interface PersistedState extends AppState {
+interface PersistedStateV2 extends AppState {
+  version: 2;
+}
+
+interface LegacyPersistedStateV1 {
   version: 1;
+  activeWorkspaceId: string | null;
+  workspaces: WorkspaceState[];
+  // Swarm fields were present in v1 and are intentionally ignored now.
+  activeSwarmId?: unknown;
+  swarms?: unknown;
 }
 
 const DEFAULT_TASK_PRIORITY: TaskPriority = 'medium';
@@ -64,13 +80,13 @@ function normalizeWorkspace(workspace: WorkspaceState): WorkspaceState {
   };
 }
 
-function normalizePersistedState(state: PersistedState): PersistedState {
+function normalizePersistedState(state: PersistedStateV2): PersistedStateV2 {
   const workspaces = state.workspaces.map(normalizeWorkspace);
   const activeWorkspaceId = workspaces.some((workspace) => workspace.id === state.activeWorkspaceId)
     ? state.activeWorkspaceId
     : (workspaces[0]?.id ?? null);
   return {
-    version: 1,
+    version: 2,
     activeWorkspaceId,
     workspaces
   };
@@ -95,8 +111,8 @@ function getFirstPaneId(layout: LayoutNode): string {
 export class WorkspaceManager {
   private readonly statePath: string;
   private readonly backupPath: string;
-  private state: PersistedState = {
-    version: 1,
+  private state: PersistedStateV2 = {
+    version: 2,
     activeWorkspaceId: null,
     workspaces: []
   };
@@ -211,7 +227,7 @@ export class WorkspaceManager {
 
   async replaceState(nextState: AppState): Promise<void> {
     this.state = normalizePersistedState({
-      version: 1,
+      version: 2,
       activeWorkspaceId: nextState.activeWorkspaceId,
       workspaces: nextState.workspaces
     });
@@ -241,12 +257,36 @@ export class WorkspaceManager {
     await fs.rename(tempPath, this.statePath);
   }
 
-  private async loadState(pathToLoad: string): Promise<PersistedState> {
+  private async loadState(pathToLoad: string): Promise<PersistedStateV2> {
     const raw = await fs.readFile(pathToLoad, 'utf8');
-    const parsed = JSON.parse(raw) as PersistedState;
-    if (parsed.version !== 1 || !Array.isArray(parsed.workspaces)) {
+    const parsed = JSON.parse(raw) as unknown;
+
+    if (!parsed || typeof parsed !== 'object') {
       throw new Error('Invalid persisted state');
     }
-    return normalizePersistedState(parsed);
+
+    const version = (parsed as { version?: unknown }).version;
+    if (version === 2) {
+      const v2 = parsed as PersistedStateV2;
+      if (!Array.isArray(v2.workspaces)) {
+        throw new Error('Invalid persisted state');
+      }
+      return normalizePersistedState(v2);
+    }
+
+    if (version === 1) {
+      const v1 = parsed as LegacyPersistedStateV1;
+      if (!Array.isArray(v1.workspaces)) {
+        throw new Error('Invalid persisted state');
+      }
+      // Migrate v1 -> v2 by dropping swarm fields entirely.
+      return normalizePersistedState({
+        version: 2,
+        activeWorkspaceId: v1.activeWorkspaceId ?? null,
+        workspaces: v1.workspaces
+      });
+    }
+
+    throw new Error('Invalid persisted state');
   }
 }

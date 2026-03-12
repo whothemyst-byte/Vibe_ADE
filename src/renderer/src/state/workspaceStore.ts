@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { AppState, CommandBlock, PaneId, TaskFilterState, TaskItem, TaskPriority, TaskSortMode, TaskStatus, WorkspaceState } from '@shared/types';
+import type {
+  AppState,
+  CommandBlock,
+  PaneId,
+  TaskFilterState,
+  TaskItem,
+  TaskPriority,
+  TaskSortMode,
+  TaskStatus,
+  WorkspaceState
+} from '@shared/types';
 import {
   appendPaneToWorkspace,
   collectPaneIds,
@@ -14,10 +24,13 @@ import { useToastStore } from '@renderer/hooks/useToast';
 interface UiState {
   commandPaletteOpen: boolean;
   taskBoardTabOpen: boolean;
-  activeView: 'workspace' | 'task-board';
+  activeView: 'workspace' | 'task-board' | 'swarm';
   startPageOpen: boolean;
   startPageMode: 'home' | 'open';
   settingsOpen: boolean;
+  swarmDashboardOpen: boolean;
+  activeSwarmId: string | null;
+  swarmSessions: Array<{ swarmId: string; name: string }>;
   layoutPresetByWorkspace: Record<string, LayoutPresetId>;
   paneOrderByWorkspace: Record<string, PaneId[]>;
   unsavedByWorkspace: Record<string, boolean>;
@@ -46,6 +59,7 @@ interface WorkspaceStoreState {
   addPaneToLayout: () => Promise<void>;
   removePaneFromLayout: (paneId: PaneId) => Promise<boolean>;
   reorderPanes: (sourcePaneId: PaneId, targetPaneId: PaneId) => void;
+  movePaneToIndex: (paneId: PaneId, toIndex: number) => void;
   syncPaneOrder: (workspaceId: string, paneIds: PaneId[]) => void;
   setLayoutPreset: (presetId: LayoutPresetId) => void;
   appendCommandBlock: (paneId: PaneId, block: CommandBlock) => Promise<void>;
@@ -78,6 +92,12 @@ interface WorkspaceStoreState {
   closeStartPage: () => void;
   openSettings: () => void;
   closeSettings: () => void;
+  openSwarmDashboard: (swarmId?: string) => void;
+  closeSwarmDashboard: () => void;
+  setActiveSwarmId: (swarmId: string | null) => void;
+  openSwarmSession: (input: { swarmId: string; name: string }) => void;
+  closeSwarmSession: (swarmId: string) => Promise<void>;
+  setActiveSwarmSession: (swarmId: string) => void;
 }
 
 function activeWorkspace(state: WorkspaceStoreState): WorkspaceState | undefined {
@@ -232,6 +252,9 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     startPageOpen: true,
     startPageMode: 'home',
     settingsOpen: false,
+    swarmDashboardOpen: false,
+    activeSwarmId: null,
+    swarmSessions: [],
     layoutPresetByWorkspace: {},
     paneOrderByWorkspace: {},
     unsavedByWorkspace: {},
@@ -254,7 +277,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         };
       });
       const maps = deriveUiMaps(state.workspaces);
-      set((store) => ({
+      const hasAnyData = state.workspaces.length > 0;
+      set((store) => {
+        const nextActiveView = state.activeWorkspaceId ? store.ui.activeView : store.ui.activeView;
+        return {
         appState: {
           ...state,
           workspaces: normalizedWorkspaces
@@ -262,9 +288,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         loading: false,
         ui: {
           ...store.ui,
+          startPageOpen: store.ui.startPageOpen && !hasAnyData,
+          activeView: nextActiveView,
           ...maps
         }
-      }));
+      };
+      });
     } catch (error) {
       console.error('Failed to initialize workspace:', error);
       useToastStore.getState().addToast('error', 'Failed to load workspaces');
@@ -277,6 +306,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       const paneIds = collectPaneIds(created.layout);
       set((state) => ({
         appState: {
+          ...state.appState,
           activeWorkspaceId: created.id,
           workspaces: [...state.appState.workspaces, created]
         },
@@ -284,6 +314,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
           ...state.ui,
           startPageOpen: false,
           startPageMode: 'home',
+          activeView: 'workspace',
           layoutPresetByWorkspace: {
             ...state.ui.layoutPresetByWorkspace,
             [created.id]: presetFromPaneCount(paneIds.length)
@@ -310,6 +341,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     const paneIds = collectPaneIds(cloned.layout);
     set((state) => ({
       appState: {
+        ...state.appState,
         activeWorkspaceId: cloned.id,
         workspaces: [...state.appState.workspaces, cloned]
       },
@@ -317,6 +349,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         ...state.ui,
         startPageOpen: false,
         startPageMode: 'home',
+        activeView: 'workspace',
         layoutPresetByWorkspace: {
           ...state.ui.layoutPresetByWorkspace,
           [cloned.id]: presetFromPaneCount(paneIds.length)
@@ -357,6 +390,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
         return {
           appState: {
+            ...state.appState,
             activeWorkspaceId: workspaces[0]?.id ?? null,
             workspaces
           },
@@ -582,6 +616,35 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
           paneOrderByWorkspace: {
             ...state.ui.paneOrderByWorkspace,
             [workspaceId]: movePaneInOrder(currentOrder, sourcePaneId, targetPaneId)
+          }
+        }
+      };
+    });
+  },
+  movePaneToIndex: (paneId, toIndex) => {
+    const workspaceId = get().appState.activeWorkspaceId;
+    if (!workspaceId) {
+      return;
+    }
+
+    set((state) => {
+      const currentOrder = state.ui.paneOrderByWorkspace[workspaceId] ?? [];
+      const currentIndex = currentOrder.indexOf(paneId);
+      if (currentIndex < 0) {
+        return state;
+      }
+
+      const next = [...currentOrder];
+      next.splice(currentIndex, 1);
+      const safeIndex = Math.max(0, Math.min(next.length, Math.floor(toIndex)));
+      next.splice(safeIndex, 0, paneId);
+
+      return {
+        ui: {
+          ...markDirty(state, workspaceId),
+          paneOrderByWorkspace: {
+            ...state.ui.paneOrderByWorkspace,
+            [workspaceId]: next
           }
         }
       };
@@ -935,6 +998,81 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       ui: {
         ...state.ui,
         settingsOpen: false
+      }
+    }));
+  },
+  openSwarmDashboard: (swarmId) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        swarmDashboardOpen: true,
+        activeSwarmId: swarmId ?? state.ui.activeSwarmId
+      }
+    }));
+  },
+  closeSwarmDashboard: () => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        swarmDashboardOpen: false
+      }
+    }));
+  },
+  setActiveSwarmId: (swarmId) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        activeSwarmId: swarmId
+      }
+    }));
+  },
+  openSwarmSession: (input) => {
+    set((state) => {
+      const existing = state.ui.swarmSessions.find((s) => s.swarmId === input.swarmId);
+      const sessions = existing
+        ? state.ui.swarmSessions.map((s) => (s.swarmId === input.swarmId ? { ...s, name: input.name } : s))
+        : [...state.ui.swarmSessions, { swarmId: input.swarmId, name: input.name }];
+
+      return {
+        ui: {
+          ...state.ui,
+          activeView: 'swarm',
+          activeSwarmId: input.swarmId,
+          swarmSessions: sessions,
+          startPageOpen: false,
+          swarmDashboardOpen: false
+        }
+      };
+    });
+  },
+  closeSwarmSession: async (swarmId) => {
+    try {
+      await window.vibeAde.swarm.stop(swarmId);
+    } catch (error) {
+      console.warn('Failed to stop swarm:', error);
+    }
+    set((state) => {
+      const sessions = state.ui.swarmSessions.filter((s) => s.swarmId !== swarmId);
+      const nextActiveSwarmId =
+        state.ui.activeSwarmId === swarmId ? (sessions[0]?.swarmId ?? null) : state.ui.activeSwarmId;
+      const nextActiveView = state.ui.activeView === 'swarm' && !nextActiveSwarmId ? 'workspace' : state.ui.activeView;
+
+      return {
+        ui: {
+          ...state.ui,
+          swarmSessions: sessions,
+          activeSwarmId: nextActiveSwarmId,
+          activeView: nextActiveSwarmId ? 'swarm' : nextActiveView
+        }
+      };
+    });
+  },
+  setActiveSwarmSession: (swarmId) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        activeView: 'swarm',
+        activeSwarmId: swarmId
       }
     }));
   }

@@ -25,12 +25,14 @@ interface SupabaseLayoutRow {
   updated_at: string;
 }
 
+
 export interface CloudWorkspaceSummary {
   id: string;
   name: string;
   updatedAt: string;
   createdAt: string;
 }
+
 
 export interface CloudSyncStatus {
   configured: boolean;
@@ -47,6 +49,7 @@ export interface CloudSyncConflict {
   winner: CloudSyncWinner;
 }
 
+
 export interface CloudSyncPreview {
   strategy: 'last_write_wins';
   compared: number;
@@ -61,6 +64,7 @@ interface RemoteWorkspaceMeta {
   name: string;
   updatedAt: string;
 }
+
 
 function firstPaneId(layout: LayoutNode): string {
   if (layout.type === 'pane') {
@@ -238,7 +242,7 @@ export class CloudSyncManager {
     const remote = await this.pullRemoteState();
     const local = this.workspaceManager.list();
     if (remote.workspaces.length === 0 && local.workspaces.length === 0) {
-      throw new Error('No remote workspaces available to pull.');
+      throw new Error('No remote data available to pull.');
     }
     const merged = this.mergeLocalAndRemote(local, remote);
     await this.workspaceManager.replaceState(merged);
@@ -386,10 +390,10 @@ export class CloudSyncManager {
     }
 
     const mergedWorkspaces = Array.from(mergedById.values()).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
-    const mergedIds = new Set(mergedWorkspaces.map((workspace) => workspace.id));
-    const activeWorkspaceId = local.activeWorkspaceId && mergedIds.has(local.activeWorkspaceId)
+    const mergedWorkspaceIds = new Set(mergedWorkspaces.map((workspace) => workspace.id));
+    const activeWorkspaceId = local.activeWorkspaceId && mergedWorkspaceIds.has(local.activeWorkspaceId)
       ? local.activeWorkspaceId
-      : remote.activeWorkspaceId && mergedIds.has(remote.activeWorkspaceId)
+      : remote.activeWorkspaceId && mergedWorkspaceIds.has(remote.activeWorkspaceId)
         ? remote.activeWorkspaceId
         : mergedWorkspaces[0]?.id ?? null;
 

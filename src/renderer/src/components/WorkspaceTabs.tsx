@@ -5,13 +5,13 @@ import { LayoutSelector } from './LayoutSelector';
 import { UiIcon } from './UiIcon';
 
 interface ContextState {
-  workspaceId: string;
+  id: string;
   x: number;
   y: number;
 }
 
 interface RenameState {
-  workspaceId: string;
+  id: string;
   value: string;
 }
 
@@ -24,37 +24,44 @@ export function WorkspaceTabs(): JSX.Element {
   const requestCloseWorkspace = useWorkspaceStore((s) => s.requestCloseWorkspace);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const toggleTaskBoard = useWorkspaceStore((s) => s.toggleTaskBoard);
+  const setActiveSwarmSession = useWorkspaceStore((s) => s.setActiveSwarmSession);
+  const closeSwarmSession = useWorkspaceStore((s) => s.closeSwarmSession);
 
   const [context, setContext] = useState<ContextState | null>(null);
   const [renameState, setRenameState] = useState<RenameState | null>(null);
 
   const sorted = useMemo(() => [...appState.workspaces], [appState.workspaces]);
   const taskBoardActive = ui.taskBoardTabOpen && ui.activeView === 'task-board';
+  const swarmActiveId = ui.activeView === 'swarm' ? ui.activeSwarmId : null;
 
-  const beginRename = (workspaceId: string): void => {
-    const workspace = sorted.find((item) => item.id === workspaceId);
+  const beginRename = (id: string): void => {
+    const workspace = sorted.find((item) => item.id === id);
     if (!workspace) {
       return;
     }
-    setRenameState({ workspaceId, value: workspace.name });
+    setRenameState({ id, value: workspace.name });
   };
 
   const submitRename = async (): Promise<void> => {
     if (!renameState) {
       return;
     }
-    const workspace = sorted.find((item) => item.id === renameState.workspaceId);
+    const trimmed = renameState.value.trim();
+    if (!trimmed) {
+      setRenameState(null);
+      return;
+    }
+    const workspace = sorted.find((item) => item.id === renameState.id);
     if (!workspace) {
       setRenameState(null);
       return;
     }
-    const trimmed = renameState.value.trim();
-    if (!trimmed || trimmed === workspace.name) {
+    if (trimmed === workspace.name) {
       setRenameState(null);
       return;
     }
     try {
-      await renameWorkspace(renameState.workspaceId, trimmed);
+      await renameWorkspace(renameState.id, trimmed);
     } catch (error) {
       console.error('Failed to rename workspace:', error);
       return;
@@ -81,7 +88,7 @@ export function WorkspaceTabs(): JSX.Element {
               className={active ? 'workspace-tab-item active' : 'workspace-tab-item'}
               onContextMenu={(event) => {
                 event.preventDefault();
-                setContext({ workspaceId: workspace.id, x: event.clientX, y: event.clientY });
+                setContext({ id: workspace.id, x: event.clientX, y: event.clientY });
               }}
             >
               <button
@@ -97,6 +104,24 @@ export function WorkspaceTabs(): JSX.Element {
                 className="workspace-tab-close"
                 title="Close workspace"
                 onClick={() => void requestCloseWorkspace(workspace.id)}
+              >
+                <UiIcon name="close" className="ui-icon ui-icon-sm" />
+              </button>
+            </div>
+          );
+        })}
+
+        {ui.swarmSessions.map((swarm) => {
+          const active = swarm.swarmId === swarmActiveId;
+          return (
+            <div key={swarm.swarmId} className={active ? 'workspace-tab-item active' : 'workspace-tab-item'}>
+              <button className="workspace-tab" onClick={() => setActiveSwarmSession(swarm.swarmId)}>
+                <span className="workspace-tab-name">{swarm.name || swarm.swarmId}</span>
+              </button>
+              <button
+                className="workspace-tab-close"
+                title="Stop swarm"
+                onClick={() => void closeSwarmSession(swarm.swarmId)}
               >
                 <UiIcon name="close" className="ui-icon ui-icon-sm" />
               </button>
@@ -153,7 +178,7 @@ export function WorkspaceTabs(): JSX.Element {
         <div className="workspace-context-menu" style={{ left: context.x, top: context.y }} onClick={(event) => event.stopPropagation()}>
           <button
             onClick={() => {
-              beginRename(context.workspaceId);
+              beginRename(context.id);
               setContext(null);
             }}
           >
@@ -161,7 +186,7 @@ export function WorkspaceTabs(): JSX.Element {
           </button>
           <button
             onClick={() => {
-              void requestCloseWorkspace(context.workspaceId);
+              void requestCloseWorkspace(context.id);
               setContext(null);
             }}
           >
