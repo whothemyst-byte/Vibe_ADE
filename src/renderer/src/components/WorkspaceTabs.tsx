@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { collectPaneIds } from '@renderer/services/layoutEngine';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import { LayoutSelector } from './LayoutSelector';
 import { UiIcon } from './UiIcon';
 
@@ -19,7 +20,7 @@ export function WorkspaceTabs(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
   const ui = useWorkspaceStore((s) => s.ui);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
-  const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
+  const openCreateFlow = useWorkspaceStore((s) => s.openCreateFlow);
   const renameWorkspace = useWorkspaceStore((s) => s.renameWorkspace);
   const requestCloseWorkspace = useWorkspaceStore((s) => s.requestCloseWorkspace);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
@@ -33,6 +34,26 @@ export function WorkspaceTabs(): JSX.Element {
   const sorted = useMemo(() => [...appState.workspaces], [appState.workspaces]);
   const taskBoardActive = ui.taskBoardTabOpen && ui.activeView === 'task-board';
   const swarmActiveId = ui.activeView === 'swarm' ? ui.activeSwarmId : null;
+  const subscription = useMemo(() => normalizeSubscriptionState(appState.subscription), [appState.subscription]);
+  const taskBoardLocked = !SUBSCRIPTION_PLANS[subscription.tier].features.taskBoard;
+  const updateStatus = ui.updateStatus;
+  const showUpdateButton =
+    updateStatus.state === 'available'
+    || updateStatus.state === 'downloading'
+    || updateStatus.state === 'downloaded';
+  const updateLabel =
+    updateStatus.state === 'downloaded'
+      ? 'Install Update'
+      : updateStatus.state === 'downloading'
+        ? `Downloading ${Math.round(updateStatus.progress ?? 0)}%`
+        : 'Update Available';
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false);
+
+  useEffect(() => {
+    if (updateStatus.state === 'available' && updateStatus.releaseNotes) {
+      setShowReleaseNotes(true);
+    }
+  }, [updateStatus.state, updateStatus.releaseNotes]);
 
   const beginRename = (id: string): void => {
     const workspace = sorted.find((item) => item.id === id);
@@ -70,7 +91,9 @@ export function WorkspaceTabs(): JSX.Element {
   };
 
   return (
-    <header className="top-nav" onClick={() => setContext(null)}>
+    <header className="top-nav" onClick={() => {
+      setContext(null);
+    }}>
       <div className="top-nav-center app-drag-region">
         {sorted.map((workspace) => {
           const paneCount = collectPaneIds(workspace.layout).length;
@@ -127,7 +150,10 @@ export function WorkspaceTabs(): JSX.Element {
               className="workspace-tab"
               onClick={() => toggleTaskBoard(true)}
             >
-              <span className="workspace-tab-name">Task Board</span>
+              <span className="workspace-tab-name">
+                Task Board
+                {taskBoardLocked && <UiIcon name="lock" className="ui-icon ui-icon-sm lock-icon" />}
+              </span>
             </button>
             <button
               className="workspace-tab-close"
@@ -140,13 +166,11 @@ export function WorkspaceTabs(): JSX.Element {
         )}
         <button
           className="top-button workspace-add-button"
-          onClick={() =>
-            void createWorkspace({
-              name: `Workspace ${sorted.length + 1}`,
-              rootDir: 'C:\\'
-            })
-          }
-          title="Create workspace"
+          onClick={(event) => {
+            event.stopPropagation();
+            openCreateFlow('choose');
+          }}
+          title="New..."
         >
           <UiIcon name="plus" className="ui-icon" />
         </button>
@@ -154,6 +178,25 @@ export function WorkspaceTabs(): JSX.Element {
 
       <div className="top-nav-right">
         <LayoutSelector />
+        {showUpdateButton && (
+          <button
+            className="top-button update-button"
+            onClick={() => {
+              if (updateStatus.state === 'downloaded') {
+                void window.vibeAde.update.install();
+                return;
+              }
+              if (updateStatus.state === 'available') {
+                void window.vibeAde.update.download();
+              }
+            }}
+            disabled={updateStatus.state === 'downloading'}
+            title={updateLabel}
+          >
+            <UiIcon name="bolt" className="ui-icon ui-icon-sm" />
+            {updateLabel}
+          </button>
+        )}
         <button
           className={ui.taskBoardTabOpen ? 'top-button active task-board-nav-button' : 'top-button task-board-nav-button'}
           title="Task Board"
@@ -161,6 +204,7 @@ export function WorkspaceTabs(): JSX.Element {
           onClick={() => toggleTaskBoard(true)}
         >
           Task Board
+          {taskBoardLocked && <UiIcon name="lock" className="ui-icon ui-icon-sm lock-icon" />}
         </button>
         <button className="top-button icon-top-button" title="Settings" aria-label="Settings" onClick={openSettings}>
           <UiIcon name="settings" className="ui-icon" />
@@ -213,6 +257,37 @@ export function WorkspaceTabs(): JSX.Element {
                 Save
               </button>
             </div>
+          </section>
+        </div>
+      )}
+
+      {showReleaseNotes && updateStatus.releaseNotes && (
+        <div className="update-notes-overlay" onClick={() => setShowReleaseNotes(false)}>
+          <section className="update-notes-card" onClick={(event) => event.stopPropagation()}>
+            <header className="update-notes-header">
+              <div>
+                <h3>Update Available</h3>
+                {updateStatus.version && <small>Version {updateStatus.version}</small>}
+              </div>
+              <button className="icon-only-button" onClick={() => setShowReleaseNotes(false)} aria-label="Close">
+                <UiIcon name="close" className="ui-icon ui-icon-sm" />
+              </button>
+            </header>
+            <div className="update-notes-body">
+              <pre>{updateStatus.releaseNotes}</pre>
+            </div>
+            <footer className="update-notes-footer">
+              <button onClick={() => setShowReleaseNotes(false)}>Later</button>
+              <button
+                className="primary"
+                onClick={() => {
+                  void window.vibeAde.update.download();
+                  setShowReleaseNotes(false);
+                }}
+              >
+                Download update
+              </button>
+            </footer>
           </section>
         </div>
       )}

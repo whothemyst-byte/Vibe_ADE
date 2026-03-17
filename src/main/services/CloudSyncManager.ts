@@ -1,4 +1,5 @@
 import type { AppState, LayoutNode, PaneId, WorkspaceState } from '@shared/types';
+import { normalizeSubscriptionState } from '@shared/subscription';
 import type { AuthManager } from './AuthManager';
 import type { WorkspaceManager } from './WorkspaceManager';
 
@@ -399,7 +400,8 @@ export class CloudSyncManager {
 
     return {
       activeWorkspaceId,
-      workspaces: mergedWorkspaces
+      workspaces: mergedWorkspaces,
+      subscription: normalizeSubscriptionState(local.subscription ?? remote.subscription)
     };
   }
 

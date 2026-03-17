@@ -9,6 +9,7 @@ import { TemplateRunner } from './services/TemplateRunner';
 import { CrashRecoveryManager } from './services/CrashRecoveryManager';
 import { AuthManager } from './services/AuthManager';
 import { CloudSyncManager } from './services/CloudSyncManager';
+import { UpdateManager } from './services/UpdateManager';
 import { installAppMenu, setSaveMenuEnabled } from './windows/appMenu';
 
 let workspaceManager: WorkspaceManager;
@@ -17,6 +18,7 @@ let templateRunner: TemplateRunner;
 let crashRecoveryManager: CrashRecoveryManager;
 let authManager: AuthManager;
 let cloudSyncManager: CloudSyncManager;
+let updateManager: UpdateManager;
 let finalizingQuit = false;
 
 const isDev = !app.isPackaged;
@@ -89,6 +91,14 @@ async function bootstrap(): Promise<void> {
   cloudSyncManager = new CloudSyncManager({ authManager, workspaceManager });
 
   const win = createMainWindow();
+  if (!updateManager) {
+    updateManager = new UpdateManager(win.webContents);
+    setTimeout(() => {
+      void updateManager.checkForUpdates();
+    }, 8_000);
+  } else {
+    updateManager.setWebContents(win.webContents);
+  }
   installAppMenu(win);
   registerIpcHandlers({
     workspaceManager,
@@ -96,6 +106,7 @@ async function bootstrap(): Promise<void> {
     templateRunner,
     authManager,
     cloudSyncManager,
+    updateManager,
     webContents: win.webContents,
     setSaveMenuEnabled
   });

@@ -10,6 +10,7 @@ export type ShortcutAction =
 export type ShortcutBindings = Record<ShortcutAction, string>;
 
 const SHORTCUTS_KEY = 'vibe-ade-shortcuts';
+const ENVIRONMENT_SAVE_DIR_KEY = 'vibe-ade-environment-save-dir';
 export const DEFAULT_SHORTCUTS: ShortcutBindings = {
   toggleCommandPalette: 'Ctrl+K',
   openSettings: 'Ctrl+,',
@@ -43,6 +44,27 @@ export function loadShortcuts(): ShortcutBindings {
 
 export function saveShortcuts(bindings: ShortcutBindings): void {
   window.localStorage.setItem(SHORTCUTS_KEY, JSON.stringify(bindings));
+}
+
+export function loadEnvironmentSaveDirectory(): string | null {
+  try {
+    const value = window.localStorage.getItem(ENVIRONMENT_SAVE_DIR_KEY);
+    if (!value) {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveEnvironmentSaveDirectory(directory: string | null): void {
+  if (!directory?.trim()) {
+    window.localStorage.removeItem(ENVIRONMENT_SAVE_DIR_KEY);
+    return;
+  }
+  window.localStorage.setItem(ENVIRONMENT_SAVE_DIR_KEY, directory.trim());
 }
 
 export function toShortcutCombo(event: KeyboardEvent): string | null {

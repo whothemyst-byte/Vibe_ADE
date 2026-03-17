@@ -9,6 +9,7 @@ import type {
   TaskStatus,
   WorkspaceState
 } from '@shared/types';
+import { normalizeSubscriptionState } from '@shared/subscription';
 import { DEFAULT_TEMPLATES } from './templates';
 
 interface PersistedStateV2 extends AppState {
@@ -88,7 +89,8 @@ function normalizePersistedState(state: PersistedStateV2): PersistedStateV2 {
   return {
     version: 2,
     activeWorkspaceId,
-    workspaces
+    workspaces,
+    subscription: normalizeSubscriptionState(state.subscription)
   };
 }
 
@@ -114,7 +116,8 @@ export class WorkspaceManager {
   private state: PersistedStateV2 = {
     version: 2,
     activeWorkspaceId: null,
-    workspaces: []
+    workspaces: [],
+    subscription: normalizeSubscriptionState()
   };
 
   constructor(userDataDir: string) {
@@ -141,7 +144,8 @@ export class WorkspaceManager {
   list(): AppState {
     return {
       activeWorkspaceId: this.state.activeWorkspaceId,
-      workspaces: this.state.workspaces
+      workspaces: this.state.workspaces,
+      subscription: normalizeSubscriptionState(this.state.subscription)
     };
   }
 
@@ -229,7 +233,18 @@ export class WorkspaceManager {
     this.state = normalizePersistedState({
       version: 2,
       activeWorkspaceId: nextState.activeWorkspaceId,
-      workspaces: nextState.workspaces
+      workspaces: nextState.workspaces,
+      subscription: normalizeSubscriptionState(nextState.subscription)
+    });
+    await this.persist();
+  }
+
+  async updateSubscription(subscription: AppState['subscription']): Promise<void> {
+    this.state = normalizePersistedState({
+      version: 2,
+      activeWorkspaceId: this.state.activeWorkspaceId,
+      workspaces: this.state.workspaces,
+      subscription: normalizeSubscriptionState(subscription)
     });
     await this.persist();
   }

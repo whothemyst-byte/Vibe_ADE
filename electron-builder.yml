@@ -41,3 +41,7 @@ nsis:
   allowToChangeInstallationDirectory: true
 portable:
   artifactName: ${productName}-${version}-portable-${arch}.${ext}
+publish:
+  provider: github
+  owner: ${env:GH_OWNER}
+  repo: ${env:GH_REPO}

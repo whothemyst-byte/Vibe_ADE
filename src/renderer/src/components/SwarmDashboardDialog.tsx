@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import { UiIcon } from './UiIcon';
 
 // --- Types ---
@@ -42,6 +43,12 @@ const WIZARD_STYLES = `
     display: flex;
     flex-direction: column;
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .swarm-wizard-overlay.embedded {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
   }
 
   .wizard-header {
@@ -312,10 +319,11 @@ function RosterSection({
   );
 }
 
-export function SwarmDashboardDialog(): JSX.Element {
-  const close = useWorkspaceStore((s) => s.closeSwarmDashboard);
+export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose?: () => void } = {}): JSX.Element {
+  const closeDashboard = useWorkspaceStore((s) => s.closeSwarmDashboard);
   const openSwarmSession = useWorkspaceStore((s) => s.openSwarmSession);
   const appState = useWorkspaceStore((s) => s.appState);
+  const close = props.onRequestClose ?? closeDashboard;
 
   const activeWorkspace = useMemo(() => {
     const id = appState.activeWorkspaceId;
@@ -338,6 +346,9 @@ export function SwarmDashboardDialog(): JSX.Element {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const subscription = normalizeSubscriptionState(appState.subscription);
+  const plan = SUBSCRIPTION_PLANS[subscription.tier];
+  const maxAgents = plan.limits.concurrentAgentsPerSwarm;
 
   // -- Handlers --
 
@@ -345,6 +356,10 @@ export function SwarmDashboardDialog(): JSX.Element {
 
   const handleAddAgent = (role: AgentRole) => {
     setAgents(prev => {
+      if (maxAgents !== null && prev.length >= maxAgents) {
+        setError(`Flux plan allows up to ${maxAgents} concurrent agents per swarm.`);
+        return prev;
+      }
       const existing = prev.filter(a => a.role === role);
       const nextNum = existing.length + 1;
       const id = `${role}-${nextNum}`;
@@ -406,6 +421,20 @@ export function SwarmDashboardDialog(): JSX.Element {
     setLoading(true);
     setError(null);
     try {
+      const normalizedSub = normalizeSubscriptionState(appState.subscription);
+      const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
+      if (!plan.features.swarms) {
+        throw new Error('QuanSwarm is available on Flux and Forge plans.');
+      }
+      const swarmLimit = plan.limits.swarmRunsPerMonth;
+      if (swarmLimit !== null && normalizedSub.usage.swarmsStarted >= swarmLimit) {
+        throw new Error(`Flux plan limit reached (${swarmLimit} swarms/month). Upgrade to Forge for unlimited swarms.`);
+      }
+      const maxAgents = plan.limits.concurrentAgentsPerSwarm;
+      if (maxAgents !== null && agents.length > maxAgents) {
+        throw new Error(`Flux plan allows up to ${maxAgents} concurrent agents per swarm.`);
+      }
+
       const swarmId = defaultSwarmId();
       // Map local config to API shape
       const agentList = agents.map(a => ({
@@ -425,6 +454,20 @@ export function SwarmDashboardDialog(): JSX.Element {
         throw new Error(result.error);
       }
 
+      if (normalizedSub !== appState.subscription) {
+        await window.vibeAde.workspace.updateSubscription(normalizedSub);
+      }
+      const nextSub = {
+        ...normalizedSub,
+        usage: {
+          ...normalizedSub.usage,
+          swarmsStarted: normalizedSub.usage.swarmsStarted + 1
+        }
+      };
+      await window.vibeAde.workspace.updateSubscription(nextSub);
+      useWorkspaceStore.setState((state) => ({
+        appState: { ...state.appState, subscription: nextSub }
+      }));
       openSwarmSession({ swarmId, name: swarmName.trim() });
       close();
     } catch (e) {
@@ -439,7 +482,7 @@ export function SwarmDashboardDialog(): JSX.Element {
   return (
     <>
       <style>{WIZARD_STYLES}</style>
-      <div className="swarm-wizard-overlay" onClick={() => close()}>
+      <div className={props.embedded ? 'swarm-wizard-overlay embedded' : 'swarm-wizard-overlay'} onClick={() => close()}>
         <div className="swarm-wizard-card" onClick={(e) => e.stopPropagation()}>
           
           {/* Header */}

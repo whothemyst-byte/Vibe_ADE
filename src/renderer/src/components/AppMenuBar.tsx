@@ -18,6 +18,8 @@ interface MenuDefinition {
 
 export function AppMenuBar(): JSX.Element {
   const openStartPage = useWorkspaceStore((s) => s.openStartPage);
+  const openCreateFlow = useWorkspaceStore((s) => s.openCreateFlow);
+  const openEnvironmentOverlay = useWorkspaceStore((s) => s.openEnvironmentOverlay);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const openSwarmDashboard = useWorkspaceStore((s) => s.openSwarmDashboard);
   const saveActiveWorkspace = useWorkspaceStore((s) => s.saveActiveWorkspace);
@@ -64,8 +66,8 @@ export function AppMenuBar(): JSX.Element {
         id: 'file',
         label: 'File',
         items: [
-          { label: 'New Environment', shortcut: 'Ctrl+N', action: () => openStartPage('home') },
-          { label: 'Open Environment', shortcut: 'Ctrl+O', action: () => openStartPage('open') },
+          { label: 'New Environment', shortcut: 'Ctrl+N', action: () => openCreateFlow('workspace') },
+          { label: 'Open Environment', shortcut: 'Ctrl+O', action: () => openEnvironmentOverlay() },
           { separator: true, label: 'sep-file-1' },
           { label: 'Save', shortcut: 'Ctrl+S', action: () => void saveActiveWorkspace() },
           { label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: () => void saveAsActiveWorkspace() },
@@ -120,7 +122,7 @@ export function AppMenuBar(): JSX.Element {
         items: [{ label: 'About Vibe-ADE', action: systemAction('about') }]
       }
     ],
-    [openSettings, openStartPage, openSwarmDashboard, saveActiveWorkspace, saveAsActiveWorkspace, systemAction]
+    [openCreateFlow, openEnvironmentOverlay, openSettings, openStartPage, openSwarmDashboard, saveActiveWorkspace, saveAsActiveWorkspace, systemAction]
   );
 
   return (

@@ -1,8 +1,12 @@
 {
   "name": "vibe-ade",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Windows-native Development Environment",
   "main": "dist/main/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/whothemyst-byte/Vibe_ADE.git"
+  },
   "author": "",
   "license": "MIT",
   "scripts": {
@@ -21,6 +25,7 @@
   },
   "dependencies": {
     "electron-store": "^10.0.1",
+    "electron-updater": "^6.8.3",
     "node-pty": "^1.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

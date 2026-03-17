@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, type WebContents } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, shell, type WebContents } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,6 +16,9 @@ import type { AuthManager } from '@main/services/AuthManager';
 import type { CloudSyncManager } from '@main/services/CloudSyncManager';
 import type { TemplateRunner } from '@main/services/TemplateRunner';
 import type { TerminalManager } from '@main/services/TerminalManager';
+import type { UpdateManager } from '@main/services/UpdateManager';
+import { buildMentionPayload, listDirectoryEntries } from '@main/services/TerminalMentionPayload';
+import { exportEnvironmentToDirectory, listEnvironmentExports, loadEnvironmentExport } from '@main/services/EnvironmentFileManager';
 import type { WorkspaceManager } from '@main/services/WorkspaceManager';
 import { swarmManager } from '@main/services/SwarmManager';
 import { swarmEventBus } from '@main/services/SwarmEventBus';
@@ -28,6 +31,7 @@ interface Dependencies {
   templateRunner: TemplateRunner;
   authManager: AuthManager;
   cloudSyncManager: CloudSyncManager;
+  updateManager: UpdateManager;
   webContents: WebContents;
   setSaveMenuEnabled: (enabled: boolean) => void;
 }
@@ -58,6 +62,19 @@ function assertPaneId(value: unknown): asserts value is string {
   assertNonEmptyString(value, 'paneId');
   if (value.length > MAX_PANE_ID_LENGTH || value.includes('\0')) {
     throw new Error('Invalid paneId');
+  }
+}
+
+function assertWorkspacePayload(value: unknown): asserts value is WorkspaceState {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Invalid workspace');
+  }
+  const workspace = value as Partial<WorkspaceState>;
+  assertWorkspaceId(workspace.id);
+  assertNonEmptyString(workspace.name, 'workspace.name');
+  assertNonEmptyString(workspace.rootDir, 'workspace.rootDir');
+  if (!workspace.layout) {
+    throw new Error('Invalid workspace.layout');
   }
 }
 
@@ -229,8 +246,61 @@ function assertWorkspaceCwd(workspaceManager: WorkspaceManager, cwd: unknown): a
   }
 }
 
+function assertWorkspacePath(
+  workspace: WorkspaceState,
+  value: unknown,
+  field: string,
+  kind: 'dir' | 'file' | 'any'
+): asserts value is string {
+  assertNonEmptyString(value, field);
+  const resolved = path.resolve(value);
+  if (!path.isAbsolute(resolved)) {
+    throw new Error(`${field} must be an absolute path.`);
+  }
+  if (!isPathInside(workspace.rootDir, resolved)) {
+    throw new Error(`${field} must be inside the workspace root.`);
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`${field} does not exist.`);
+  }
+  const stat = fs.statSync(resolved);
+  if (kind === 'dir' && !stat.isDirectory()) {
+    throw new Error(`${field} must be a directory.`);
+  }
+  if (kind === 'file' && !stat.isFile()) {
+    throw new Error(`${field} must be a file.`);
+  }
+}
+
+function assertExistingPath(value: unknown, field: string, kind: 'dir' | 'file' | 'any'): asserts value is string {
+  assertNonEmptyString(value, field);
+  const resolved = path.resolve(value);
+  if (!path.isAbsolute(resolved)) {
+    throw new Error(`${field} must be an absolute path.`);
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`${field} does not exist.`);
+  }
+  const stat = fs.statSync(resolved);
+  if (kind === 'dir' && !stat.isDirectory()) {
+    throw new Error(`${field} must be a directory.`);
+  }
+  if (kind === 'file' && !stat.isFile()) {
+    throw new Error(`${field} must be a file.`);
+  }
+}
+
 export function registerIpcHandlers(deps: Dependencies): void {
-  const { workspaceManager, terminalManager, templateRunner, authManager, cloudSyncManager, webContents, setSaveMenuEnabled } = deps;
+  const {
+    workspaceManager,
+    terminalManager,
+    templateRunner,
+    authManager,
+    cloudSyncManager,
+    updateManager,
+    webContents,
+    setSaveMenuEnabled
+  } = deps;
 
   // Bridge swarm events to the renderer for real-time UI.
   swarmEventBus.attachUiBridge({
@@ -311,6 +381,39 @@ export function registerIpcHandlers(deps: Dependencies): void {
 
   ipcMain.handle('workspace:save', (_event, workspace) => {
     return workspaceManager.save(workspace);
+  });
+
+  ipcMain.handle('workspace:updateSubscription', (_event, subscription) => {
+    return workspaceManager.updateSubscription(subscription);
+  });
+
+  ipcMain.handle('workspace:exportToDirectory', async (_event, workspace: unknown, directory: unknown) => {
+    assertWorkspacePayload(workspace);
+    assertNonEmptyString(directory, 'directory');
+    return { filePath: await exportEnvironmentToDirectory(workspace, directory) };
+  });
+
+  ipcMain.handle('workspace:listLocalExports', async (_event, directory: unknown) => {
+    assertNonEmptyString(directory, 'directory');
+    return listEnvironmentExports(directory);
+  });
+
+  ipcMain.handle('workspace:importFromFile', async (_event, filePath: unknown) => {
+    assertNonEmptyString(filePath, 'filePath');
+    const workspace = await loadEnvironmentExport(filePath);
+    const current = workspaceManager.list();
+    const index = current.workspaces.findIndex((item) => item.id === workspace.id);
+    const workspaces =
+      index >= 0
+        ? current.workspaces.map((item) => (item.id === workspace.id ? workspace : item))
+        : [...current.workspaces, workspace];
+
+    await workspaceManager.replaceState({
+      activeWorkspaceId: workspace.id,
+      workspaces
+    });
+
+    return workspaceManager.list();
   });
 
   ipcMain.handle('system:setWindowTheme', (_event, input) => {
@@ -452,6 +555,51 @@ export function registerIpcHandlers(deps: Dependencies): void {
     return block;
   });
 
+  ipcMain.handle('terminal:listDirectory', async (_event, input: unknown) => {
+    assertRecord(input, 'terminal listDirectory payload');
+    const workspaceId = input.workspaceId;
+    assertWorkspaceId(workspaceId);
+    const directoryValue = input.directory;
+    assertExistingPath(directoryValue, 'directory', 'dir');
+    const directory = path.resolve(directoryValue);
+    return listDirectoryEntries(directory);
+  });
+
+  ipcMain.handle('terminal:buildMentionPayload', async (_event, input: unknown) => {
+    assertRecord(input, 'terminal buildMentionPayload payload');
+    const workspaceId = input.workspaceId;
+    assertWorkspaceId(workspaceId);
+    const workspace = loadWorkspace(workspaceId);
+    const targetPathValue = input.targetPath;
+    assertExistingPath(targetPathValue, 'targetPath', 'any');
+    const targetPath = path.resolve(targetPathValue);
+
+    const clamp = (value: unknown, fallback: number, min: number, max: number): number => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+      const rounded = Math.floor(value);
+      if (!Number.isFinite(rounded)) return fallback;
+      return Math.max(min, Math.min(max, rounded));
+    };
+
+    const tree = input.tree as Record<string, unknown> | undefined;
+    const keyFiles = input.keyFiles as Record<string, unknown> | undefined;
+
+    const payload = await buildMentionPayload(workspace.rootDir, targetPath, {
+      tree: {
+        maxDepth: clamp(tree?.maxDepth, 4, 0, 10),
+        maxEntries: clamp(tree?.maxEntries, 1200, 50, 20_000),
+        maxLines: clamp(tree?.maxLines, 400, 20, 5000)
+      },
+      keyFiles: {
+        maxFiles: clamp(keyFiles?.maxFiles, 6, 0, 50),
+        maxCharsPerFile: clamp(keyFiles?.maxCharsPerFile, 2200, 200, 50_000)
+      },
+      maxTotalChars: clamp(input.maxTotalChars, 60_000, 5_000, 250_000)
+    });
+
+    return payload;
+  });
+
   ipcMain.handle('system:selectDirectory', async () => {
     const window = BrowserWindow.getFocusedWindow();
     const result = await dialog.showOpenDialog(window ?? undefined, {
@@ -485,6 +633,16 @@ export function registerIpcHandlers(deps: Dependencies): void {
     }
     clipboard.writeText(text);
   });
+
+  ipcMain.handle('system:openExternal', (_event, url: unknown) => {
+    assertNonEmptyString(url, 'url');
+    return shell.openExternal(url);
+  });
+
+  ipcMain.handle('update:getStatus', () => updateManager.getStatus());
+  ipcMain.handle('update:check', () => updateManager.checkForUpdates());
+  ipcMain.handle('update:download', () => updateManager.downloadUpdate());
+  ipcMain.handle('update:install', () => updateManager.installUpdate());
 
   ipcMain.handle('auth:getSession', () => authManager.getSession());
   ipcMain.handle('auth:login', (_event, email: string, password: string) => authManager.login(email, password));

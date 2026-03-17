@@ -10,6 +10,10 @@ const api: VibeAdeApi = {
     remove: (workspaceId) => ipcRenderer.invoke('workspace:remove', workspaceId),
     setActive: (workspaceId) => ipcRenderer.invoke('workspace:setActive', workspaceId),
     save: (workspace) => ipcRenderer.invoke('workspace:save', workspace),
+    updateSubscription: (subscription) => ipcRenderer.invoke('workspace:updateSubscription', subscription),
+    exportToDirectory: (workspace, directory) => ipcRenderer.invoke('workspace:exportToDirectory', workspace, directory),
+    listLocalExports: (directory) => ipcRenderer.invoke('workspace:listLocalExports', directory),
+    importFromFile: (filePath) => ipcRenderer.invoke('workspace:importFromFile', filePath),
     listTemplates: () => ipcRenderer.invoke('workspace:listTemplates')
   },
   terminal: {
@@ -20,7 +24,9 @@ const api: VibeAdeApi = {
       ipcRenderer.invoke('terminal:executeInSession', paneId, command, forceSubmit),
     resize: (paneId, cols, rows) => ipcRenderer.invoke('terminal:resize', paneId, cols, rows),
     getSessionSnapshot: (paneId) => ipcRenderer.invoke('terminal:getSessionSnapshot', paneId),
-    runStructuredCommand: (input) => ipcRenderer.invoke('terminal:runStructuredCommand', input)
+    runStructuredCommand: (input) => ipcRenderer.invoke('terminal:runStructuredCommand', input),
+    listDirectory: (input) => ipcRenderer.invoke('terminal:listDirectory', input),
+    buildMentionPayload: (input) => ipcRenderer.invoke('terminal:buildMentionPayload', input)
   },
   system: {
     selectDirectory: () => ipcRenderer.invoke('system:selectDirectory'),
@@ -29,7 +35,14 @@ const api: VibeAdeApi = {
     performMenuAction: (action) => ipcRenderer.invoke('system:performMenuAction', action),
     readClipboardText: () => ipcRenderer.invoke('system:readClipboardText'),
     readClipboardImageDataUrl: () => ipcRenderer.invoke('system:readClipboardImageDataUrl'),
-    writeClipboardText: (text) => ipcRenderer.invoke('system:writeClipboardText', text)
+    writeClipboardText: (text) => ipcRenderer.invoke('system:writeClipboardText', text),
+    openExternal: (url) => ipcRenderer.invoke('system:openExternal', url)
+  },
+  update: {
+    getStatus: () => ipcRenderer.invoke('update:getStatus'),
+    check: () => ipcRenderer.invoke('update:check'),
+    download: () => ipcRenderer.invoke('update:download'),
+    install: () => ipcRenderer.invoke('update:install')
   },
   auth: {
     getSession: () => ipcRenderer.invoke('auth:getSession'),
@@ -79,6 +92,11 @@ const api: VibeAdeApi = {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
     ipcRenderer.on('app:menuAction', handler);
     return () => ipcRenderer.off('app:menuAction', handler);
+  },
+  onUpdateStatus: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('update:status', handler);
+    return () => ipcRenderer.off('update:status', handler);
   },
   onSwarmUpdate: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);

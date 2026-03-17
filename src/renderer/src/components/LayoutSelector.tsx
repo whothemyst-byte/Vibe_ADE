@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { LAYOUT_PRESETS, getPresetById, type LayoutPresetId } from '@renderer/services/layoutPresets';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
+import { useToastStore } from '@renderer/hooks/useToast';
 import { UiIcon } from './UiIcon';
 
 export function LayoutSelector(): JSX.Element {
@@ -8,6 +10,10 @@ export function LayoutSelector(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
   const ui = useWorkspaceStore((s) => s.ui);
   const setLayoutPreset = useWorkspaceStore((s) => s.setLayoutPreset);
+  const addToast = useToastStore((s) => s.addToast);
+
+  const subscription = normalizeSubscriptionState(appState.subscription);
+  const maxPanes = SUBSCRIPTION_PLANS[subscription.tier].limits.maxPanesPerWorkspace;
 
   const activePresetId = useMemo<LayoutPresetId>(() => {
     const activeId = appState.activeWorkspaceId;
@@ -35,14 +41,29 @@ export function LayoutSelector(): JSX.Element {
           {LAYOUT_PRESETS.map((preset) => (
             <button
               key={preset.id}
-              className={preset.id === activePresetId ? 'layout-option active' : 'layout-option'}
+              className={
+                preset.id === activePresetId
+                  ? 'layout-option active'
+                  : maxPanes !== null && preset.slots > maxPanes
+                    ? 'layout-option locked'
+                    : 'layout-option'
+              }
               onClick={() => {
+                if (maxPanes !== null && preset.slots > maxPanes) {
+                  addToast('info', `Spark supports up to ${maxPanes} panes. Upgrade to unlock larger layouts.`);
+                  return;
+                }
                 setLayoutPreset(preset.id);
                 setOpen(false);
               }}
             >
               <span>{preset.label}</span>
-              <small>{preset.slots} panes</small>
+              <small>
+                {preset.slots} panes
+                {maxPanes !== null && preset.slots > maxPanes && (
+                  <UiIcon name="lock" className="ui-icon ui-icon-sm lock-icon" />
+                )}
+              </small>
             </button>
           ))}
         </div>

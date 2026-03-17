@@ -6,6 +6,7 @@ import type {
   TaskItem,
   TaskPriority,
   TaskStatus,
+  UpdateStatus,
   WorkspaceId,
   WorkspaceState,
   WorkspaceTemplate
@@ -28,6 +29,23 @@ export interface TemplateProgressEvent {
   done: boolean;
   success: boolean;
 }
+
+export type MentionEntry = Readonly<{
+  name: string;
+  path: string;
+  type: 'file' | 'dir';
+}>;
+
+export type MentionTreeOptions = Readonly<{
+  maxDepth: number;
+  maxEntries: number;
+  maxLines: number;
+}>;
+
+export type MentionKeyFilesOptions = Readonly<{
+  maxFiles: number;
+  maxCharsPerFile: number;
+}>;
 
 export interface MenuActionEvent {
   action: 'new-environment' | 'open-environment' | 'settings' | 'save-environment' | 'save-as-environment';
@@ -92,6 +110,15 @@ export interface CloudSyncPreview {
   conflicts: CloudSyncConflict[];
 }
 
+export interface LocalEnvironmentExportSummary {
+  filePath: string;
+  workspaceId: string;
+  name: string;
+  rootDir: string;
+  exportedAt: string;
+  updatedAt: string;
+}
+
 // ---- QuanSwarm IPC shapes (serializable) ----
 
 export type SwarmAgentRole = 'coordinator' | 'builder' | 'scout' | 'reviewer';
@@ -138,6 +165,10 @@ export interface VibeAdeApi {
     remove: (workspaceId: WorkspaceId) => Promise<void>;
     setActive: (workspaceId: WorkspaceId) => Promise<void>;
     save: (workspace: WorkspaceState) => Promise<void>;
+    updateSubscription: (subscription: AppState['subscription']) => Promise<void>;
+    exportToDirectory: (workspace: WorkspaceState, directory: string) => Promise<{ filePath: string }>;
+    listLocalExports: (directory: string) => Promise<LocalEnvironmentExportSummary[]>;
+    importFromFile: (filePath: string) => Promise<AppState>;
     listTemplates: () => Promise<WorkspaceTemplate[]>;
   };
   terminal: {
@@ -155,6 +186,14 @@ export interface VibeAdeApi {
     resize: (paneId: PaneId, cols: number, rows: number) => Promise<void>;
     getSessionSnapshot: (paneId: PaneId) => Promise<{ paneId: PaneId; shell: ShellType; cwd: string; history: string } | null>;
     runStructuredCommand: (input: { paneId: PaneId; shell: ShellType; cwd: string; command: string }) => Promise<CommandBlock>;
+    listDirectory: (input: { workspaceId: WorkspaceId; directory: string }) => Promise<MentionEntry[]>;
+    buildMentionPayload: (input: {
+      workspaceId: WorkspaceId;
+      targetPath: string;
+      tree?: Partial<MentionTreeOptions>;
+      keyFiles?: Partial<MentionKeyFilesOptions>;
+      maxTotalChars?: number;
+    }) => Promise<string>;
   };
   system: {
     selectDirectory: () => Promise<string | null>;
@@ -164,6 +203,13 @@ export interface VibeAdeApi {
     readClipboardText: () => Promise<string>;
     readClipboardImageDataUrl: () => Promise<string | null>;
     writeClipboardText: (text: string) => Promise<void>;
+    openExternal: (url: string) => Promise<void>;
+  };
+  update: {
+    getStatus: () => Promise<UpdateStatus>;
+    check: () => Promise<UpdateStatus>;
+    download: () => Promise<UpdateStatus>;
+    install: () => Promise<void>;
   };
   auth: {
     getSession: () => Promise<AuthSession | null>;
@@ -219,6 +265,7 @@ export interface VibeAdeApi {
   onTerminalExit: (listener: (event: TerminalExitEvent) => void) => () => void;
   onTemplateProgress: (listener: (event: TemplateProgressEvent) => void) => () => void;
   onMenuAction: (listener: (event: MenuActionEvent) => void) => () => void;
+  onUpdateStatus: (listener: (status: UpdateStatus) => void) => () => void;
   swarm: {
     create: (config: SwarmCreateConfig) => Promise<SwarmCreateResult>;
     status: (swarmId: string) => Promise<unknown>;

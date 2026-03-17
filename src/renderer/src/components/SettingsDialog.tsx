@@ -3,12 +3,21 @@ import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import type { CloudSyncPreview, CloudSyncStatus, CloudWorkspaceSummary } from '@shared/ipc';
 import type { TaskItem, TaskStatus } from '@shared/types';
 import { useToastStore } from '@renderer/hooks/useToast';
-import { DEFAULT_SHORTCUTS, loadShortcuts, saveShortcuts, toShortcutCombo, type ShortcutAction } from '@renderer/services/preferences';
+import {
+  DEFAULT_SHORTCUTS,
+  loadEnvironmentSaveDirectory,
+  loadShortcuts,
+  saveEnvironmentSaveDirectory,
+  saveShortcuts,
+  toShortcutCombo,
+  type ShortcutAction
+} from '@renderer/services/preferences';
 import { applyAppearanceMode, getStoredAppearanceMode, resolveEffectiveTheme, setStoredAppearanceMode, type AppearanceMode } from '@renderer/theme/appearance';
 import { THEME_DEFINITIONS, THEME_LABELS, THEME_ORDER } from '@renderer/theme/theme';
+import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import { UiIcon, type UiIconName } from './UiIcon';
 
-type SettingsTab = 'appearance' | 'shortcuts' | 'task-board' | 'account';
+type SettingsTab = 'appearance' | 'shortcuts' | 'environments' | 'task-board' | 'account';
 
 const SETTINGS_TABS: Array<{
   id: SettingsTab;
@@ -18,6 +27,7 @@ const SETTINGS_TABS: Array<{
 }> = [
   { id: 'appearance', label: 'Appearance', description: 'Theme and display', icon: 'palette' },
   { id: 'shortcuts', label: 'Shortcuts', description: 'Keyboard bindings', icon: 'key' },
+  { id: 'environments', label: 'Environments', description: 'Local save/export', icon: 'layout' },
   { id: 'task-board', label: 'Task Board', description: 'Task history', icon: 'board' },
   { id: 'account', label: 'Account', description: 'Cloud and auth', icon: 'user' }
 ];
@@ -57,6 +67,16 @@ export function SettingsDialog(): JSX.Element {
   const [systemBase, setSystemBase] = useState<'light' | 'dark'>(() => resolveEffectiveTheme('system'));
   const [shortcuts, setShortcuts] = useState(loadShortcuts);
   const [capturingAction, setCapturingAction] = useState<ShortcutAction | null>(null);
+  const [environmentSaveDir, setEnvironmentSaveDir] = useState<string | null>(() => loadEnvironmentSaveDirectory());
+  const [profile, setProfile] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem('vibeAde.profile');
+      return raw ? (JSON.parse(raw) as { displayName: string; company: string; role: string }) : { displayName: '', company: '', role: '' };
+    } catch {
+      return { displayName: '', company: '', role: '' };
+    }
+  });
+  const [profileSavedAt, setProfileSavedAt] = useState<string | null>(null);
 
   const refreshCloudData = async (): Promise<void> => {
     const nextStatus = await window.vibeAde.cloud.getStatus();
@@ -106,6 +126,13 @@ export function SettingsDialog(): JSX.Element {
         .sort((a, b) => new Date(b.task.updatedAt).getTime() - new Date(a.task.updatedAt).getTime()),
     [appState.workspaces]
   );
+
+  const subscription = useMemo(() => normalizeSubscriptionState(appState.subscription), [appState.subscription]);
+  const plan = SUBSCRIPTION_PLANS[subscription.tier];
+  const cloudLimit = plan.limits.maxCloudSyncedWorkspaces;
+  const cloudBlocked = cloudLimit !== null && appState.workspaces.length > cloudLimit;
+  const taskBoardLocked = !plan.features.taskBoard;
+  const updateStatus = useWorkspaceStore((s) => s.ui.updateStatus);
 
   const logout = async (): Promise<void> => {
     await window.vibeAde.auth.logout();
@@ -306,12 +333,87 @@ export function SettingsDialog(): JSX.Element {
             </>
           )}
 
+          {activeTab === 'environments' && (
+            <>
+              <header className="settings-main-header">
+                <h3>Environments</h3>
+                <p>Control where File → Save exports your current environment layout.</p>
+              </header>
+
+              <section className="cloud-sync-section">
+                <h4>Environment Save Location</h4>
+                <p>
+                  When set, <code>File → Save</code> / <code>Ctrl+S</code> exports the active environment to this folder as a JSON file.
+                  Exported environments open with plain terminals (no command history).
+                </p>
+
+                <div className="root-path-picker">
+                  <input value={environmentSaveDir ?? ''} readOnly placeholder="Not set" />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const selected = await window.vibeAde.system.selectDirectory();
+                      if (!selected) {
+                        return;
+                      }
+                      saveEnvironmentSaveDirectory(selected);
+                      setEnvironmentSaveDir(selected);
+                      addToast('success', 'Environment save location updated');
+                    }}
+                  >
+                    Choose
+                  </button>
+                </div>
+
+                {environmentSaveDir && (
+                  <div className="cloud-sync-actions">
+                    <button
+                      className="danger"
+                      onClick={() => {
+                        saveEnvironmentSaveDirectory(null);
+                        setEnvironmentSaveDir(null);
+                        addToast('success', 'Environment save location cleared');
+                      }}
+                    >
+                      Clear Location
+                    </button>
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+
           {activeTab === 'task-board' && (
             <>
               <header className="settings-main-header">
                 <h3>Task Board</h3>
                 <p>History of tasks created across all workspaces.</p>
               </header>
+
+              {taskBoardLocked && (
+                <section className="settings-locked-card">
+                  <div className="settings-locked-content">
+                    <div className="settings-locked-icon">
+                      <UiIcon name="lock" className="ui-icon ui-icon-lg lock-icon" />
+                    </div>
+                    <div className="settings-locked-text">
+                      <h4>Task Board is available on Flux and Forge</h4>
+                      <p>Upgrade to manage tasks, track progress, and keep a running history across your workspaces.</p>
+                      <div className="settings-locked-actions">
+                        <button
+                          className="primary"
+                          onClick={() => {
+                            void window.vibeAde.system.openExternal('https://quansynd.com');
+                          }}
+                        >
+                          Upgrade to Flux or Forge
+                        </button>
+                        <span className="account-muted">You can update this link to pricing later.</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
 
               <section className="settings-task-history">
                 {taskHistory.length === 0 ? (
@@ -339,60 +441,130 @@ export function SettingsDialog(): JSX.Element {
                 <p>Cloud sync and account controls.</p>
               </header>
 
-              <section className="cloud-sync-section">
-                <h4>Cloud Sync</h4>
-                <div className="cloud-sync-status">
-                  <span>Configured: {status?.configured ? 'Yes' : 'No'}</span>
-                  <span>Authenticated: {status?.authenticated ? 'Yes' : 'No'}</span>
-                  <span>Strategy: {syncPreview?.strategy === 'last_write_wins' ? 'Last-write-wins' : '-'}</span>
-                </div>
-                {syncPreview && (
-                  <div className="cloud-sync-conflict-summary">
-                    <span>Compared: {syncPreview.compared}</span>
-                    <span>Local newer: {syncPreview.localWins}</span>
-                    <span>Remote newer: {syncPreview.remoteWins}</span>
-                    <span>Equal: {syncPreview.equal}</span>
+              <div className="account-grid">
+                <section className="account-card">
+                  <div className="account-card-header">
+                    <h4>Profile</h4>
+                    <span className="account-plan-chip">{plan.label}</span>
                   </div>
-                )}
-                <div className="cloud-sync-actions">
-                  <button onClick={() => void refreshCloudData()} disabled={syncing}>
-                    Refresh
-                  </button>
-                  <button onClick={() => void pushLocal()} disabled={syncing || !status?.configured || !status?.authenticated}>
-                    Sync Now
-                  </button>
-                  <button onClick={() => void pullRemote()} disabled={syncing || !status?.configured || !status?.authenticated}>
-                    Pull Remote
-                  </button>
-                </div>
-                <div className="cloud-sync-list">
-                  {remoteWorkspaces.length === 0 ? (
-                    <p>No cloud workspaces found.</p>
-                  ) : (
-                    remoteWorkspaces.map((workspace) => (
-                      <article key={workspace.id} className="cloud-sync-item">
-                        <div className="cloud-sync-item-title">
-                          <strong>{workspace.name}</strong>
-                          {(() => {
-                            const conflict = syncPreview?.conflicts.find((item) => item.workspaceId === workspace.id);
-                            if (!conflict) {
-                              return <span className="sync-pill sync-pill-new">Cloud</span>;
-                            }
-                            if (conflict.winner === 'local') {
-                              return <span className="sync-pill sync-pill-local">Local</span>;
-                            }
-                            if (conflict.winner === 'remote') {
-                              return <span className="sync-pill sync-pill-remote">Remote</span>;
-                            }
-                            return <span className="sync-pill sync-pill-equal">Equal</span>;
-                          })()}
-                        </div>
-                        <small>Cloud: {new Date(workspace.updatedAt).toLocaleString()}</small>
-                      </article>
-                    ))
+                  <div className="account-meta">
+                    <span>Support: {plan.support}</span>
+                    <span>Plan tier: {plan.label}</span>
+                  </div>
+                  <div className="account-fields">
+                    <label>
+                      Display name
+                      <input
+                        value={profile.displayName}
+                        placeholder="Display name"
+                        onChange={(e) => setProfile((prev) => ({ ...prev, displayName: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Company / Team
+                      <input
+                        value={profile.company}
+                        placeholder="Company / Team"
+                        onChange={(e) => setProfile((prev) => ({ ...prev, company: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Role
+                      <input
+                        value={profile.role}
+                        placeholder="Role"
+                        onChange={(e) => setProfile((prev) => ({ ...prev, role: e.target.value }))}
+                      />
+                    </label>
+                  </div>
+                  <div className="account-actions">
+                    <button
+                      onClick={() => {
+                        window.localStorage.setItem('vibeAde.profile', JSON.stringify(profile));
+                        setProfileSavedAt(new Date().toLocaleString());
+                      }}
+                    >
+                      Save Profile
+                    </button>
+                    {profileSavedAt && <span className="account-muted">Saved {profileSavedAt}</span>}
+                  </div>
+                </section>
+
+                <section className="account-card">
+                  <div className="account-card-header">
+                    <h4>Cloud Sync</h4>
+                    {cloudBlocked && <span className="account-warn">Limit reached</span>}
+                  </div>
+                  <div className="account-meta">
+                    <span>Configured: {status?.configured ? 'Yes' : 'No'}</span>
+                    <span>Authenticated: {status?.authenticated ? 'Yes' : 'No'}</span>
+                    <span>Strategy: {syncPreview?.strategy === 'last_write_wins' ? 'Last-write-wins' : '-'}</span>
+                  </div>
+                  {cloudLimit !== null && (
+                    <p className="account-muted">
+                      Spark allows up to {cloudLimit} cloud-synced workspaces. You currently have {appState.workspaces.length}.
+                    </p>
                   )}
-                </div>
-              </section>
+                  {syncPreview && (
+                    <div className="cloud-sync-conflict-summary">
+                      <span>Compared: {syncPreview.compared}</span>
+                      <span>Local newer: {syncPreview.localWins}</span>
+                      <span>Remote newer: {syncPreview.remoteWins}</span>
+                      <span>Equal: {syncPreview.equal}</span>
+                    </div>
+                  )}
+                  <div className="account-actions">
+                    <button
+                      onClick={() => void window.vibeAde.update.check()}
+                      disabled={updateStatus.state === 'checking' || updateStatus.state === 'downloading'}
+                    >
+                      {updateStatus.state === 'checking' ? 'Checking…' : 'Check for updates'}
+                    </button>
+                    <button onClick={() => void refreshCloudData()} disabled={syncing}>
+                      Refresh
+                    </button>
+                    <button
+                      onClick={() => void pushLocal()}
+                      disabled={syncing || cloudBlocked || !status?.configured || !status?.authenticated}
+                    >
+                      Sync Now
+                    </button>
+                    <button
+                      onClick={() => void pullRemote()}
+                      disabled={syncing || cloudBlocked || !status?.configured || !status?.authenticated}
+                    >
+                      Pull Remote
+                    </button>
+                  </div>
+                  <div className="cloud-sync-list">
+                    {remoteWorkspaces.length === 0 ? (
+                      <p>No cloud workspaces found.</p>
+                    ) : (
+                      remoteWorkspaces.map((workspace) => (
+                        <article key={workspace.id} className="cloud-sync-item">
+                          <div className="cloud-sync-item-title">
+                            <strong>{workspace.name}</strong>
+                            {(() => {
+                              const conflict = syncPreview?.conflicts.find((item) => item.workspaceId === workspace.id);
+                              if (!conflict) {
+                                return <span className="sync-pill sync-pill-new">Cloud</span>;
+                              }
+                              if (conflict.winner === 'local') {
+                                return <span className="sync-pill sync-pill-local">Local</span>;
+                              }
+                              if (conflict.winner === 'remote') {
+                                return <span className="sync-pill sync-pill-remote">Remote</span>;
+                              }
+                              return <span className="sync-pill sync-pill-equal">Equal</span>;
+                            })()}
+                          </div>
+                          <small>Cloud: {new Date(workspace.updatedAt).toLocaleString()}</small>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </section>
+              </div>
 
               <div className="settings-account-actions">
                 <button className="danger" onClick={() => void logout()}>

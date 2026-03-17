@@ -15,6 +15,8 @@ import { SwarmSessionView } from './components/SwarmSessionView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastContainer } from './components/Toast';
 import { AuthScreen } from './components/AuthScreen';
+import { CreateFlowOverlay } from './components/CreateFlowOverlay';
+import { OpenEnvironmentOverlay } from './components/OpenEnvironmentOverlay';
 import { applyAppearanceMode, getStoredAppearanceMode } from './theme/appearance';
 import { isTypingTarget, loadShortcuts, toShortcutCombo, type ShortcutAction } from './services/preferences';
 
@@ -199,6 +201,8 @@ export function App(): JSX.Element {
             <div className="terminal-region empty-terminal">No environment opened.</div>
           )}
 
+          {ui.createFlowOpen && <CreateFlowOverlay />}
+          {ui.openEnvironmentOpen && <OpenEnvironmentOverlay />}
         </main>
         <footer className="env-statusbar">
           <div className="env-status-left">

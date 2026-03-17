@@ -9,10 +9,12 @@ export type UiIconName =
   | 'palette'
   | 'key'
   | 'board'
+  | 'folder'
   | 'user'
   | 'refresh'
   | 'play'
-  | 'stop';
+  | 'stop'
+  | 'lock';
 
 type UiIconNode =
   | { type: 'path'; d: string }
@@ -61,6 +63,7 @@ const ICON_PATHS: Record<UiIconName, UiIconNode[]> = {
     { type: 'path', d: 'M12 10v2' },
     { type: 'path', d: 'M16 10v6' }
   ],
+  folder: [{ type: 'path', d: 'M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z' }],
   user: [
     { type: 'path', d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2' },
     { type: 'path', d: 'M16 3.128a4 4 0 0 1 0 7.744' },
@@ -75,6 +78,11 @@ const ICON_PATHS: Record<UiIconName, UiIconNode[]> = {
   ],
   play: [{ type: 'path', d: 'M8 5v14l11-7z' }],
   stop: [{ type: 'rect', x: 7, y: 7, width: 10, height: 10, rx: 1 }]
+  ,
+  lock: [
+    { type: 'rect', x: 4, y: 10, width: 16, height: 10, rx: 2 },
+    { type: 'path', d: 'M8 10V7a4 4 0 0 1 8 0v3' }
+  ]
 };
 
 export function UiIcon({
@@ -86,7 +94,7 @@ export function UiIcon({
   className?: string;
   title?: string;
 }): JSX.Element {
-  const nodes = ICON_PATHS[name];
+  const nodes = ICON_PATHS[name] ?? ICON_PATHS.bolt;
   return (
     <svg
       className={className}

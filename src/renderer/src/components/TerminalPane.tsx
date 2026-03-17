@@ -18,6 +18,10 @@ interface TerminalPaneProps {
 const startedSessions = new Set<PaneId>();
 const paneViewportById = new Map<PaneId, number>();
 
+const OSC_CWD_PREFIX = '\u001b]1337;vibe-ade-cwd=';
+const OSC_ST = '\u001b\\';
+const OSC_BEL = '\u0007';
+
 function clampTerminalDimension(value: number, fallback: number, min: number, max: number): number {
   if (!Number.isFinite(value)) {
     return fallback;
@@ -33,19 +37,342 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   const sectionRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
+  const mentionPanelRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const scheduleFitRef = useRef<(() => void) | null>(null);
   const suppressAutoCloseOnExitRef = useRef(false);
   const closingPaneRef = useRef(false);
   const suppressBootOutputRef = useRef(false);
+  const pendingOscRef = useRef('');
+  const cmdLineBufferRef = useRef('');
+  const outputTailRef = useRef('');
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [currentCwd, setCurrentCwd] = useState<string>(workspace.rootDir);
+  const [llmCliActive, setLlmCliActive] = useState(false);
+  const [detectedCli, setDetectedCli] = useState<'codex' | 'claude' | 'gemini' | null>(null);
+  const [llmAssistAutoEnabled, setLlmAssistAutoEnabled] = useState(true);
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
+  const [mentionDir, setMentionDir] = useState<string>(workspace.rootDir);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionEntries, setMentionEntries] = useState<Array<{ name: string; path: string; type: 'file' | 'dir' }>>([]);
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
+  const [mentionBusy, setMentionBusy] = useState(false);
+  const [mentionScrollOffset, setMentionScrollOffset] = useState(0);
+  const [mentionOverlayTop, setMentionOverlayTop] = useState(34);
+  const currentCwdRef = useRef(workspace.rootDir);
+  const llmCliActiveRef = useRef(false);
+  const detectedCliRef = useRef<'codex' | 'claude' | 'gemini' | null>(null);
+  const llmAssistAutoEnabledRef = useRef(true);
+  const mentionPickerOpenRef = useRef(false);
+  const mentionTypedLenRef = useRef(0);
+  const mentionAnchorRowRef = useRef(0);
+  const mentionDirRef = useRef(mentionDir);
+  const mentionSelectedIndexRef = useRef(mentionSelectedIndex);
+  const filteredMentionEntriesRef = useRef<Array<{ name: string; path: string; type: 'file' | 'dir' }>>([]);
+  const mentionInlineLinesRef = useRef(0);
+  const mentionInlineModeRef = useRef<'above' | 'below'>('below');
+  const mentionScrollOffsetRef = useRef(0);
   const removePaneFromLayout = useWorkspaceStore((s) => s.removePaneFromLayout);
 
   const shell = workspace.paneShells[paneId] ?? 'powershell';
   const isActivePane = workspace.activePaneId === paneId;
   const statusClass = sessionReady ? 'running' : 'idle';
+  const shouldEnableMentionAssist = llmAssistAutoEnabled && llmCliActive && detectedCli === 'codex';
+
+  const filteredMentionEntries = useMemo(() => {
+    const query = mentionQuery.trim().toLowerCase();
+    if (!query) {
+      return mentionEntries;
+    }
+    return mentionEntries.filter((entry) => entry.name.toLowerCase().includes(query));
+  }, [mentionEntries, mentionQuery]);
+  const visibleMentionEntries = useMemo(
+    () => filteredMentionEntries.slice(mentionScrollOffset, mentionScrollOffset + 12),
+    [filteredMentionEntries, mentionScrollOffset]
+  );
+
+  useEffect(() => {
+    llmCliActiveRef.current = llmCliActive;
+  }, [llmCliActive]);
+
+  useEffect(() => {
+    detectedCliRef.current = detectedCli;
+  }, [detectedCli]);
+
+  useEffect(() => {
+    llmAssistAutoEnabledRef.current = llmAssistAutoEnabled;
+  }, [llmAssistAutoEnabled]);
+
+  useEffect(() => {
+    mentionPickerOpenRef.current = mentionPickerOpen;
+  }, [mentionPickerOpen]);
+
+  useEffect(() => {
+    currentCwdRef.current = currentCwd;
+  }, [currentCwd]);
+
+  useEffect(() => {
+    mentionDirRef.current = mentionDir;
+  }, [mentionDir]);
+
+  useEffect(() => {
+    mentionSelectedIndexRef.current = mentionSelectedIndex;
+  }, [mentionSelectedIndex]);
+
+  useEffect(() => {
+    filteredMentionEntriesRef.current = filteredMentionEntries;
+  }, [filteredMentionEntries]);
+
+  useEffect(() => {
+    mentionScrollOffsetRef.current = mentionScrollOffset;
+  }, [mentionScrollOffset]);
+
+  const consumeOscCwd = (chunk: string): string => {
+    const combined = pendingOscRef.current + chunk;
+    pendingOscRef.current = '';
+
+    let cursor = 0;
+    let out = '';
+    while (cursor < combined.length) {
+      const start = combined.indexOf(OSC_CWD_PREFIX, cursor);
+      if (start === -1) {
+        out += combined.slice(cursor);
+        break;
+      }
+      out += combined.slice(cursor, start);
+      const payloadStart = start + OSC_CWD_PREFIX.length;
+      const belIndex = combined.indexOf(OSC_BEL, payloadStart);
+      const stIndex = combined.indexOf(OSC_ST, payloadStart);
+      let end = -1;
+      let terminatorLen = 0;
+
+      if (belIndex !== -1 && (stIndex === -1 || belIndex < stIndex)) {
+        end = belIndex;
+        terminatorLen = 1;
+      } else if (stIndex !== -1) {
+        end = stIndex;
+        terminatorLen = OSC_ST.length;
+      }
+
+      if (end === -1) {
+        pendingOscRef.current = combined.slice(start);
+        break;
+      }
+
+      const cwd = combined.slice(payloadStart, end).trim();
+      if (cwd) {
+        setCurrentCwd(cwd);
+      }
+      cursor = end + terminatorLen;
+    }
+
+    return out;
+  };
+
+  const setLlmCliState = (next: { active: boolean; cli: 'codex' | 'claude' | 'gemini' | null }): void => {
+    llmCliActiveRef.current = next.active;
+    detectedCliRef.current = next.cli;
+    setLlmCliActive(next.active);
+    setDetectedCli(next.cli);
+  };
+
+  const looksLikeShellPrompt = (line: string): boolean => {
+    const trimmed = line.trimEnd();
+    if (!trimmed) return false;
+    if (/^PS\s+[A-Za-z]:\\.*>\s*$/.test(trimmed)) return true;
+    if (/^[A-Za-z]:\\.*>\s*$/.test(trimmed)) return true;
+    return false;
+  };
+
+  const maybeDetectLlmCliFromCommand = (line: string): void => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    const first = trimmed.split(/\s+/)[0]?.toLowerCase();
+    if (first === 'codex' || first === 'claude' || first === 'gemini') {
+      setLlmCliState({ active: true, cli: first });
+      return;
+    }
+    if (llmCliActiveRef.current && (first === 'exit' || first === 'quit' || first === '/exit')) {
+      // Best-effort: user intends to leave; we’ll also confirm by detecting the shell prompt again.
+      setLlmCliState({ active: false, cli: null });
+    }
+  };
+
+  const refreshMentionEntries = async (directory: string): Promise<void> => {
+    setMentionBusy(true);
+    try {
+      const entries = await window.vibeAde.terminal.listDirectory({ workspaceId: workspace.id, directory });
+      const sorted = [...entries].sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      setMentionEntries(sorted);
+      setMentionSelectedIndex(0);
+      setMentionScrollOffset(0);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      terminalRef.current?.writeln(`\r\n[mention list failed: ${message}]`);
+    } finally {
+      setMentionBusy(false);
+    }
+  };
+
+  const openMentionPicker = async (): Promise<void> => {
+    const base = currentCwdRef.current || workspace.rootDir;
+    mentionPickerOpenRef.current = true;
+    mentionTypedLenRef.current = 1;
+    mentionAnchorRowRef.current = terminalRef.current?.buffer.active.cursorY ?? 0;
+    setMentionDir(base);
+    setMentionQuery('');
+    setMentionPickerOpen(true);
+    await refreshMentionEntries(base);
+  };
+
+  const closeMentionPicker = (mode: 'cancel' | 'insertLiteralAt' = 'cancel'): void => {
+    mentionPickerOpenRef.current = false;
+    setMentionPickerOpen(false);
+    setMentionQuery('');
+    setMentionEntries([]);
+    setMentionSelectedIndex(0);
+    mentionTypedLenRef.current = 0;
+    if (mode === 'insertLiteralAt') {
+      void window.vibeAde.terminal.sendInput(paneId, '@');
+    }
+    requestAnimationFrame(() => terminalRef.current?.focus());
+  };
+
+  const insertMentionPayload = async (entry: { path: string; type: 'file' | 'dir' }): Promise<void> => {
+    setMentionBusy(true);
+    try {
+      const base = currentCwdRef.current;
+      let formatted = entry.path;
+      if (base && formatted.toLowerCase().startsWith(base.toLowerCase())) {
+        formatted = formatted.slice(base.length).replace(/^[\\/]+/, '');
+        if (!formatted) {
+          formatted = entry.path;
+        }
+      }
+      const suffix = entry.type === 'dir' && !formatted.endsWith('\\') && !formatted.endsWith('/') ? '\\' : '';
+      const mention = `@${formatted}${suffix}`;
+      const typedLen = Math.max(0, mentionTypedLenRef.current);
+      if (typedLen > 0) {
+        await window.vibeAde.terminal.sendInput(paneId, '\u007f'.repeat(typedLen));
+      }
+      const wrapped = `\u001b[200~${mention}\u001b[201~`;
+      await window.vibeAde.terminal.sendInput(paneId, wrapped);
+      closeMentionPicker();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      terminalRef.current?.writeln(`\r\n[mention insert failed: ${message}]`);
+    } finally {
+      setMentionBusy(false);
+    }
+  };
+
+  const parentDirectory = (dir: string): string | null => {
+    const normalized = dir.replace(/[\\/]+$/, '');
+    const idx = Math.max(normalized.lastIndexOf('\\'), normalized.lastIndexOf('/'));
+    if (idx <= 2) {
+      // Likely drive root like C:\
+      return normalized.length >= 3 ? normalized.slice(0, 3) : null;
+    }
+    return normalized.slice(0, idx);
+  };
+
+  const clearInlineMentionMenu = (): void => {
+    const terminal = terminalRef.current;
+    const lines = mentionInlineLinesRef.current;
+    if (!terminal || lines <= 0) {
+      mentionInlineLinesRef.current = 0;
+      return;
+    }
+    let seq = '\u001b[s';
+    if (mentionInlineModeRef.current === 'below') {
+      seq += '\u001b[1B\u001b[0G';
+    } else {
+      seq += '\u001b[1A\u001b[0G';
+    }
+    for (let i = 0; i < lines; i += 1) {
+      seq += '\u001b[2K';
+      if (i < lines - 1) {
+        seq += (mentionInlineModeRef.current === 'below') ? '\u001b[1B\u001b[0G' : '\u001b[1A\u001b[0G';
+      }
+    }
+    seq += '\u001b[u';
+    terminal.write(seq);
+    mentionInlineLinesRef.current = 0;
+  };
+
+  const renderInlineMentionMenu = (): void => {
+    const terminal = terminalRef.current;
+    if (!terminal || !mentionPickerOpenRef.current) {
+      clearInlineMentionMenu();
+      return;
+    }
+
+    const entries = filteredMentionEntriesRef.current.slice(0, 10);
+    const header = `@${mentionQuery || ''} in ${mentionDirRef.current}${detectedCli ? ` (${detectedCli})` : ''}`;
+    const lines: string[] = [header];
+
+    if (mentionBusy) {
+      lines.push('+ Loading...');
+    } else if (entries.length === 0) {
+      lines.push('+ No matches');
+    } else {
+      entries.forEach((entry, idx) => {
+        const prefix = idx === mentionSelectedIndexRef.current ? '>' : ' ';
+        const suffix = entry.type === 'dir' ? '\\' : '';
+        lines.push(`${prefix} + ${entry.name}${suffix}`);
+      });
+    }
+
+    lines.push('Enter insert  Esc close  ↑↓ select');
+
+    clearInlineMentionMenu();
+    const cursorY = terminal.buffer.active.cursorY;
+    const totalRows = terminal.rows;
+    const renderAbove = cursorY + 1 + lines.length >= totalRows;
+    mentionInlineModeRef.current = renderAbove ? 'above' : 'below';
+
+    let seq = '\u001b[s';
+    seq += renderAbove ? '\u001b[1A\u001b[0G' : '\u001b[1B\u001b[0G';
+    lines.forEach((line, index) => {
+      seq += line;
+      seq += '\u001b[0K';
+      if (index < lines.length - 1) {
+        seq += renderAbove ? '\u001b[1A\u001b[0G' : '\u001b[1B\u001b[0G';
+      }
+    });
+    seq += '\u001b[u';
+    terminal.write(seq);
+    mentionInlineLinesRef.current = lines.length;
+  };
+
+  const computeMentionOverlayTop = (): number => {
+    const terminal = terminalRef.current;
+    const host = containerRef.current;
+    if (!terminal || !host) return 34;
+
+    const terminalEl = terminal.element;
+    if (!terminalEl) return 34;
+
+    const rows = terminalEl.querySelector('.xterm-rows') as HTMLElement | null;
+    const firstRow = rows?.firstElementChild as HTMLElement | null;
+    const rowHeight = firstRow?.getBoundingClientRect().height ?? 17;
+
+    const cursorY = mentionAnchorRowRef.current;
+    const headerHeight = 34;
+    const offset = Math.max(0, cursorY + 1) * rowHeight;
+    const rawTop = headerHeight + offset;
+
+    const panel = mentionPanelRef.current;
+    const hostRect = host.getBoundingClientRect();
+    const panelHeight = panel?.getBoundingClientRect().height ?? 220;
+    const maxTop = Math.max(34, hostRect.height - panelHeight - 6);
+    return Math.min(rawTop, maxTop);
+  };
 
   const resolveTerminalTheme = (): ITheme => {
     const rootStyles = getComputedStyle(document.documentElement);
@@ -236,7 +563,10 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
           if (snapshot) {
             startedSessions.add(paneId);
             if (snapshot.history) {
-              terminal.write(snapshot.history);
+              const clean = consumeOscCwd(snapshot.history);
+              if (clean) {
+                terminal.write(clean);
+              }
             }
             setSessionReady(true);
             const previousViewport = paneViewportById.get(paneId);
@@ -301,6 +631,36 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
         return true;
       }
 
+      if (mentionPickerOpenRef.current) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeMentionPicker();
+          return false;
+        }
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          const max = Math.max(0, filteredMentionEntriesRef.current.length - 1);
+          setMentionSelectedIndex((idx) => Math.min(idx + 1, max));
+          return false;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          setMentionSelectedIndex((idx) => Math.max(0, idx - 1));
+          return false;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const selected = filteredMentionEntriesRef.current[mentionSelectedIndexRef.current];
+          if (selected) {
+            void insertMentionPayload(selected);
+          } else {
+            void insertMentionPayload({ path: mentionDirRef.current, type: 'dir' });
+          }
+          return false;
+        }
+        return true;
+      }
+
       const withPrimaryModifier = event.ctrlKey || event.metaKey;
       if (!withPrimaryModifier || event.altKey) {
         return true;
@@ -330,6 +690,47 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
 
     const inputDisposable = terminal.onData((data) => {
       if (!disposed) {
+        if (data === '\r') {
+          maybeDetectLlmCliFromCommand(cmdLineBufferRef.current);
+          cmdLineBufferRef.current = '';
+          if (!mentionPickerOpenRef.current) {
+            void window.vibeAde.terminal.sendInput(paneId, data);
+          }
+          return;
+        }
+
+        // Best-effort line buffer for auto-detect (ignore escape sequences, handle backspace).
+        if (data === '\u007f') {
+          cmdLineBufferRef.current = cmdLineBufferRef.current.slice(0, -1);
+        } else if (!data.startsWith('\u001b') && data.length === 1) {
+          cmdLineBufferRef.current += data;
+        }
+
+        if (llmAssistAutoEnabledRef.current && llmCliActiveRef.current && detectedCliRef.current === 'codex' && data === '@') {
+          // Let Codex see "@", but also show our picker overlay.
+          void window.vibeAde.terminal.sendInput(paneId, data);
+          void openMentionPicker();
+          return;
+        }
+
+        if (mentionPickerOpenRef.current) {
+          if (data === '\u007f') {
+            if (mentionTypedLenRef.current > 0) {
+              mentionTypedLenRef.current = Math.max(0, mentionTypedLenRef.current - 1);
+            }
+            setMentionQuery((prev) => prev.slice(0, -1));
+            setMentionSelectedIndex(0);
+            if (mentionTypedLenRef.current === 0) {
+              closeMentionPicker();
+              return;
+            }
+          } else if (!data.startsWith('\u001b') && data.length === 1 && data !== '\t') {
+            mentionTypedLenRef.current += 1;
+            setMentionQuery((prev) => `${prev}${data}`);
+            setMentionSelectedIndex(0);
+          }
+        }
+
         void window.vibeAde.terminal.sendInput(paneId, data);
       }
     });
@@ -358,7 +759,15 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
 
     const unsubscribeData = window.vibeAde.onTerminalData((event) => {
       if (!disposed && opened && event.paneId === paneId) {
-        terminal.write(event.data);
+        const clean = consumeOscCwd(event.data);
+        if (clean) {
+          terminal.write(clean);
+          outputTailRef.current = (outputTailRef.current + clean).slice(-800);
+          const lastLine = outputTailRef.current.split('\n').slice(-1)[0] ?? '';
+          if (llmCliActiveRef.current && looksLikeShellPrompt(lastLine)) {
+            setLlmCliState({ active: false, cli: null });
+          }
+        }
       }
     });
 
@@ -469,6 +878,37 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   };
 
   useEffect(() => {
+    if (mentionPickerOpen && !shouldEnableMentionAssist) {
+      mentionPickerOpenRef.current = false;
+      setMentionPickerOpen(false);
+    }
+  }, [mentionPickerOpen, shouldEnableMentionAssist]);
+
+  useEffect(() => {
+    if (!mentionPickerOpen) {
+      return;
+    }
+    const nextTop = computeMentionOverlayTop();
+    setMentionOverlayTop(nextTop);
+  }, [mentionPickerOpen, mentionQuery, mentionDir, mentionSelectedIndex, visibleMentionEntries.length]);
+
+  useEffect(() => {
+    const max = Math.max(0, filteredMentionEntries.length - 1);
+    if (mentionSelectedIndex > max) {
+      setMentionSelectedIndex(max);
+      return;
+    }
+    const offset = mentionScrollOffsetRef.current;
+    if (mentionSelectedIndex < offset) {
+      setMentionScrollOffset(mentionSelectedIndex);
+      return;
+    }
+    if (mentionSelectedIndex > offset + 11) {
+      setMentionScrollOffset(Math.max(0, mentionSelectedIndex - 11));
+    }
+  }, [mentionSelectedIndex, filteredMentionEntries.length]);
+
+  useEffect(() => {
     if (!actionMenuOpen) {
       return;
     }
@@ -499,7 +939,9 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       <div className="pane-header" draggable onDragStart={onPaneDragStart} onDragEnd={onPaneDragEnd}>
         <div className="pane-title-wrap">
           <span className={`status-dot ${statusClass}`} />
-          <span className="pane-title">terminal-{displayIndex}</span>
+          <span className="pane-title" title={currentCwd || workspace.rootDir}>
+            {currentCwd || workspace.rootDir}
+          </span>
         </div>
         <div className="pane-header-actions" ref={actionMenuRef}>
           <button
@@ -512,6 +954,17 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
           </button>
           {actionMenuOpen && (
             <div className="terminal-actions-menu">
+              <button
+                onClick={() => {
+                  setActionMenuOpen(false);
+                  setLlmAssistAutoEnabled((enabled) => !enabled);
+                }}
+              >
+                {llmAssistAutoEnabled ? 'Disable LLM @ Assist (auto)' : 'Enable LLM @ Assist (auto)'}
+              </button>
+              <button disabled>
+                Detected LLM: {llmCliActive ? (detectedCli ?? 'unknown') : 'none'}
+              </button>
               <button
                 onClick={() => {
                   setActionMenuOpen(false);
@@ -541,6 +994,57 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
           )}
         </div>
       </div>
+
+      {mentionPickerOpen && (
+        <div
+          className="mention-overlay"
+          style={{ top: mentionOverlayTop }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          <div className="mention-panel" ref={mentionPanelRef}>
+            <div className="mention-inline-meta" title={mentionDir}>
+              @{mentionQuery || ''} <span className="mention-inline-dim">in</span> {mentionDir}
+              <span className="mention-inline-dim">{detectedCli ? ` (${detectedCli})` : ''}</span>
+            </div>
+            <div className="mention-list" role="listbox" aria-label="Mention entries">
+              {mentionBusy && <div className="mention-inline-row muted">+ Loading…</div>}
+              {!mentionBusy &&
+                visibleMentionEntries.map((entry, idx) => (
+                  <div
+                    key={`${entry.type}:${entry.path}`}
+                    className={
+                      idx + mentionScrollOffset === mentionSelectedIndex ? 'mention-inline-row selected' : 'mention-inline-row'
+                    }
+                    onMouseEnter={() => setMentionSelectedIndex(idx + mentionScrollOffset)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void insertMentionPayload(entry);
+                    }}
+                  >
+                    <span className="mention-inline-plus">+</span>
+                    <span className="mention-inline-name">
+                      {entry.name}
+                      {entry.type === 'dir' ? '\\' : ''}
+                    </span>
+                  </div>
+                ))}
+              {!mentionBusy && filteredMentionEntries.length === 0 && <div className="mention-inline-row muted">+ No matches</div>}
+            </div>
+            <div className="mention-inline-footer">
+              <span className="mention-inline-dim">Enter</span> insert • <span className="mention-inline-dim">Esc</span> close •{' '}
+              <span className="mention-inline-dim">↑↓</span> select{' '}
+              {filteredMentionEntries.length > 0 && (
+                <span className="mention-inline-dim">
+                  ({mentionSelectedIndex + 1}/{filteredMentionEntries.length})
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div ref={containerRef} className="xterm-host" />
     </section>

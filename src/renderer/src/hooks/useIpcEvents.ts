@@ -4,6 +4,8 @@ import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 export function useIpcEvents(): void {
   const appendCommandBlock = useWorkspaceStore((s) => s.appendCommandBlock);
   const openStartPage = useWorkspaceStore((s) => s.openStartPage);
+  const openCreateFlow = useWorkspaceStore((s) => s.openCreateFlow);
+  const openEnvironmentOverlay = useWorkspaceStore((s) => s.openEnvironmentOverlay);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const saveActiveWorkspace = useWorkspaceStore((s) => s.saveActiveWorkspace);
   const saveAsActiveWorkspace = useWorkspaceStore((s) => s.saveAsActiveWorkspace);
@@ -30,9 +32,9 @@ export function useIpcEvents(): void {
 
     const unsubscribeMenu = window.vibeAde.onMenuAction(({ action }) => {
       if (action === 'new-environment') {
-        openStartPage('home');
+        openCreateFlow('workspace');
       } else if (action === 'open-environment') {
-        openStartPage('open');
+        openEnvironmentOverlay();
       } else if (action === 'settings') {
         openSettings();
       } else if (action === 'save-environment') {
@@ -46,5 +48,5 @@ export function useIpcEvents(): void {
       unsubscribeTemplate();
       unsubscribeMenu();
     };
-  }, [appendCommandBlock, openSettings, openStartPage, saveActiveWorkspace, saveAsActiveWorkspace]);
+  }, [appendCommandBlock, openCreateFlow, openEnvironmentOverlay, openSettings, openStartPage, saveActiveWorkspace, saveAsActiveWorkspace]);
 }

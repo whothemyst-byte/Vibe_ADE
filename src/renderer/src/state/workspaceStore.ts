@@ -9,8 +9,10 @@ import type {
   TaskPriority,
   TaskSortMode,
   TaskStatus,
+  UpdateStatus,
   WorkspaceState
 } from '@shared/types';
+import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import {
   appendPaneToWorkspace,
   collectPaneIds,
@@ -20,6 +22,7 @@ import {
 } from '@renderer/services/layoutEngine';
 import type { LayoutPresetId } from '@renderer/services/layoutPresets';
 import { useToastStore } from '@renderer/hooks/useToast';
+import { loadEnvironmentSaveDirectory, saveEnvironmentSaveDirectory } from '@renderer/services/preferences';
 
 interface UiState {
   commandPaletteOpen: boolean;
@@ -27,6 +30,9 @@ interface UiState {
   activeView: 'workspace' | 'task-board' | 'swarm';
   startPageOpen: boolean;
   startPageMode: 'home' | 'open';
+  openEnvironmentOpen: boolean;
+  createFlowOpen: boolean;
+  createFlowMode: 'choose' | 'workspace' | 'swarm';
   settingsOpen: boolean;
   swarmDashboardOpen: boolean;
   activeSwarmId: string | null;
@@ -38,6 +44,7 @@ interface UiState {
   taskSearch: string;
   taskFilters: TaskFilterState;
   taskSort: TaskSortMode;
+  updateStatus: UpdateStatus;
 }
 
 interface WorkspaceStoreState {
@@ -53,6 +60,7 @@ interface WorkspaceStoreState {
   cancelCloseWorkspace: () => void;
   confirmCloseWorkspace: (mode: 'save' | 'continue') => Promise<void>;
   setActiveWorkspace: (workspaceId: string) => Promise<void>;
+  importEnvironmentFromFile: (filePath: string) => Promise<void>;
   saveActiveWorkspace: () => Promise<void>;
   saveAsActiveWorkspace: () => Promise<void>;
   setActivePane: (paneId: PaneId) => Promise<void>;
@@ -90,6 +98,10 @@ interface WorkspaceStoreState {
   toggleTaskBoard: (open?: boolean) => void;
   openStartPage: (mode?: UiState['startPageMode']) => void;
   closeStartPage: () => void;
+  openCreateFlow: (mode?: UiState['createFlowMode']) => void;
+  closeCreateFlow: () => void;
+  openEnvironmentOverlay: () => void;
+  closeEnvironmentOverlay: () => void;
   openSettings: () => void;
   closeSettings: () => void;
   openSwarmDashboard: (swarmId?: string) => void;
@@ -106,6 +118,19 @@ function activeWorkspace(state: WorkspaceStoreState): WorkspaceState | undefined
     return undefined;
   }
   return state.appState.workspaces.find((w) => w.id === id);
+}
+
+async function resolveEnvironmentSaveDirectory(): Promise<string | null> {
+  const existing = loadEnvironmentSaveDirectory();
+  if (existing) {
+    return existing;
+  }
+  const selected = await window.vibeAde.system.selectDirectory();
+  if (!selected) {
+    return null;
+  }
+  saveEnvironmentSaveDirectory(selected);
+  return selected;
 }
 
 function presetFromPaneCount(count: number): LayoutPresetId {
@@ -239,10 +264,19 @@ function sortTasks(tasks: TaskItem[], mode: TaskSortMode): TaskItem[] {
   return next;
 }
 
+function normalizeSubscription(appState: AppState): AppState['subscription'] {
+  return normalizeSubscriptionState(appState.subscription);
+}
+
+function planFor(appState: AppState) {
+  return SUBSCRIPTION_PLANS[appState.subscription.tier];
+}
+
 export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   appState: {
     activeWorkspaceId: null,
-    workspaces: []
+    workspaces: [],
+    subscription: normalizeSubscriptionState()
   },
   loading: true,
   ui: {
@@ -251,6 +285,9 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     activeView: 'workspace',
     startPageOpen: true,
     startPageMode: 'home',
+    openEnvironmentOpen: false,
+    createFlowOpen: false,
+    createFlowMode: 'choose',
     settingsOpen: false,
     swarmDashboardOpen: false,
     activeSwarmId: null,
@@ -261,11 +298,14 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     pendingCloseWorkspaceId: null,
     taskSearch: '',
     taskFilters: DEFAULT_TASK_FILTERS,
-    taskSort: DEFAULT_TASK_SORT
+    taskSort: DEFAULT_TASK_SORT,
+    updateStatus: { state: 'idle' }
   },
   initialize: async () => {
     try {
       const state = await window.vibeAde.workspace.list();
+      const updateStatus = await window.vibeAde.update.getStatus();
+      const subscription = normalizeSubscriptionState(state.subscription);
       const normalizedWorkspaces = state.workspaces.map((workspace) => {
         const { paneAgents, selectedModel, ...rest } = workspace as WorkspaceState & {
           paneAgents?: unknown;
@@ -283,16 +323,32 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         return {
         appState: {
           ...state,
-          workspaces: normalizedWorkspaces
+          workspaces: normalizedWorkspaces,
+          subscription
         },
         loading: false,
         ui: {
           ...store.ui,
           startPageOpen: store.ui.startPageOpen && !hasAnyData,
           activeView: nextActiveView,
-          ...maps
+          ...maps,
+          updateStatus
         }
       };
+      });
+      if (subscription !== state.subscription) {
+        void window.vibeAde.workspace.updateSubscription(subscription);
+      }
+      window.vibeAde.onUpdateStatus((status) => {
+        set((current) => ({
+          ui: {
+            ...current.ui,
+            updateStatus: status
+          }
+        }));
+        if (status.state === 'error') {
+          useToastStore.getState().addToast('error', status.error ?? 'Update failed');
+        }
       });
     } catch (error) {
       console.error('Failed to initialize workspace:', error);
@@ -314,6 +370,8 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
           ...state.ui,
           startPageOpen: false,
           startPageMode: 'home',
+          createFlowOpen: false,
+          createFlowMode: 'choose',
           activeView: 'workspace',
           layoutPresetByWorkspace: {
             ...state.ui.layoutPresetByWorkspace,
@@ -474,13 +532,51 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       }
     }));
   },
+  importEnvironmentFromFile: async (filePath) => {
+    const state = await window.vibeAde.workspace.importFromFile(filePath);
+    const normalizedWorkspaces = state.workspaces.map((workspace) => {
+      const { paneAgents, selectedModel, ...rest } = workspace as WorkspaceState & {
+        paneAgents?: unknown;
+        selectedModel?: unknown;
+      };
+      return {
+        ...rest,
+        tasks: normalizeTasks(workspace.tasks)
+      };
+    });
+    const maps = deriveUiMaps(state.workspaces);
+
+    set((store) => ({
+      appState: {
+        ...state,
+        workspaces: normalizedWorkspaces
+      },
+      ui: {
+        ...store.ui,
+        startPageOpen: false,
+        startPageMode: 'home',
+        activeView: 'workspace',
+        ...maps
+      }
+    }));
+
+    useToastStore.getState().addToast('success', 'Environment opened');
+  },
   saveActiveWorkspace: async () => {
     const workspace = activeWorkspace(get());
     if (!workspace) {
       return;
     }
     try {
+      const directory = await resolveEnvironmentSaveDirectory();
+      if (!directory) {
+        useToastStore.getState().addToast('info', 'Save cancelled (no location selected)');
+        return;
+      }
+
       await window.vibeAde.workspace.save(workspace);
+      await window.vibeAde.workspace.exportToDirectory(workspace, directory);
+
       set((state) => ({
         ui: {
           ...state.ui,
@@ -519,7 +615,14 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       rootDir: nextRoot
     };
 
+    const directory = await resolveEnvironmentSaveDirectory();
+    if (!directory) {
+      useToastStore.getState().addToast('info', 'Save cancelled (no location selected)');
+      return;
+    }
+
     await window.vibeAde.workspace.save(nextWorkspace);
+    await window.vibeAde.workspace.exportToDirectory(nextWorkspace, directory);
 
     set((state) => ({
       appState: {
@@ -551,6 +654,20 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   addPaneToLayout: async () => {
     const current = activeWorkspace(get());
     if (!current) {
+      return;
+    }
+    const normalizedSub = normalizeSubscriptionState(get().appState.subscription);
+    if (normalizedSub !== get().appState.subscription) {
+      set((state) => ({
+        appState: { ...state.appState, subscription: normalizedSub }
+      }));
+      void window.vibeAde.workspace.updateSubscription(normalizedSub);
+    }
+    const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
+    const maxPanes = plan.limits.maxPanesPerWorkspace;
+    const currentPanes = collectPaneIds(current.layout).length;
+    if (maxPanes !== null && currentPanes >= maxPanes) {
+      useToastStore.getState().addToast('info', `Spark plan supports up to ${maxPanes} panes per workspace. Upgrade to add more.`);
       return;
     }
     const next = appendPaneToWorkspace(current);
@@ -729,6 +846,17 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     if (!current) {
       return;
     }
+    const normalizedSub = normalizeSubscriptionState(get().appState.subscription);
+    const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
+    if (!plan.features.taskBoard) {
+      useToastStore.getState().addToast('info', 'Task Board is available on Flux and Forge plans.');
+      return;
+    }
+    const limit = plan.limits.taskBoardTasksPerMonth;
+    if (limit !== null && normalizedSub.usage.tasksCreated >= limit) {
+      useToastStore.getState().addToast('info', `Flux plan limit reached (${limit} tasks/month). Upgrade to Forge for unlimited tasks.`);
+      return;
+    }
     const title = input.title.trim();
     if (!title) {
       return;
@@ -757,10 +885,24 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     set((state) => ({
       appState: {
         ...state.appState,
-        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
+        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w)),
+        subscription: {
+          ...normalizedSub,
+          usage: {
+            ...normalizedSub.usage,
+            tasksCreated: normalizedSub.usage.tasksCreated + 1
+          }
+        }
       },
       ui: markDirty(state, next.id)
     }));
+    void window.vibeAde.workspace.updateSubscription({
+      ...normalizedSub,
+      usage: {
+        ...normalizedSub.usage,
+        tasksCreated: normalizedSub.usage.tasksCreated + 1
+      }
+    });
   },
   addTask: async (title) => {
     const today = new Date();
@@ -957,7 +1099,14 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     }));
   },
   toggleTaskBoard: (open) => {
+    const normalizedSub = normalizeSubscriptionState(get().appState.subscription);
+    const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
+    if (!plan.features.taskBoard) {
+      useToastStore.getState().addToast('info', 'Task Board is available on Flux and Forge plans.');
+      return;
+    }
     set((state) => ({
+      appState: normalizedSub !== state.appState.subscription ? { ...state.appState, subscription: normalizedSub } : state.appState,
       ui: {
         ...state.ui,
         taskBoardTabOpen: open ?? !state.ui.taskBoardTabOpen,
@@ -967,6 +1116,9 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
             : 'workspace'
       }
     }));
+    if (normalizedSub !== get().appState.subscription) {
+      void window.vibeAde.workspace.updateSubscription(normalizedSub);
+    }
   },
   openStartPage: (mode = 'home') => {
     set((state) => ({
@@ -985,6 +1137,61 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       }
     }));
   },
+  openCreateFlow: (mode = 'choose') => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        createFlowOpen: true,
+        createFlowMode: mode,
+        startPageOpen: false,
+        openEnvironmentOpen: false
+      }
+    }));
+  },
+  closeCreateFlow: () => {
+    set((state) => {
+      const hasOpenWorkspace = Boolean(state.appState.activeWorkspaceId);
+      const hasOpenSwarm = state.ui.activeView === 'swarm' && Boolean(state.ui.activeSwarmId);
+      const hasOpenTaskBoard = state.ui.activeView === 'task-board';
+      const shouldGoHome = !(hasOpenWorkspace || hasOpenSwarm || hasOpenTaskBoard);
+
+      return {
+        ui: {
+          ...state.ui,
+          createFlowOpen: false,
+          createFlowMode: 'choose',
+          ...(shouldGoHome ? { startPageOpen: true, startPageMode: 'home' } : {})
+        }
+      };
+    });
+  },
+  openEnvironmentOverlay: () => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        openEnvironmentOpen: true,
+        startPageOpen: false,
+        createFlowOpen: false,
+        createFlowMode: 'choose'
+      }
+    }));
+  },
+  closeEnvironmentOverlay: () => {
+    set((state) => {
+      const hasOpenWorkspace = Boolean(state.appState.activeWorkspaceId);
+      const hasOpenSwarm = state.ui.activeView === 'swarm' && Boolean(state.ui.activeSwarmId);
+      const hasOpenTaskBoard = state.ui.activeView === 'task-board';
+      const shouldGoHome = !(hasOpenWorkspace || hasOpenSwarm || hasOpenTaskBoard);
+
+      return {
+        ui: {
+          ...state.ui,
+          openEnvironmentOpen: false,
+          ...(shouldGoHome ? { startPageOpen: true, startPageMode: 'home' } : {})
+        }
+      };
+    });
+  },
   openSettings: () => {
     set((state) => ({
       ui: {
@@ -1002,6 +1209,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     }));
   },
   openSwarmDashboard: (swarmId) => {
+    const normalizedSub = normalizeSubscriptionState(get().appState.subscription);
+    const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
+    if (!plan.features.swarms) {
+      useToastStore.getState().addToast('info', 'QuanSwarm is available on Flux and Forge plans.');
+      return;
+    }
     set((state) => ({
       ui: {
         ...state.ui,
@@ -1009,6 +1222,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         activeSwarmId: swarmId ?? state.ui.activeSwarmId
       }
     }));
+    if (normalizedSub !== get().appState.subscription) {
+      set((state) => ({ appState: { ...state.appState, subscription: normalizedSub } }));
+      void window.vibeAde.workspace.updateSubscription(normalizedSub);
+    }
   },
   closeSwarmDashboard: () => {
     set((state) => ({
@@ -1027,6 +1244,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     }));
   },
   openSwarmSession: (input) => {
+    const normalizedSub = normalizeSubscriptionState(get().appState.subscription);
+    const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
+    if (!plan.features.swarms) {
+      useToastStore.getState().addToast('info', 'QuanSwarm is available on Flux and Forge plans.');
+      return;
+    }
     set((state) => {
       const existing = state.ui.swarmSessions.find((s) => s.swarmId === input.swarmId);
       const sessions = existing
@@ -1044,6 +1267,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         }
       };
     });
+    if (normalizedSub !== get().appState.subscription) {
+      set((state) => ({ appState: { ...state.appState, subscription: normalizedSub } }));
+      void window.vibeAde.workspace.updateSubscription(normalizedSub);
+    }
   },
   closeSwarmSession: async (swarmId) => {
     try {

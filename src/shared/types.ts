@@ -37,6 +37,19 @@ export type TaskStatus = 'backlog' | 'in-progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type TaskSortMode = 'updated-desc' | 'updated-asc' | 'created-desc' | 'created-asc' | 'priority-desc' | 'priority-asc' | 'due-asc' | 'due-desc';
 
+export type SubscriptionTier = 'spark' | 'flux' | 'forge';
+
+export interface SubscriptionUsage {
+  month: string;
+  tasksCreated: number;
+  swarmsStarted: number;
+}
+
+export interface SubscriptionState {
+  tier: SubscriptionTier;
+  usage: SubscriptionUsage;
+}
+
 export interface TaskFilterState {
   statuses?: TaskStatus[];
   priorities?: TaskPriority[];
@@ -86,4 +99,24 @@ export interface WorkspaceState {
 export interface AppState {
   activeWorkspaceId: WorkspaceId | null;
   workspaces: WorkspaceState[];
+  subscription: SubscriptionState;
+}
+
+export type UpdateStatusState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+  | 'disabled';
+
+export interface UpdateStatus {
+  state: UpdateStatusState;
+  version?: string;
+  releaseNotes?: string;
+  progress?: number;
+  error?: string;
+  reason?: string;
 }

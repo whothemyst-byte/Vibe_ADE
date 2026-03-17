@@ -23,11 +23,29 @@ interface TerminalSessionSnapshot {
 
 const MAX_SESSION_HISTORY_CHARS = 2_000_000;
 
+const CMD_PROMPT_INTEGRATION = 'set "PROMPT=$E]1337;vibe-ade-cwd=$P$E\\$G"';
+const POWERSHELL_PROMPT_INTEGRATION = [
+  "$ErrorActionPreference='SilentlyContinue';",
+  "if (-not $global:__vibeAdeCwdOscInstalled) {",
+  "  $global:__vibeAdeCwdOscInstalled = $true;",
+  "  try { $global:__vibeAdePromptOrig = (Get-Command prompt).ScriptBlock } catch { $global:__vibeAdePromptOrig = { 'PS ' + (Get-Location).Path + '> ' } };",
+  "  function global:prompt {",
+  "    $path = (Get-Location).Path;",
+  "    $esc=[char]27; $bel=[char]7;",
+  "    Write-Host -NoNewline ($esc + ']1337;vibe-ade-cwd=' + $path + $bel);",
+  "    & $global:__vibeAdePromptOrig",
+  "  }",
+  "}"
+].join(' ');
+
 function getShellCommand(shell: ShellType): { file: string; args: string[] } {
   if (shell === 'cmd') {
-    return { file: 'cmd.exe', args: ['/Q'] };
+    return { file: 'cmd.exe', args: ['/Q', '/K', CMD_PROMPT_INTEGRATION] };
   }
-  return { file: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass'] };
+  return {
+    file: 'powershell.exe',
+    args: ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-NoExit', '-Command', POWERSHELL_PROMPT_INTEGRATION]
+  };
 }
 
 function getExecArgs(shell: ShellType, command: string): { file: string; args: string[] } {
