@@ -14,7 +14,7 @@ jobs:
       GH_OWNER: ${{ github.repository_owner }}
       GH_REPO: ${{ github.event.repository.name }}
       CSC_IDENTITY_AUTO_DISCOVERY: false
-      ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
 
     steps:
       - name: Checkout
