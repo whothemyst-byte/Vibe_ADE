@@ -23,6 +23,7 @@ import { isTypingTarget, loadShortcuts, toShortcutCombo, type ShortcutAction } f
 export function App(): JSX.Element {
   const [authLoading, setAuthLoading] = useState(true);
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [authDisabled, setAuthDisabled] = useState(false);
   const initialize = useWorkspaceStore((s) => s.initialize);
   const appState = useWorkspaceStore((s) => s.appState);
   const loading = useWorkspaceStore((s) => s.loading);
@@ -58,6 +59,17 @@ export function App(): JSX.Element {
     let cancelled = false;
     const run = async (): Promise<void> => {
       try {
+        const configured = await window.vibeAde.auth.isConfigured();
+        if (!configured) {
+          if (!cancelled) {
+            setAuthDisabled(true);
+            setAuthSession({
+              user: { id: 'offline', email: null },
+              expiresAt: Number.MAX_SAFE_INTEGER
+            });
+          }
+          return;
+        }
         const session = await window.vibeAde.auth.getSession();
         if (!cancelled) {
           setAuthSession(session);
@@ -159,7 +171,7 @@ export function App(): JSX.Element {
     return <div className="centered">Checking session...</div>;
   }
 
-  if (!authSession) {
+  if (!authSession && !authDisabled) {
     return <AuthScreen onAuthenticated={setAuthSession} />;
   }
 

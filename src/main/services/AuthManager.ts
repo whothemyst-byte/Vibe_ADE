@@ -48,6 +48,10 @@ export class AuthManager {
     this.supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? null;
   }
 
+  isConfigured(): boolean {
+    return Boolean(this.supabaseUrl && this.supabaseAnonKey);
+  }
+
   async getSession(): Promise<AuthSessionView | null> {
     const session = await this.getSessionWithToken();
     if (!session) {
@@ -60,7 +64,9 @@ export class AuthManager {
   }
 
   async getSessionWithToken(): Promise<AuthSessionWithToken | null> {
-    this.ensureConfigured();
+    if (!this.isConfigured()) {
+      return null;
+    }
     const state = await this.readState();
     if (!state) {
       return null;
@@ -142,7 +148,10 @@ export class AuthManager {
     if (!state) {
       return;
     }
-    this.ensureConfigured();
+    if (!this.isConfigured()) {
+      await this.clearState();
+      return;
+    }
     try {
       await this.fetchJson('/auth/v1/logout', {
         method: 'POST',

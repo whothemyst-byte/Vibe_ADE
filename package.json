@@ -1,6 +1,6 @@
 {
   "name": "vibe-ade",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Windows-native Development Environment",
   "main": "dist/main/index.js",
   "repository": {

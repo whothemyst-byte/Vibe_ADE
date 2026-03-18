@@ -213,6 +213,7 @@ export interface VibeAdeApi {
   };
   auth: {
     getSession: () => Promise<AuthSession | null>;
+    isConfigured: () => Promise<boolean>;
     login: (email: string, password: string) => Promise<AuthSession>;
     signup: (email: string, password: string) => Promise<AuthSession>;
     logout: () => Promise<void>;

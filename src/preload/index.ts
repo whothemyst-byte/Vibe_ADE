@@ -46,6 +46,7 @@ const api: VibeAdeApi = {
   },
   auth: {
     getSession: () => ipcRenderer.invoke('auth:getSession'),
+    isConfigured: () => ipcRenderer.invoke('auth:isConfigured'),
     login: (email, password) => ipcRenderer.invoke('auth:login', email, password),
     signup: (email, password) => ipcRenderer.invoke('auth:signup', email, password),
     logout: () => ipcRenderer.invoke('auth:logout')

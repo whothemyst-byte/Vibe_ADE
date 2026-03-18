@@ -645,6 +645,7 @@ export function registerIpcHandlers(deps: Dependencies): void {
   ipcMain.handle('update:install', () => updateManager.installUpdate());
 
   ipcMain.handle('auth:getSession', () => authManager.getSession());
+  ipcMain.handle('auth:isConfigured', () => authManager.isConfigured());
   ipcMain.handle('auth:login', (_event, email: string, password: string) => authManager.login(email, password));
   ipcMain.handle('auth:signup', (_event, email: string, password: string) => authManager.signup(email, password));
   ipcMain.handle('auth:logout', () => authManager.logout());
