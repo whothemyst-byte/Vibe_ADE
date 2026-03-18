@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Terminal, type ITheme } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
+import { SearchAddon } from 'xterm-addon-search';
 import 'xterm/css/xterm.css';
 import type { PaneId, WorkspaceState } from '@shared/types';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
@@ -40,6 +41,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   const mentionPanelRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
   const scheduleFitRef = useRef<(() => void) | null>(null);
   const suppressAutoCloseOnExitRef = useRef(false);
   const closingPaneRef = useRef(false);
@@ -74,7 +76,9 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   const mentionInlineLinesRef = useRef(0);
   const mentionInlineModeRef = useRef<'above' | 'below'>('below');
   const mentionScrollOffsetRef = useRef(0);
+  const pendingFindRef = useRef<{ id: string; query: string } | null>(null);
   const removePaneFromLayout = useWorkspaceStore((s) => s.removePaneFromLayout);
+  const terminalFindRequest = useWorkspaceStore((s) => s.ui.terminalFindRequest);
 
   const shell = workspace.paneShells[paneId] ?? 'powershell';
   const isActivePane = workspace.activePaneId === paneId;
@@ -128,6 +132,40 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   useEffect(() => {
     mentionScrollOffsetRef.current = mentionScrollOffset;
   }, [mentionScrollOffset]);
+
+  useEffect(() => {
+    if (!terminalFindRequest || terminalFindRequest.paneId !== paneId) {
+      return;
+    }
+    const terminal = terminalRef.current;
+    const searchAddon = searchAddonRef.current;
+    const query = terminalFindRequest.query.trim();
+    if (!query) {
+      return;
+    }
+    if (!terminal || !searchAddon) {
+      pendingFindRef.current = { id: terminalFindRequest.id, query };
+      return;
+    }
+    pendingFindRef.current = null;
+    searchAddon.findNext(query);
+    terminal.focus();
+  }, [terminalFindRequest?.id, paneId]);
+
+  useEffect(() => {
+    if (!sessionReady) {
+      return;
+    }
+    const pending = pendingFindRef.current;
+    const terminal = terminalRef.current;
+    const searchAddon = searchAddonRef.current;
+    if (!pending || !terminal || !searchAddon) {
+      return;
+    }
+    pendingFindRef.current = null;
+    searchAddon.findNext(pending.query);
+    terminal.focus();
+  }, [sessionReady]);
 
   const consumeOscCwd = (chunk: string): string => {
     const combined = pendingOscRef.current + chunk;
@@ -510,9 +548,12 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       theme: resolveTerminalTheme()
     });
     const fitAddon = new FitAddon();
+    const searchAddon = new SearchAddon();
     terminal.loadAddon(fitAddon);
+    terminal.loadAddon(searchAddon);
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
+    searchAddonRef.current = searchAddon;
 
     const startOrAttachSession = (): void => {
       if (disposed || !opened || sessionStartRequested) {

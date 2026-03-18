@@ -33,9 +33,18 @@ const SETTINGS_TABS: Array<{
 ];
 
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; description: string }> = [
-  { action: 'toggleCommandPalette', label: 'Command Palette', description: 'Open command palette' },
+  { action: 'newWorkspace', label: 'New Workspace', description: 'Create a new workspace' },
+  { action: 'openWorkspace', label: 'Open Workspace', description: 'Open or import a workspace' },
+  { action: 'saveLayout', label: 'Save Layout', description: 'Save current workspace layout' },
+  { action: 'findInTerminal', label: 'Find in Terminal', description: 'Search within the active terminal' },
+  { action: 'clearActivePane', label: 'Clear Active Pane', description: 'Clear output in the active terminal pane' },
+  { action: 'newPane', label: 'New Pane', description: 'Add a new terminal pane' },
+  { action: 'closePane', label: 'Close Pane', description: 'Close the active terminal pane' },
+  { action: 'resetZoom', label: 'Reset Zoom', description: 'Reset zoom level' },
+  { action: 'zoomIn', label: 'Zoom In', description: 'Increase app zoom level' },
+  { action: 'zoomOut', label: 'Zoom Out', description: 'Decrease app zoom level' },
+  { action: 'toggleFullScreen', label: 'Toggle Full Screen', description: 'Enter or exit full screen' },
   { action: 'openSettings', label: 'Settings', description: 'Open settings' },
-  { action: 'openStartPage', label: 'Start Page', description: 'Open start page' },
   { action: 'toggleTaskBoard', label: 'Task Board', description: 'Toggle task board view' },
   { action: 'createTaskQuick', label: 'Quick Task', description: 'Create a backlog task and open task board' },
   { action: 'toggleTaskArchived', label: 'Archived Filter', description: 'Toggle showing archived tasks' },
@@ -56,9 +65,11 @@ interface TaskHistoryItem {
 export function SettingsDialog(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
   const closeSettings = useWorkspaceStore((s) => s.closeSettings);
+  const settingsTab = useWorkspaceStore((s) => s.ui.settingsTab);
+  const setSettingsTab = useWorkspaceStore((s) => s.setSettingsTab);
   const addToast = useToastStore((s) => s.addToast);
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(settingsTab ?? 'appearance');
   const [status, setStatus] = useState<CloudSyncStatus | null>(null);
   const [remoteWorkspaces, setRemoteWorkspaces] = useState<CloudWorkspaceSummary[]>([]);
   const [syncPreview, setSyncPreview] = useState<CloudSyncPreview | null>(null);
@@ -111,6 +122,10 @@ export function SettingsDialog(): JSX.Element {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeSettings]);
+
+  useEffect(() => {
+    setActiveTab(settingsTab ?? 'appearance');
+  }, [settingsTab]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
@@ -213,7 +228,14 @@ export function SettingsDialog(): JSX.Element {
 
           <nav className="settings-nav">
             {SETTINGS_TABS.map((tab) => (
-              <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
+              <button
+                key={tab.id}
+                className={activeTab === tab.id ? 'active' : ''}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setSettingsTab(tab.id);
+                }}
+              >
                 <span className="settings-nav-icon">
                   <UiIcon name={tab.icon} className="ui-icon" />
                 </span>

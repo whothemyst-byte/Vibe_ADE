@@ -60,6 +60,7 @@ const api: VibeAdeApi = {
   },
   task: {
     list: (workspaceId) => ipcRenderer.invoke('task:list', workspaceId),
+    export: (workspaceId, directory) => ipcRenderer.invoke('task:export', workspaceId, directory),
     create: (workspaceId, input) => ipcRenderer.invoke('task:create', workspaceId, input),
     update: (workspaceId, taskId, patch) => ipcRenderer.invoke('task:update', workspaceId, taskId, patch),
     delete: (workspaceId, taskId) => ipcRenderer.invoke('task:delete', workspaceId, taskId),

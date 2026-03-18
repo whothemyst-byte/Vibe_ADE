@@ -4,7 +4,7 @@ import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscrip
 import { useToastStore } from '@renderer/hooks/useToast';
 import type { LayoutPresetId } from '@renderer/services/layoutPresets';
 import type { LocalEnvironmentExportSummary } from '@shared/ipc';
-import { loadEnvironmentSaveDirectory, loadShortcuts, saveEnvironmentSaveDirectory, type ShortcutAction } from '@renderer/services/preferences';
+import { loadEnvironmentSaveDirectory, saveEnvironmentSaveDirectory } from '@renderer/services/preferences';
 import { UiIcon } from './UiIcon';
 
 interface LayoutOption {
@@ -22,26 +22,9 @@ const LAYOUT_OPTIONS: LayoutOption[] = [
   { id: '12-pane-grid', label: '10+', panes: 10 }
 ];
 
-const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
-  toggleCommandPalette: 'Command Palette',
-  openSettings: 'Settings',
-  openStartPage: 'Start Page',
-  toggleTaskBoard: 'Task Board',
-  createTaskQuick: 'Quick Task',
-  toggleTaskArchived: 'Archived Filter',
-  resetTaskFilters: 'Reset Task Filters'
-};
-
-function formatShortcut(combo: string): string {
-  return combo
-    .split('+')
-    .map((part) => part.trim())
-    .join(' + ');
-}
-
 export function StartPage(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
-  const mode = useWorkspaceStore((s) => s.ui.startPageMode);
+  const mode = useWorkspaceStore((s) => s.ui.startPageMode) ?? 'home';
   const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
   const setLayoutPreset = useWorkspaceStore((s) => s.setLayoutPreset);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
@@ -52,7 +35,7 @@ export function StartPage(): JSX.Element {
   const subscription = useWorkspaceStore((s) => s.appState.subscription);
   const addToast = useToastStore((s) => s.addToast);
   const normalizedSub = normalizeSubscriptionState(subscription);
-  const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
+  const plan = SUBSCRIPTION_PLANS[normalizedSub.tier] ?? SUBSCRIPTION_PLANS.spark;
   const maxPanes = plan.limits.maxPanesPerWorkspace;
   const swarmLocked = !plan.features.swarms;
 
@@ -63,12 +46,6 @@ export function StartPage(): JSX.Element {
   const [environmentSaveDir, setEnvironmentSaveDir] = useState<string | null>(() => loadEnvironmentSaveDirectory());
   const [localExports, setLocalExports] = useState<LocalEnvironmentExportSummary[]>([]);
   const [loadingLocalExports, setLoadingLocalExports] = useState(false);
-  const shortcuts = loadShortcuts();
-  const shortcutRows = (Object.entries(shortcuts) as Array<[ShortcutAction, string]>).map(([action, combo]) => ({
-    label: SHORTCUT_LABELS[action],
-    combo: formatShortcut(combo)
-  }));
-
   const createEnvironment = async (): Promise<void> => {
     if (!name.trim() || !rootDir.trim()) {
       return;
@@ -154,18 +131,6 @@ export function StartPage(): JSX.Element {
                 {swarmLocked && <UiIcon name="lock" className="ui-icon ui-icon-sm lock-icon" />}
               </button>
               <button onClick={() => openStartPage('open')}>Open Environment</button>
-            </div>
-
-            <div className="start-shortcuts">
-              <div className="start-shortcuts-title">Keyboard Shortcuts</div>
-              <div className="start-shortcuts-grid">
-                {shortcutRows.map((item) => (
-                  <div key={item.label} className="start-shortcut-row">
-                    <span>{item.label}</span>
-                    <code>{item.combo}</code>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div className="start-tip-row">

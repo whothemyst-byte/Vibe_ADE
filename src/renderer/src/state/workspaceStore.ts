@@ -25,7 +25,6 @@ import { useToastStore } from '@renderer/hooks/useToast';
 import { loadEnvironmentSaveDirectory, saveEnvironmentSaveDirectory } from '@renderer/services/preferences';
 
 interface UiState {
-  commandPaletteOpen: boolean;
   taskBoardTabOpen: boolean;
   activeView: 'workspace' | 'task-board' | 'swarm';
   startPageOpen: boolean;
@@ -34,6 +33,7 @@ interface UiState {
   createFlowOpen: boolean;
   createFlowMode: 'choose' | 'workspace' | 'swarm';
   settingsOpen: boolean;
+  settingsTab: 'appearance' | 'shortcuts' | 'environments' | 'task-board' | 'account';
   swarmDashboardOpen: boolean;
   activeSwarmId: string | null;
   swarmSessions: Array<{ swarmId: string; name: string }>;
@@ -45,6 +45,8 @@ interface UiState {
   taskFilters: TaskFilterState;
   taskSort: TaskSortMode;
   updateStatus: UpdateStatus;
+  taskFiltersOpen: boolean;
+  terminalFindRequest: { paneId: PaneId; query: string; id: string } | null;
 }
 
 interface WorkspaceStoreState {
@@ -94,16 +96,20 @@ interface WorkspaceStoreState {
   setTaskSort: (mode: TaskSortMode) => void;
   clearTaskFilters: () => void;
   getVisibleTasks: (status?: TaskStatus) => TaskItem[];
-  toggleCommandPalette: (open?: boolean) => void;
   toggleTaskBoard: (open?: boolean) => void;
+  toggleTaskFilters: (open?: boolean) => void;
   openStartPage: (mode?: UiState['startPageMode']) => void;
   closeStartPage: () => void;
   openCreateFlow: (mode?: UiState['createFlowMode']) => void;
   closeCreateFlow: () => void;
   openEnvironmentOverlay: () => void;
   closeEnvironmentOverlay: () => void;
-  openSettings: () => void;
+  openSettings: (tab?: UiState['settingsTab']) => void;
   closeSettings: () => void;
+  setSettingsTab: (tab: UiState['settingsTab']) => void;
+  requestTerminalFind: (query: string) => void;
+  exportTasks: () => Promise<void>;
+  archiveCompletedTasks: () => Promise<void>;
   openSwarmDashboard: (swarmId?: string) => void;
   closeSwarmDashboard: () => void;
   setActiveSwarmId: (swarmId: string | null) => void;
@@ -280,7 +286,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   },
   loading: true,
   ui: {
-    commandPaletteOpen: false,
     taskBoardTabOpen: false,
     activeView: 'workspace',
     startPageOpen: true,
@@ -289,6 +294,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     createFlowOpen: false,
     createFlowMode: 'choose',
     settingsOpen: false,
+    settingsTab: 'appearance',
     swarmDashboardOpen: false,
     activeSwarmId: null,
     swarmSessions: [],
@@ -299,7 +305,9 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     taskSearch: '',
     taskFilters: DEFAULT_TASK_FILTERS,
     taskSort: DEFAULT_TASK_SORT,
-    updateStatus: { state: 'idle' }
+    updateStatus: { state: 'idle' },
+    taskFiltersOpen: false,
+    terminalFindRequest: null
   },
   initialize: async () => {
     try {
@@ -676,19 +684,23 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     }
     const paneIds = collectPaneIds(next.layout);
 
-    set((state) => ({
-      appState: {
-        ...state.appState,
-        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
-      },
-      ui: {
-        ...markDirty(state, next.id),
-        paneOrderByWorkspace: {
-          ...state.ui.paneOrderByWorkspace,
-          [next.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[next.id] ?? [], paneIds)
+      set((state) => ({
+        appState: {
+          ...state.appState,
+          workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
+        },
+        ui: {
+          ...markDirty(state, next.id),
+          layoutPresetByWorkspace: {
+            ...state.ui.layoutPresetByWorkspace,
+            [next.id]: presetFromPaneCount(paneIds.length)
+          },
+          paneOrderByWorkspace: {
+            ...state.ui.paneOrderByWorkspace,
+            [next.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[next.id] ?? [], paneIds)
+          }
         }
-      }
-    }));
+      }));
   },
   removePaneFromLayout: async (paneId) => {
     const current = activeWorkspace(get());
@@ -1090,14 +1102,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     const scoped = status ? filtered.filter((task) => task.status === status) : filtered;
     return sortTasks(scoped, state.ui.taskSort);
   },
-  toggleCommandPalette: (open) => {
-    set((state) => ({
-      ui: {
-        ...state.ui,
-        commandPaletteOpen: open ?? !state.ui.commandPaletteOpen
-      }
-    }));
-  },
   toggleTaskBoard: (open) => {
     const normalizedSub = normalizeSubscriptionState(get().appState.subscription);
     const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
@@ -1119,6 +1123,14 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     if (normalizedSub !== get().appState.subscription) {
       void window.vibeAde.workspace.updateSubscription(normalizedSub);
     }
+  },
+  toggleTaskFilters: (open) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        taskFiltersOpen: open ?? !state.ui.taskFiltersOpen
+      }
+    }));
   },
   openStartPage: (mode = 'home') => {
     set((state) => ({
@@ -1192,11 +1204,20 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       };
     });
   },
-  openSettings: () => {
+  openSettings: (tab = 'appearance') => {
     set((state) => ({
       ui: {
         ...state.ui,
-        settingsOpen: true
+        settingsOpen: true,
+        settingsTab: tab
+      }
+    }));
+  },
+  setSettingsTab: (tab) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        settingsTab: tab
       }
     }));
   },
@@ -1207,6 +1228,49 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         settingsOpen: false
       }
     }));
+  },
+  requestTerminalFind: (query) => {
+    const workspace = activeWorkspace(get());
+    if (!workspace || !workspace.activePaneId) {
+      return;
+    }
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        terminalFindRequest: {
+          paneId: workspace.activePaneId,
+          query,
+          id: uuidv4()
+        }
+      }
+    }));
+  },
+  exportTasks: async () => {
+    const workspace = activeWorkspace(get());
+    if (!workspace) {
+      return;
+    }
+    const directory = await window.vibeAde.system.selectDirectory();
+    if (!directory) {
+      return;
+    }
+    await window.vibeAde.task.export(workspace.id, directory);
+    useToastStore.getState().addToast('success', 'Tasks exported');
+  },
+  archiveCompletedTasks: async () => {
+    const workspace = activeWorkspace(get());
+    if (!workspace) {
+      return;
+    }
+    const doneTasks = workspace.tasks.filter((task) => task.status === 'done' && !task.archived);
+    if (doneTasks.length === 0) {
+      useToastStore.getState().addToast('info', 'No completed tasks to archive.');
+      return;
+    }
+    for (const task of doneTasks) {
+      await get().archiveTask(task.id, true);
+    }
+    useToastStore.getState().addToast('success', 'Completed tasks archived.');
   },
   openSwarmDashboard: (swarmId) => {
     const normalizedSub = normalizeSubscriptionState(get().appState.subscription);

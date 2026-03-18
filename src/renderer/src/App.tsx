@@ -7,7 +7,6 @@ import { AppMenuBar } from './components/AppMenuBar';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { PaneLayout } from './components/PaneLayout';
 import { TaskBoard } from './components/TaskBoard';
-import { CommandPalette } from './components/CommandPalette';
 import { StartPage } from './components/StartPage';
 import { SettingsDialog } from './components/SettingsDialog';
 import { SwarmDashboardDialog } from './components/SwarmDashboardDialog';
@@ -28,15 +27,24 @@ export function App(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
   const loading = useWorkspaceStore((s) => s.loading);
   const ui = useWorkspaceStore((s) => s.ui);
-  const togglePalette = useWorkspaceStore((s) => s.toggleCommandPalette);
   const toggleTaskBoard = useWorkspaceStore((s) => s.toggleTaskBoard);
+  const openCreateFlow = useWorkspaceStore((s) => s.openCreateFlow);
+  const openEnvironmentOverlay = useWorkspaceStore((s) => s.openEnvironmentOverlay);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
-  const openStartPage = useWorkspaceStore((s) => s.openStartPage);
+  const saveActiveWorkspace = useWorkspaceStore((s) => s.saveActiveWorkspace);
+  const requestTerminalFind = useWorkspaceStore((s) => s.requestTerminalFind);
+  const addPaneToLayout = useWorkspaceStore((s) => s.addPaneToLayout);
+  const removePaneFromLayout = useWorkspaceStore((s) => s.removePaneFromLayout);
   const addTask = useWorkspaceStore((s) => s.addTask);
   const clearTaskFilters = useWorkspaceStore((s) => s.clearTaskFilters);
   const setTaskFilters = useWorkspaceStore((s) => s.setTaskFilters);
   const cancelCloseWorkspace = useWorkspaceStore((s) => s.cancelCloseWorkspace);
   const confirmCloseWorkspace = useWorkspaceStore((s) => s.confirmCloseWorkspace);
+
+  const activeWorkspace = useMemo(
+    () => appState.workspaces.find((w) => w.id === appState.activeWorkspaceId),
+    [appState.activeWorkspaceId, appState.workspaces]
+  );
 
   useIpcEvents();
 
@@ -103,7 +111,9 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target)) {
+      const target = event.target as HTMLElement | null;
+      const isTerminalTarget = Boolean(target?.closest('.terminal-pane'));
+      if (isTypingTarget(event.target) && !isTerminalTarget) {
         return;
       }
 
@@ -123,8 +133,55 @@ export function App(): JSX.Element {
 
       event.preventDefault();
       const [action] = match;
-      if (action === 'toggleCommandPalette') {
-        togglePalette();
+      if (action === 'newWorkspace') {
+        openCreateFlow('workspace');
+        return;
+      }
+      if (action === 'openWorkspace') {
+        openEnvironmentOverlay();
+        return;
+      }
+      if (action === 'saveLayout') {
+        void saveActiveWorkspace();
+        return;
+      }
+      if (action === 'findInTerminal') {
+        const query = window.prompt('Find in terminal:');
+        if (query) {
+          requestTerminalFind(query);
+        }
+        return;
+      }
+      if (action === 'clearActivePane') {
+        if (activeWorkspace?.activePaneId) {
+          void window.vibeAde.terminal.executeInSession(activeWorkspace.activePaneId, 'cls', true);
+        }
+        return;
+      }
+      if (action === 'newPane') {
+        void addPaneToLayout();
+        return;
+      }
+      if (action === 'closePane') {
+        if (activeWorkspace?.activePaneId) {
+          void removePaneFromLayout(activeWorkspace.activePaneId);
+        }
+        return;
+      }
+      if (action === 'resetZoom') {
+        void window.vibeAde.system.performMenuAction('resetZoom');
+        return;
+      }
+      if (action === 'zoomIn') {
+        void window.vibeAde.system.performMenuAction('zoomIn');
+        return;
+      }
+      if (action === 'zoomOut') {
+        void window.vibeAde.system.performMenuAction('zoomOut');
+        return;
+      }
+      if (action === 'toggleFullScreen') {
+        void window.vibeAde.system.performMenuAction('togglefullscreen');
         return;
       }
       if (action === 'toggleTaskBoard') {
@@ -150,18 +207,24 @@ export function App(): JSX.Element {
         openSettings();
         return;
       }
-      if (action === 'openStartPage') {
-        openStartPage('home');
-      }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [addTask, clearTaskFilters, openSettings, openStartPage, setTaskFilters, togglePalette, toggleTaskBoard, ui.taskFilters.archived]);
-
-  const activeWorkspace = useMemo(
-    () => appState.workspaces.find((w) => w.id === appState.activeWorkspaceId),
-    [appState.activeWorkspaceId, appState.workspaces]
-  );
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [
+    activeWorkspace?.activePaneId,
+    addPaneToLayout,
+    addTask,
+    clearTaskFilters,
+    openCreateFlow,
+    openEnvironmentOverlay,
+    openSettings,
+    removePaneFromLayout,
+    requestTerminalFind,
+    saveActiveWorkspace,
+    setTaskFilters,
+    toggleTaskBoard,
+    ui.taskFilters.archived
+  ]);
 
   if (authLoading) {
     return <div className="centered">Checking session...</div>;
@@ -226,7 +289,6 @@ export function App(): JSX.Element {
         {ui.startPageOpen && <StartPage />}
         {ui.settingsOpen && <SettingsDialog />}
         {ui.swarmDashboardOpen && <SwarmDashboardDialog />}
-        {ui.commandPaletteOpen && <CommandPalette />}
         {ui.pendingCloseWorkspaceId && (
           <div className="close-warning-overlay" onClick={cancelCloseWorkspace}>
             <section className="close-warning-card" onClick={(event) => event.stopPropagation()}>

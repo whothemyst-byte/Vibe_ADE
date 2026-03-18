@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import { collectPaneIds } from '@renderer/services/layoutEngine';
+import { LAYOUT_PRESETS } from '@renderer/services/layoutPresets';
+import { applyAppearanceMode, getStoredAppearanceMode, setStoredAppearanceMode, type AppearanceMode } from '@renderer/theme/appearance';
+import { THEME_LABELS, THEME_ORDER } from '@renderer/theme/theme';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 
 type MenuId = 'file' | 'edit' | 'view' | 'terminal' | 'tasks' | 'swarm' | 'account' | 'help';
@@ -11,6 +14,7 @@ interface MenuItem {
   action?: () => void;
   separator?: boolean;
   disabled?: boolean;
+  children?: MenuItem[];
 }
 
 interface MenuDefinition {
@@ -20,18 +24,21 @@ interface MenuDefinition {
 }
 
 export function AppMenuBar(): JSX.Element {
-  const openStartPage = useWorkspaceStore((s) => s.openStartPage);
   const openCreateFlow = useWorkspaceStore((s) => s.openCreateFlow);
   const openEnvironmentOverlay = useWorkspaceStore((s) => s.openEnvironmentOverlay);
   const openSettings = useWorkspaceStore((s) => s.openSettings);
   const openSwarmDashboard = useWorkspaceStore((s) => s.openSwarmDashboard);
   const saveActiveWorkspace = useWorkspaceStore((s) => s.saveActiveWorkspace);
-  const saveAsActiveWorkspace = useWorkspaceStore((s) => s.saveAsActiveWorkspace);
+  const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const addPaneToLayout = useWorkspaceStore((s) => s.addPaneToLayout);
   const removePaneFromLayout = useWorkspaceStore((s) => s.removePaneFromLayout);
   const toggleTaskBoard = useWorkspaceStore((s) => s.toggleTaskBoard);
   const addTask = useWorkspaceStore((s) => s.addTask);
-  const setTaskFilters = useWorkspaceStore((s) => s.setTaskFilters);
+  const toggleTaskFilters = useWorkspaceStore((s) => s.toggleTaskFilters);
+  const setLayoutPreset = useWorkspaceStore((s) => s.setLayoutPreset);
+  const requestTerminalFind = useWorkspaceStore((s) => s.requestTerminalFind);
+  const exportTasks = useWorkspaceStore((s) => s.exportTasks);
+  const archiveCompletedTasks = useWorkspaceStore((s) => s.archiveCompletedTasks);
   const appState = useWorkspaceStore((s) => s.appState);
 
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
@@ -76,6 +83,12 @@ export function AppMenuBar(): JSX.Element {
   const activePaneId = activeWorkspace?.activePaneId ?? null;
   const subscription = useMemo(() => normalizeSubscriptionState(appState.subscription), [appState.subscription]);
   const plan = SUBSCRIPTION_PLANS[subscription.tier];
+  const recentWorkspaces = useMemo(() => {
+    return [...appState.workspaces].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }, [appState.workspaces]);
+  const appearanceMode = getStoredAppearanceMode();
 
   const withActivePane = (fn: (paneId: string) => void): (() => void) => {
     return () => {
@@ -83,6 +96,41 @@ export function AppMenuBar(): JSX.Element {
         return;
       }
       fn(activePaneId);
+    };
+  };
+
+  const setWorkingDirectory = async (): Promise<void> => {
+    if (!activePaneId || !activeWorkspace) {
+      return;
+    }
+    const selected = await window.vibeAde.system.selectDirectory();
+    if (!selected) {
+      return;
+    }
+    const shell = activeWorkspace.paneShells[activePaneId];
+    const command =
+      shell === 'powershell'
+        ? `Set-Location -LiteralPath "${selected.replace(/"/g, '""')}"`
+        : `cd /d "${selected.replace(/"/g, '""')}"`;
+    await window.vibeAde.terminal.executeInSession(activePaneId, command, true);
+  };
+
+  const findInTerminal = (): void => {
+    const query = window.prompt('Find in terminal:');
+    if (!query) {
+      return;
+    }
+    requestTerminalFind(query);
+  };
+
+  const setAppearance = (mode: AppearanceMode): void => {
+    setStoredAppearanceMode(mode);
+    applyAppearanceMode(mode);
+  };
+
+  const openExternal = (url: string): (() => void) => {
+    return () => {
+      void window.vibeAde.system.openExternal(url);
     };
   };
 
@@ -119,6 +167,27 @@ export function AppMenuBar(): JSX.Element {
 
   const menus = useMemo<MenuDefinition[]>(
     () => {
+      const recentWorkspaceItems: MenuItem[] =
+        recentWorkspaces.length === 0
+          ? [{ label: 'No recent workspaces', disabled: true }]
+          : recentWorkspaces.map((workspace) => ({
+              label: workspace.name,
+              action: () => void setActiveWorkspace(workspace.id),
+              disabled: workspace.id === activeWorkspace?.id
+            }));
+
+      const themeMenuItems: MenuItem[] = THEME_ORDER.map((themeId) => ({
+        label: THEME_LABELS[themeId],
+        action: () => setAppearance(themeId as AppearanceMode),
+        disabled: appearanceMode === themeId
+      }));
+
+      const layoutMenuItems: MenuItem[] = LAYOUT_PRESETS.map((preset) => ({
+        label: preset.label,
+        action: () => setLayoutPreset(preset.id),
+        disabled: subscription.tier === 'spark' && preset.slots > 4
+      }));
+
       const next: MenuDefinition[] = [
       {
         id: 'file',
@@ -126,13 +195,11 @@ export function AppMenuBar(): JSX.Element {
         items: [
           { label: 'New Workspace', shortcut: 'Ctrl+Shift+N', action: () => openCreateFlow('workspace') },
           { label: 'Open Workspace...', shortcut: 'Ctrl+O', action: () => openEnvironmentOverlay() },
-          { label: 'Recent Workspaces', action: () => openStartPage('open') },
+          { label: 'Recent Workspaces', children: recentWorkspaceItems },
           { separator: true, label: 'sep-file-1' },
           { label: 'Save Layout', shortcut: 'Ctrl+S', action: () => void saveActiveWorkspace() },
-          { label: 'Export Config...', action: () => void saveAsActiveWorkspace() },
-          { label: 'Import Config...', action: () => openEnvironmentOverlay() },
           { separator: true, label: 'sep-file-2' },
-          { label: 'Preferences', shortcut: 'Ctrl+,', action: () => openSettings() },
+          { label: 'Preferences', shortcut: 'Ctrl+,', action: () => openSettings('appearance') },
           { separator: true, label: 'sep-file-3' },
           { label: 'Exit', action: systemAction('quit') }
         ]
@@ -148,19 +215,19 @@ export function AppMenuBar(): JSX.Element {
           { label: 'Copy', shortcut: 'Ctrl+C', action: systemAction('copy') },
           { label: 'Paste', shortcut: 'Ctrl+V', action: systemAction('paste') },
           { separator: true, label: 'sep-edit-2' },
-          { label: 'Find in Terminal...', shortcut: 'Ctrl+F', disabled: true },
+          { label: 'Find in Terminal...', shortcut: 'Ctrl+F', action: () => findInTerminal() },
           { label: 'Clear Active Pane', shortcut: 'Ctrl+L', action: withActivePane((paneId) => void window.vibeAde.terminal.executeInSession(paneId, 'cls', true)) },
           { separator: true, label: 'sep-edit-3' },
-          { label: 'Keyboard Shortcuts', action: () => openSettings() }
+          { label: 'Keyboard Shortcuts', action: () => openSettings('shortcuts') }
         ]
       },
       {
         id: 'view',
         label: 'View',
         items: [
-          { label: 'Theme', action: () => openSettings() },
+          { label: 'Theme', children: themeMenuItems },
           { separator: true, label: 'sep-view-1' },
-          { label: 'Pane Layout', disabled: true },
+          { label: 'Pane Layout', children: layoutMenuItems },
           { separator: true, label: 'sep-view-2' },
           { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: systemAction('resetZoom') },
           { label: 'Zoom In', shortcut: 'Ctrl+=', action: systemAction('zoomIn') },
@@ -175,7 +242,7 @@ export function AppMenuBar(): JSX.Element {
         items: [
           { label: 'New Pane', shortcut: 'Ctrl+Shift+T', action: () => void addPaneToLayout() },
           { separator: true, label: 'sep-terminal-1' },
-          { label: 'Set Working Dir...', disabled: true },
+          { label: 'Set Working Dir...', action: () => void setWorkingDirectory() },
           { separator: true, label: 'sep-terminal-2' },
           { label: 'Kill Process', shortcut: 'Ctrl+C', action: withActivePane((paneId) => void window.vibeAde.terminal.sendInput(paneId, '\u0003')) },
           { label: 'Restart Session', action: () => void restartActiveSession() },
@@ -200,16 +267,19 @@ export function AppMenuBar(): JSX.Element {
                 },
                 { separator: true, label: 'sep-tasks-1' },
                 { label: 'View Board', action: () => toggleTaskBoard(true) },
-                { label: 'Filter Tasks', action: () => toggleTaskBoard(true) },
+                { label: 'Filter Tasks', action: () => {
+                  toggleTaskBoard(true);
+                  toggleTaskFilters(true);
+                } },
                 { separator: true, label: 'sep-tasks-2' },
                 {
                   label: 'Archive Completed',
                   action: () => {
                     toggleTaskBoard(true);
-                    setTaskFilters({ archived: true });
+                    void archiveCompletedTasks();
                   }
                 },
-                { label: 'Export Tasks...', disabled: true }
+                { label: 'Export Tasks...', action: () => void exportTasks() }
               ]
             }
           ]
@@ -223,11 +293,11 @@ export function AppMenuBar(): JSX.Element {
                 { label: 'New Swarm...', action: () => openSwarmDashboard() },
                 { separator: true, label: 'sep-swarm-1' },
                 { label: 'Agent Dashboard', action: () => openSwarmDashboard() },
-                { label: 'Activity Stream', disabled: true },
-                { label: 'Logs & Alerts', disabled: true },
+                { label: 'Activity Stream', action: () => openSwarmDashboard() },
+                { label: 'Logs & Alerts', action: () => openSwarmDashboard() },
                 { separator: true, label: 'sep-swarm-2' },
-                { label: 'Pause All Agents', disabled: true },
-                { label: 'Stop All Agents', disabled: true }
+                { label: 'Pause All Agents', action: () => openSwarmDashboard() },
+                { label: 'Stop All Agents', action: () => openSwarmDashboard() }
               ]
             }
           ]
@@ -236,11 +306,11 @@ export function AppMenuBar(): JSX.Element {
         id: 'account',
         label: 'Account',
         items: [
-          { label: 'Profile...', action: () => openSettings() },
+          { label: 'Profile...', action: () => openSettings('account') },
           { separator: true, label: 'sep-account-1' },
-          { label: 'Subscription', action: () => openSettings() },
-          { label: 'Usage Dashboard', action: () => openSettings() },
-          { label: 'Billing & Invoices', disabled: true },
+          { label: 'Subscription', action: () => openSettings('account') },
+          { label: 'Usage Dashboard', action: () => openSettings('account') },
+          { label: 'Billing & Invoices', action: openExternal('https://website-opal-seven-61.vercel.app/#pricing') },
           { separator: true, label: 'sep-account-2' },
           { label: 'Sign Out', action: () => void window.vibeAde.auth.logout().then(() => window.location.reload()) }
         ]
@@ -249,13 +319,13 @@ export function AppMenuBar(): JSX.Element {
         id: 'help',
         label: 'Help',
         items: [
-          { label: 'Documentation', shortcut: 'F1', disabled: true },
-          { label: 'Keyboard Shortcuts', action: () => openSettings() },
-          { label: "What's New", disabled: true },
+          { label: 'Documentation', shortcut: 'F1', action: openExternal('https://website-opal-seven-61.vercel.app/') },
+          { label: 'Keyboard Shortcuts', action: () => openSettings('shortcuts') },
+          { label: "What's New", action: openExternal('https://github.com/whothemyst-byte/Vibe_ADE/releases/latest') },
           { label: 'Check for Updates...', action: () => void window.vibeAde.update.check() },
           { separator: true, label: 'sep-help-1' },
-          { label: 'Send Feedback', disabled: true },
-          { label: 'Report a Bug', disabled: true },
+          { label: 'Send Feedback', action: openExternal('https://github.com/whothemyst-byte/Vibe_ADE/issues/new?template=feature_request.md') },
+          { label: 'Report a Bug', action: openExternal('https://github.com/whothemyst-byte/Vibe_ADE/issues/new?template=bug_report.md') },
           { separator: true, label: 'sep-help-2' },
           { label: 'About Vibe-ADE', action: systemAction('about') }
         ]
@@ -273,19 +343,64 @@ export function AppMenuBar(): JSX.Element {
       openCreateFlow,
       openEnvironmentOverlay,
       openSettings,
-      openStartPage,
       openSwarmDashboard,
       plan.features.swarms,
       plan.features.taskBoard,
       removePaneFromLayout,
+      requestTerminalFind,
       restartActiveSession,
+      setActiveWorkspace,
+      setLayoutPreset,
       saveActiveWorkspace,
-      saveAsActiveWorkspace,
-      setTaskFilters,
+      toggleTaskFilters,
       systemAction,
-      toggleTaskBoard
+      toggleTaskBoard,
+      exportTasks,
+      archiveCompletedTasks
     ]
   );
+
+  const renderMenuItem = (item: MenuItem, key: string): JSX.Element => {
+    if (item.separator) {
+      return <div key={key} className="app-menu-separator" />;
+    }
+
+    if (item.children && item.children.length > 0) {
+      const disabledClass = item.disabled ? ' disabled' : '';
+      return (
+        <div
+          key={key}
+          className={`app-menu-item app-menu-submenu-trigger${disabledClass}`}
+          role="menuitem"
+          aria-disabled={item.disabled}
+        >
+          <span>{item.label}</span>
+          <span className="app-menu-submenu-caret">›</span>
+          <div className="app-menu-submenu" role="menu">
+            {item.children.map((child, index) => renderMenuItem(child, `${key}-${index}`))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={key}
+        className="app-menu-item"
+        role="menuitem"
+        disabled={item.disabled}
+        onClick={() => {
+          if (!item.disabled) {
+            item.action?.();
+          }
+          closeMenus();
+        }}
+      >
+        <span>{item.label}</span>
+        {item.shortcut && <span className="app-menu-shortcut">{item.shortcut}</span>}
+      </button>
+    );
+  };
 
   return (
     <div className="app-menu-bar app-drag-region">
@@ -307,27 +422,7 @@ export function AppMenuBar(): JSX.Element {
           </button>
           {openMenu === menu.id && (
             <div className="app-menu-popover" role="menu">
-              {menu.items.map((item) =>
-                item.separator ? (
-                  <div key={item.label} className="app-menu-separator" />
-                ) : (
-                  <button
-                    key={item.label}
-                    className="app-menu-item"
-                    role="menuitem"
-                    disabled={item.disabled}
-                    onClick={() => {
-                      if (!item.disabled) {
-                        item.action?.();
-                      }
-                      closeMenus();
-                    }}
-                  >
-                    <span>{item.label}</span>
-                    {item.shortcut && <span className="app-menu-shortcut">{item.shortcut}</span>}
-                  </button>
-                )
-              )}
+              {menu.items.map((item, index) => renderMenuItem(item, `${menu.id}-${index}`))}
             </div>
           )}
         </div>

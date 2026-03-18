@@ -18,7 +18,7 @@ import type { TemplateRunner } from '@main/services/TemplateRunner';
 import type { TerminalManager } from '@main/services/TerminalManager';
 import type { UpdateManager } from '@main/services/UpdateManager';
 import { buildMentionPayload, listDirectoryEntries } from '@main/services/TerminalMentionPayload';
-import { exportEnvironmentToDirectory, listEnvironmentExports, loadEnvironmentExport } from '@main/services/EnvironmentFileManager';
+import { exportEnvironmentToDirectory, listEnvironmentExports, loadEnvironmentExport, exportTasksToDirectory } from '@main/services/EnvironmentFileManager';
 import type { WorkspaceManager } from '@main/services/WorkspaceManager';
 import { swarmManager } from '@main/services/SwarmManager';
 import { swarmEventBus } from '@main/services/SwarmEventBus';
@@ -660,6 +660,12 @@ export function registerIpcHandlers(deps: Dependencies): void {
     assertWorkspaceId(workspaceId);
     const workspace = loadWorkspace(workspaceId);
     return workspace.tasks;
+  });
+  ipcMain.handle('task:export', (_event, workspaceId: WorkspaceId, directory: string) => {
+    assertWorkspaceId(workspaceId);
+    assertNonEmptyString(directory, 'directory');
+    const workspace = loadWorkspace(workspaceId);
+    return exportTasksToDirectory(workspace, directory).then((filePath) => ({ filePath }));
   });
 
   ipcMain.handle('task:create', async (_event, workspaceId: WorkspaceId, input: unknown) => {

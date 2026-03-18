@@ -3,6 +3,7 @@ import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import type { LayoutNode, PaneId, WorkspaceState } from '@shared/types';
 import type { LocalEnvironmentExportSummary } from '@shared/ipc';
+import type { TaskItem } from '@shared/types';
 
 interface EnvironmentExportV2 {
   name: string;
@@ -230,4 +231,26 @@ export async function loadEnvironmentExport(filePath: string): Promise<Workspace
     layout: workspace.layout as LayoutNode,
     activePaneId: workspace.activePaneId as PaneId | undefined
   });
+}
+
+export async function exportTasksToDirectory(workspace: WorkspaceState, directory: string): Promise<string> {
+  await fs.mkdir(directory, { recursive: true });
+  const safeName = sanitizeFileComponent(workspace.name);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const fileName = `${safeName}-tasks-${timestamp}.json`;
+  const targetPath = path.join(directory, fileName);
+  const tempPath = `${targetPath}.tmp-${Date.now()}`;
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    workspace: {
+      id: workspace.id,
+      name: workspace.name,
+      rootDir: workspace.rootDir
+    },
+    tasks: workspace.tasks as TaskItem[]
+  };
+  await fs.writeFile(tempPath, JSON.stringify(payload, null, 2), 'utf8');
+  await fs.rename(tempPath, targetPath);
+  return targetPath;
 }

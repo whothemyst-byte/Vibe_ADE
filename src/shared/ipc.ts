@@ -227,6 +227,7 @@ export interface VibeAdeApi {
   };
   task: {
     list: (workspaceId: WorkspaceId) => Promise<TaskItem[]>;
+    export: (workspaceId: WorkspaceId, directory: string) => Promise<{ filePath: string }>;
     create: (
       workspaceId: WorkspaceId,
       input: {

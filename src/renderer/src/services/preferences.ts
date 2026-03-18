@@ -1,7 +1,16 @@
 export type ShortcutAction =
-  | 'toggleCommandPalette'
+  | 'newWorkspace'
+  | 'openWorkspace'
+  | 'saveLayout'
+  | 'findInTerminal'
+  | 'clearActivePane'
+  | 'newPane'
+  | 'closePane'
+  | 'resetZoom'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'toggleFullScreen'
   | 'openSettings'
-  | 'openStartPage'
   | 'toggleTaskBoard'
   | 'createTaskQuick'
   | 'toggleTaskArchived'
@@ -12,9 +21,18 @@ export type ShortcutBindings = Record<ShortcutAction, string>;
 const SHORTCUTS_KEY = 'vibe-ade-shortcuts';
 const ENVIRONMENT_SAVE_DIR_KEY = 'vibe-ade-environment-save-dir';
 export const DEFAULT_SHORTCUTS: ShortcutBindings = {
-  toggleCommandPalette: 'Ctrl+K',
+  newWorkspace: 'Ctrl+Shift+N',
+  openWorkspace: 'Ctrl+O',
+  saveLayout: 'Ctrl+S',
+  findInTerminal: 'Ctrl+F',
+  clearActivePane: 'Ctrl+L',
+  newPane: 'Ctrl+Shift+T',
+  closePane: 'Ctrl+W',
+  resetZoom: 'Ctrl+0',
+  zoomIn: 'Ctrl+=',
+  zoomOut: 'Ctrl+-',
+  toggleFullScreen: 'F11',
   openSettings: 'Ctrl+,',
-  openStartPage: 'Ctrl+T',
   toggleTaskBoard: 'Ctrl+J',
   createTaskQuick: 'Ctrl+Shift+J',
   toggleTaskArchived: 'Ctrl+Alt+J',
@@ -29,9 +47,18 @@ export function loadShortcuts(): ShortcutBindings {
     }
     const parsed = JSON.parse(raw) as Partial<ShortcutBindings>;
     return {
-      toggleCommandPalette: typeof parsed.toggleCommandPalette === 'string' ? parsed.toggleCommandPalette : DEFAULT_SHORTCUTS.toggleCommandPalette,
+      newWorkspace: typeof parsed.newWorkspace === 'string' ? parsed.newWorkspace : DEFAULT_SHORTCUTS.newWorkspace,
+      openWorkspace: typeof parsed.openWorkspace === 'string' ? parsed.openWorkspace : DEFAULT_SHORTCUTS.openWorkspace,
+      saveLayout: typeof parsed.saveLayout === 'string' ? parsed.saveLayout : DEFAULT_SHORTCUTS.saveLayout,
+      findInTerminal: typeof parsed.findInTerminal === 'string' ? parsed.findInTerminal : DEFAULT_SHORTCUTS.findInTerminal,
+      clearActivePane: typeof parsed.clearActivePane === 'string' ? parsed.clearActivePane : DEFAULT_SHORTCUTS.clearActivePane,
+      newPane: typeof parsed.newPane === 'string' ? parsed.newPane : DEFAULT_SHORTCUTS.newPane,
+      closePane: typeof parsed.closePane === 'string' ? parsed.closePane : DEFAULT_SHORTCUTS.closePane,
+      resetZoom: typeof parsed.resetZoom === 'string' ? parsed.resetZoom : DEFAULT_SHORTCUTS.resetZoom,
+      zoomIn: typeof parsed.zoomIn === 'string' ? parsed.zoomIn : DEFAULT_SHORTCUTS.zoomIn,
+      zoomOut: typeof parsed.zoomOut === 'string' ? parsed.zoomOut : DEFAULT_SHORTCUTS.zoomOut,
+      toggleFullScreen: typeof parsed.toggleFullScreen === 'string' ? parsed.toggleFullScreen : DEFAULT_SHORTCUTS.toggleFullScreen,
       openSettings: typeof parsed.openSettings === 'string' ? parsed.openSettings : DEFAULT_SHORTCUTS.openSettings,
-      openStartPage: typeof parsed.openStartPage === 'string' ? parsed.openStartPage : DEFAULT_SHORTCUTS.openStartPage,
       toggleTaskBoard: typeof parsed.toggleTaskBoard === 'string' ? parsed.toggleTaskBoard : DEFAULT_SHORTCUTS.toggleTaskBoard,
       createTaskQuick: typeof parsed.createTaskQuick === 'string' ? parsed.createTaskQuick : DEFAULT_SHORTCUTS.createTaskQuick,
       toggleTaskArchived: typeof parsed.toggleTaskArchived === 'string' ? parsed.toggleTaskArchived : DEFAULT_SHORTCUTS.toggleTaskArchived,

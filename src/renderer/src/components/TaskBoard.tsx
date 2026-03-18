@@ -114,7 +114,8 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
   const [labelsInput, setLabelsInput] = useState('');
   const [draggedTask, setDraggedTask] = useState<TaskItem | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersOpen = useWorkspaceStore((s) => s.ui.taskFiltersOpen);
+  const toggleTaskFilters = useWorkspaceStore((s) => s.toggleTaskFilters);
   const [draftStatus, setDraftStatus] = useState<TaskStatus>('backlog');
 
   const createTask = useWorkspaceStore((s) => s.createTask);
@@ -154,7 +155,7 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
           />
         </div>
         <div className="task-toolbar-actions">
-          <button type="button" onClick={() => setFiltersOpen((value) => !value)}>
+          <button type="button" onClick={() => toggleTaskFilters()}>
             <Icon className="inline-icon" paths={['M4 6h16', 'M4 12h10', 'M14 12h6', 'M4 18h7', 'M13 18h7']} />
             Filters
           </button>
@@ -299,7 +300,7 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
         <aside className={filtersOpen ? 'task-filters-panel open' : 'task-filters-panel'}>
           <header>
             <strong>Filters</strong>
-            <button type="button" className="icon-only-button" onClick={() => setFiltersOpen(false)}>
+            <button type="button" className="icon-only-button" onClick={() => toggleTaskFilters(false)}>
               <Icon paths={['M6 6l12 12', 'M18 6l-12 12']} />
             </button>
           </header>
