@@ -45,3 +45,4 @@ publish:
   provider: github
   owner: whothemyst-byte
   repo: Vibe_ADE
+  releaseType: release
