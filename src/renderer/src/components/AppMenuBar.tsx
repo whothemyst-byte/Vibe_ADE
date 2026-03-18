@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { collectPaneIds } from '@renderer/services/layoutEngine';
+import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 
-type MenuId = 'file' | 'edit' | 'view' | 'window' | 'help';
+type MenuId = 'file' | 'edit' | 'view' | 'terminal' | 'tasks' | 'swarm' | 'account' | 'help';
 
 interface MenuItem {
   label: string;
   shortcut?: string;
   action?: () => void;
   separator?: boolean;
+  disabled?: boolean;
 }
 
 interface MenuDefinition {
@@ -24,6 +27,12 @@ export function AppMenuBar(): JSX.Element {
   const openSwarmDashboard = useWorkspaceStore((s) => s.openSwarmDashboard);
   const saveActiveWorkspace = useWorkspaceStore((s) => s.saveActiveWorkspace);
   const saveAsActiveWorkspace = useWorkspaceStore((s) => s.saveAsActiveWorkspace);
+  const addPaneToLayout = useWorkspaceStore((s) => s.addPaneToLayout);
+  const removePaneFromLayout = useWorkspaceStore((s) => s.removePaneFromLayout);
+  const toggleTaskBoard = useWorkspaceStore((s) => s.toggleTaskBoard);
+  const addTask = useWorkspaceStore((s) => s.addTask);
+  const setTaskFilters = useWorkspaceStore((s) => s.setTaskFilters);
+  const appState = useWorkspaceStore((s) => s.appState);
 
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
 
@@ -60,19 +69,70 @@ export function AppMenuBar(): JSX.Element {
     };
   };
 
+  const activeWorkspace = useMemo(
+    () => appState.workspaces.find((w) => w.id === appState.activeWorkspaceId),
+    [appState.activeWorkspaceId, appState.workspaces]
+  );
+  const activePaneId = activeWorkspace?.activePaneId ?? null;
+  const subscription = useMemo(() => normalizeSubscriptionState(appState.subscription), [appState.subscription]);
+  const plan = SUBSCRIPTION_PLANS[subscription.tier];
+
+  const withActivePane = (fn: (paneId: string) => void): (() => void) => {
+    return () => {
+      if (!activePaneId || !activeWorkspace) {
+        return;
+      }
+      fn(activePaneId);
+    };
+  };
+
+  const restartActiveSession = async (): Promise<void> => {
+    if (!activePaneId || !activeWorkspace) {
+      return;
+    }
+    const shell = activeWorkspace.paneShells[activePaneId];
+    if (!shell) {
+      return;
+    }
+    await window.vibeAde.terminal.stopSession(activePaneId);
+    await window.vibeAde.terminal.startSession({
+      workspaceId: activeWorkspace.id,
+      paneId: activePaneId,
+      shell,
+      cwd: activeWorkspace.rootDir
+    });
+  };
+
+  const closeAllPanes = async (): Promise<void> => {
+    if (!activeWorkspace) {
+      return;
+    }
+    const paneIds = collectPaneIds(activeWorkspace.layout);
+    const keep = activeWorkspace.activePaneId ?? paneIds[0];
+    for (const paneId of paneIds) {
+      if (paneId === keep) {
+        continue;
+      }
+      await removePaneFromLayout(paneId);
+    }
+  };
+
   const menus = useMemo<MenuDefinition[]>(
-    () => [
+    () => {
+      const next: MenuDefinition[] = [
       {
         id: 'file',
         label: 'File',
         items: [
-          { label: 'New Environment', shortcut: 'Ctrl+N', action: () => openCreateFlow('workspace') },
-          { label: 'Open Environment', shortcut: 'Ctrl+O', action: () => openEnvironmentOverlay() },
+          { label: 'New Workspace', shortcut: 'Ctrl+Shift+N', action: () => openCreateFlow('workspace') },
+          { label: 'Open Workspace...', shortcut: 'Ctrl+O', action: () => openEnvironmentOverlay() },
+          { label: 'Recent Workspaces', action: () => openStartPage('open') },
           { separator: true, label: 'sep-file-1' },
-          { label: 'Save', shortcut: 'Ctrl+S', action: () => void saveActiveWorkspace() },
-          { label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: () => void saveAsActiveWorkspace() },
+          { label: 'Save Layout', shortcut: 'Ctrl+S', action: () => void saveActiveWorkspace() },
+          { label: 'Export Config...', action: () => void saveAsActiveWorkspace() },
+          { label: 'Import Config...', action: () => openEnvironmentOverlay() },
           { separator: true, label: 'sep-file-2' },
-          { label: 'Settings', shortcut: 'Ctrl+,', action: () => openSettings() },
+          { label: 'Preferences', shortcut: 'Ctrl+,', action: () => openSettings() },
           { separator: true, label: 'sep-file-3' },
           { label: 'Exit', action: systemAction('quit') }
         ]
@@ -87,42 +147,144 @@ export function AppMenuBar(): JSX.Element {
           { label: 'Cut', shortcut: 'Ctrl+X', action: systemAction('cut') },
           { label: 'Copy', shortcut: 'Ctrl+C', action: systemAction('copy') },
           { label: 'Paste', shortcut: 'Ctrl+V', action: systemAction('paste') },
-          { label: 'Select All', shortcut: 'Ctrl+A', action: systemAction('selectAll') }
+          { separator: true, label: 'sep-edit-2' },
+          { label: 'Find in Terminal...', shortcut: 'Ctrl+F', disabled: true },
+          { label: 'Clear Active Pane', shortcut: 'Ctrl+L', action: withActivePane((paneId) => void window.vibeAde.terminal.executeInSession(paneId, 'cls', true)) },
+          { separator: true, label: 'sep-edit-3' },
+          { label: 'Keyboard Shortcuts', action: () => openSettings() }
         ]
       },
       {
         id: 'view',
         label: 'View',
         items: [
-          { label: 'Reload', shortcut: 'Ctrl+R', action: systemAction('reload') },
-          { label: 'Force Reload', shortcut: 'Ctrl+Shift+R', action: systemAction('forceReload') },
-          { label: 'Toggle DevTools', shortcut: 'Ctrl+Shift+I', action: systemAction('toggleDevTools') },
-          { separator: true, label: 'sep-view-0' },
-          { label: 'Swarm Dashboard', action: () => openSwarmDashboard() },
+          { label: 'Theme', action: () => openSettings() },
           { separator: true, label: 'sep-view-1' },
+          { label: 'Pane Layout', disabled: true },
+          { separator: true, label: 'sep-view-2' },
           { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: systemAction('resetZoom') },
           { label: 'Zoom In', shortcut: 'Ctrl+=', action: systemAction('zoomIn') },
           { label: 'Zoom Out', shortcut: 'Ctrl+-', action: systemAction('zoomOut') },
-          { separator: true, label: 'sep-view-2' },
-          { label: 'Toggle Full Screen', shortcut: 'F11', action: systemAction('togglefullscreen') }
+          { separator: true, label: 'sep-view-3' },
+          { label: 'Full Screen', shortcut: 'F11', action: systemAction('togglefullscreen') }
         ]
       },
       {
-        id: 'window',
-        label: 'Window',
+        id: 'terminal',
+        label: 'Terminal',
         items: [
-          { label: 'Minimize', action: systemAction('minimize') },
-          { label: 'Zoom', action: systemAction('zoom') },
-          { label: 'Close', action: systemAction('close') }
+          { label: 'New Pane', shortcut: 'Ctrl+Shift+T', action: () => void addPaneToLayout() },
+          { separator: true, label: 'sep-terminal-1' },
+          { label: 'Set Working Dir...', disabled: true },
+          { separator: true, label: 'sep-terminal-2' },
+          { label: 'Kill Process', shortcut: 'Ctrl+C', action: withActivePane((paneId) => void window.vibeAde.terminal.sendInput(paneId, '\u0003')) },
+          { label: 'Restart Session', action: () => void restartActiveSession() },
+          { separator: true, label: 'sep-terminal-3' },
+          { label: 'Close Pane', shortcut: 'Ctrl+W', action: withActivePane((paneId) => void removePaneFromLayout(paneId)) },
+          { label: 'Close All Panes', action: () => void closeAllPanes() }
+        ]
+      },
+      ...(plan.features.taskBoard
+        ? [
+            {
+              id: 'tasks' as const,
+              label: 'Tasks',
+              items: [
+                {
+                  label: 'New Task...',
+                  shortcut: 'Ctrl+N',
+                  action: () => {
+                    toggleTaskBoard(true);
+                    void addTask('New task');
+                  }
+                },
+                { separator: true, label: 'sep-tasks-1' },
+                { label: 'View Board', action: () => toggleTaskBoard(true) },
+                { label: 'Filter Tasks', action: () => toggleTaskBoard(true) },
+                { separator: true, label: 'sep-tasks-2' },
+                {
+                  label: 'Archive Completed',
+                  action: () => {
+                    toggleTaskBoard(true);
+                    setTaskFilters({ archived: true });
+                  }
+                },
+                { label: 'Export Tasks...', disabled: true }
+              ]
+            }
+          ]
+        : []),
+      ...(plan.features.swarms
+        ? [
+            {
+              id: 'swarm' as const,
+              label: 'Swarm',
+              items: [
+                { label: 'New Swarm...', action: () => openSwarmDashboard() },
+                { separator: true, label: 'sep-swarm-1' },
+                { label: 'Agent Dashboard', action: () => openSwarmDashboard() },
+                { label: 'Activity Stream', disabled: true },
+                { label: 'Logs & Alerts', disabled: true },
+                { separator: true, label: 'sep-swarm-2' },
+                { label: 'Pause All Agents', disabled: true },
+                { label: 'Stop All Agents', disabled: true }
+              ]
+            }
+          ]
+        : []),
+      {
+        id: 'account',
+        label: 'Account',
+        items: [
+          { label: 'Profile...', action: () => openSettings() },
+          { separator: true, label: 'sep-account-1' },
+          { label: 'Subscription', action: () => openSettings() },
+          { label: 'Usage Dashboard', action: () => openSettings() },
+          { label: 'Billing & Invoices', disabled: true },
+          { separator: true, label: 'sep-account-2' },
+          { label: 'Sign Out', action: () => void window.vibeAde.auth.logout().then(() => window.location.reload()) }
         ]
       },
       {
         id: 'help',
         label: 'Help',
-        items: [{ label: 'About Vibe-ADE', action: systemAction('about') }]
+        items: [
+          { label: 'Documentation', shortcut: 'F1', disabled: true },
+          { label: 'Keyboard Shortcuts', action: () => openSettings() },
+          { label: "What's New", disabled: true },
+          { label: 'Check for Updates...', action: () => void window.vibeAde.update.check() },
+          { separator: true, label: 'sep-help-1' },
+          { label: 'Send Feedback', disabled: true },
+          { label: 'Report a Bug', disabled: true },
+          { separator: true, label: 'sep-help-2' },
+          { label: 'About Vibe-ADE', action: systemAction('about') }
+        ]
       }
-    ],
-    [openCreateFlow, openEnvironmentOverlay, openSettings, openStartPage, openSwarmDashboard, saveActiveWorkspace, saveAsActiveWorkspace, systemAction]
+    ];
+      return next;
+    },
+    [
+      addPaneToLayout,
+      addTask,
+      appState.activeWorkspaceId,
+      appState.subscription,
+      appState.workspaces,
+      closeAllPanes,
+      openCreateFlow,
+      openEnvironmentOverlay,
+      openSettings,
+      openStartPage,
+      openSwarmDashboard,
+      plan.features.swarms,
+      plan.features.taskBoard,
+      removePaneFromLayout,
+      restartActiveSession,
+      saveActiveWorkspace,
+      saveAsActiveWorkspace,
+      setTaskFilters,
+      systemAction,
+      toggleTaskBoard
+    ]
   );
 
   return (
@@ -153,8 +315,11 @@ export function AppMenuBar(): JSX.Element {
                     key={item.label}
                     className="app-menu-item"
                     role="menuitem"
+                    disabled={item.disabled}
                     onClick={() => {
-                      item.action?.();
+                      if (!item.disabled) {
+                        item.action?.();
+                      }
                       closeMenus();
                     }}
                   >

@@ -246,6 +246,13 @@ button:focus-visible {
   border-color: var(--border);
 }
 
+.app-menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: transparent;
+  border-color: transparent;
+}
+
 .app-menu-shortcut {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
