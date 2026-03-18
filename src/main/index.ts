@@ -54,12 +54,39 @@ function loadEnvFile(filePath: string): void {
   }
 }
 
+function loadAppConfig(filePath: string): void {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(raw) as { SUPABASE_URL?: string; SUPABASE_ANON_KEY?: string };
+    if (parsed.SUPABASE_URL && !process.env.SUPABASE_URL) {
+      process.env.SUPABASE_URL = parsed.SUPABASE_URL;
+    }
+    if (parsed.SUPABASE_ANON_KEY && !process.env.SUPABASE_ANON_KEY) {
+      process.env.SUPABASE_ANON_KEY = parsed.SUPABASE_ANON_KEY;
+    }
+  } catch (error) {
+    console.warn('Failed to read app config:', error);
+  }
+}
+
 function ensureRuntimeEnvLoaded(): void {
   const cwd = process.cwd();
   const appPath = app.getAppPath();
   const resourcesPath = process.resourcesPath;
   const exeDir = path.dirname(process.execPath);
   const userDataDir = app.getPath('userData');
+  const configCandidates = [
+    path.join(resourcesPath, 'app-config.json'),
+    path.join(appPath, 'app-config.json'),
+    path.join(exeDir, 'app-config.json'),
+    path.join(userDataDir, 'vibe-ade.config.json')
+  ];
+  for (const candidate of configCandidates) {
+    loadAppConfig(candidate);
+  }
   const candidates = [
     path.join(cwd, '.env'),
     path.join(cwd, '.env.local'),

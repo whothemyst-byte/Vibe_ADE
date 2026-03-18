@@ -4,11 +4,12 @@ import { UiIcon } from './UiIcon';
 
 interface AuthScreenProps {
   onAuthenticated: (session: AuthSession) => void;
+  authAvailable?: boolean;
 }
 
 const RATE_LIMIT_COOLDOWN_SECONDS = 60;
 
-export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
+export function AuthScreen({ onAuthenticated, authAvailable = true }: AuthScreenProps): JSX.Element {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,6 +44,10 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
   }, [cooldownSecondsRemaining, cooldownUntil]);
 
   const submit = async (): Promise<void> => {
+    if (!authAvailable) {
+      setError('Authentication service is not configured. Please contact support.');
+      return;
+    }
     const normalizedEmail = email.trim();
     if (isCooldownActive) {
       setError(`Too many attempts. Try again in ${cooldownSecondsRemaining}s.`);
@@ -92,10 +97,18 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
           </div>
 
           <div className="auth-mode-switch">
-            <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')} disabled={submitting || isCooldownActive}>
+            <button
+              className={mode === 'login' ? 'active' : ''}
+              onClick={() => setMode('login')}
+              disabled={submitting || isCooldownActive || !authAvailable}
+            >
               Login
             </button>
-            <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')} disabled={submitting || isCooldownActive}>
+            <button
+              className={mode === 'signup' ? 'active' : ''}
+              onClick={() => setMode('signup')}
+              disabled={submitting || isCooldownActive || !authAvailable}
+            >
               Create Account
             </button>
           </div>
@@ -108,7 +121,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@company.com"
-              disabled={submitting}
+              disabled={submitting || !authAvailable}
             />
           </label>
 
@@ -120,7 +133,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Enter password"
-              disabled={submitting}
+              disabled={submitting || !authAvailable}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
@@ -130,6 +143,12 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
             />
           </label>
 
+          {!authAvailable && (
+            <div className="auth-info">
+              Authentication service is not configured. Please contact support or your administrator.
+            </div>
+          )}
+
           {isCooldownActive && <div className="auth-info">Rate limit active. Try again in {cooldownSecondsRemaining}s.</div>}
           {error && (
             <div className="auth-error">
@@ -138,7 +157,11 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps): JSX.Element {
             </div>
           )}
 
-          <button className="primary auth-submit" onClick={() => void submit()} disabled={submitting || isCooldownActive}>
+          <button
+            className="primary auth-submit"
+            onClick={() => void submit()}
+            disabled={submitting || isCooldownActive || !authAvailable}
+          >
             {submitting ? 'Please wait...' : isCooldownActive ? `Try again in ${cooldownSecondsRemaining}s` : mode === 'login' ? 'Sign in with Email' : 'Create an account'}
           </button>
 

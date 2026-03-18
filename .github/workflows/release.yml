@@ -32,6 +32,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Write app config
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          if (-not '${{ secrets.SUPABASE_URL }}' -or -not '${{ secrets.SUPABASE_ANON_KEY }}') {
+            throw "SUPABASE_URL and SUPABASE_ANON_KEY secrets are required for production builds."
+          }
+          $config = @{
+            SUPABASE_URL = '${{ secrets.SUPABASE_URL }}'
+            SUPABASE_ANON_KEY = '${{ secrets.SUPABASE_ANON_KEY }}'
+          } | ConvertTo-Json -Depth 2
+          $config | Out-File -Encoding utf8 build/app-config.json
+
       - name: Build
         run: npm run build
 
