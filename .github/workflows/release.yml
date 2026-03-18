@@ -15,6 +15,7 @@ jobs:
       GH_REPO: ${{ github.event.repository.name }}
       CSC_IDENTITY_AUTO_DISCOVERY: false
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout
