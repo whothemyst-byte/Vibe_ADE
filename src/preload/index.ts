@@ -67,6 +67,9 @@ const api: VibeAdeApi = {
     move: (workspaceId, taskId, toStatus, toIndex) => ipcRenderer.invoke('task:move', workspaceId, taskId, toStatus, toIndex),
     archive: (workspaceId, taskId, archived) => ipcRenderer.invoke('task:archive', workspaceId, taskId, archived)
   },
+  billing: {
+    recordUsage: (eventType, amount) => ipcRenderer.invoke('billing:recordUsage', eventType, amount)
+  },
   swarm: {
     create: (config) => ipcRenderer.invoke('swarm:create', config),
     status: (swarmId) => ipcRenderer.invoke('swarm:status', swarmId),

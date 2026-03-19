@@ -8,6 +8,7 @@ import { TerminalManager } from './services/TerminalManager';
 import { TemplateRunner } from './services/TemplateRunner';
 import { CrashRecoveryManager } from './services/CrashRecoveryManager';
 import { AuthManager } from './services/AuthManager';
+import { BillingUsageManager } from './services/BillingUsageManager';
 import { CloudSyncManager } from './services/CloudSyncManager';
 import { UpdateManager } from './services/UpdateManager';
 import { installAppMenu, setSaveMenuEnabled } from './windows/appMenu';
@@ -17,6 +18,7 @@ let terminalManager: TerminalManager;
 let templateRunner: TemplateRunner;
 let crashRecoveryManager: CrashRecoveryManager;
 let authManager: AuthManager;
+let billingUsageManager: BillingUsageManager;
 let cloudSyncManager: CloudSyncManager;
 let updateManager: UpdateManager;
 let finalizingQuit = false;
@@ -115,6 +117,7 @@ async function bootstrap(): Promise<void> {
   await terminalManager.initialize();
   templateRunner = new TemplateRunner();
   authManager = new AuthManager(userDataPath);
+  billingUsageManager = new BillingUsageManager(authManager);
   cloudSyncManager = new CloudSyncManager({ authManager, workspaceManager });
 
   const win = createMainWindow();
@@ -132,6 +135,7 @@ async function bootstrap(): Promise<void> {
     terminalManager,
     templateRunner,
     authManager,
+    billingUsageManager,
     cloudSyncManager,
     updateManager,
     webContents: win.webContents,

@@ -915,6 +915,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         tasksCreated: normalizedSub.usage.tasksCreated + 1
       }
     });
+    void window.vibeAde.billing.recordUsage('task', 1);
   },
   addTask: async (title) => {
     const today = new Date();

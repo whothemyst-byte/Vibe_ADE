@@ -263,6 +263,9 @@ export interface VibeAdeApi {
     move: (workspaceId: WorkspaceId, taskId: string, toStatus: TaskStatus, toIndex: number) => Promise<void>;
     archive: (workspaceId: WorkspaceId, taskId: string, archived?: boolean) => Promise<void>;
   };
+  billing: {
+    recordUsage: (eventType: 'task' | 'swarm', amount?: number) => Promise<void>;
+  };
   onTerminalData: (listener: (event: TerminalDataEvent) => void) => () => void;
   onTerminalExit: (listener: (event: TerminalExitEvent) => void) => () => void;
   onTemplateProgress: (listener: (event: TemplateProgressEvent) => void) => () => void;

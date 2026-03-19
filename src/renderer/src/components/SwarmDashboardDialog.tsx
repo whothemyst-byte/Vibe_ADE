@@ -465,6 +465,7 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
         }
       };
       await window.vibeAde.workspace.updateSubscription(nextSub);
+      void window.vibeAde.billing.recordUsage('swarm', 1);
       useWorkspaceStore.setState((state) => ({
         appState: { ...state.appState, subscription: nextSub }
       }));

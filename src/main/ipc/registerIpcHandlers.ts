@@ -13,6 +13,7 @@ import type {
 } from '@shared/types';
 import { isDestructiveCommand } from '@main/services/CommandSafety';
 import type { AuthManager } from '@main/services/AuthManager';
+import type { BillingUsageManager } from '@main/services/BillingUsageManager';
 import type { CloudSyncManager } from '@main/services/CloudSyncManager';
 import type { TemplateRunner } from '@main/services/TemplateRunner';
 import type { TerminalManager } from '@main/services/TerminalManager';
@@ -30,6 +31,7 @@ interface Dependencies {
   terminalManager: TerminalManager;
   templateRunner: TemplateRunner;
   authManager: AuthManager;
+  billingUsageManager: BillingUsageManager;
   cloudSyncManager: CloudSyncManager;
   updateManager: UpdateManager;
   webContents: WebContents;
@@ -296,6 +298,7 @@ export function registerIpcHandlers(deps: Dependencies): void {
     terminalManager,
     templateRunner,
     authManager,
+    billingUsageManager,
     cloudSyncManager,
     updateManager,
     webContents,
@@ -385,6 +388,10 @@ export function registerIpcHandlers(deps: Dependencies): void {
 
   ipcMain.handle('workspace:updateSubscription', (_event, subscription) => {
     return workspaceManager.updateSubscription(subscription);
+  });
+
+  ipcMain.handle('billing:recordUsage', (_event, eventType: 'task' | 'swarm', amount = 1) => {
+    return billingUsageManager.recordUsage(eventType, amount);
   });
 
   ipcMain.handle('workspace:exportToDirectory', async (_event, workspace: unknown, directory: unknown) => {
