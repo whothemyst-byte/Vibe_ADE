@@ -468,7 +468,7 @@ export function AppMenuBar(): JSX.Element {
             {updateStatus.state === 'downloaded'
               ? 'Install Update'
               : updateStatus.state === 'downloading'
-              ? 'Downloading...'
+              ? `Downloading ${Math.round(updateStatus.progress ?? 0)}%`
               : 'Update Available'}
           </button>
         )}

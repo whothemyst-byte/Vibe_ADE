@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskItem, WorkspaceState } from '../../src/shared/types';
+import { currentUsageMonth } from '../../src/shared/subscription';
 import { useWorkspaceStore } from '../../src/renderer/src/state/workspaceStore';
 
 function makeWorkspace(tasks: TaskItem[]): WorkspaceState {
@@ -55,7 +56,11 @@ describe('workspaceStore task board actions', () => {
       ...state,
       appState: {
         activeWorkspaceId: 'w1',
-        workspaces: [workspace]
+        workspaces: [workspace],
+        subscription: {
+          tier: 'flux',
+          usage: { month: currentUsageMonth(), tasksCreated: 0, swarmsStarted: 0 }
+        }
       },
       ui: {
         ...state.ui,
@@ -64,6 +69,13 @@ describe('workspaceStore task board actions', () => {
         taskSort: 'updated-desc'
       }
     }));
+
+    (globalThis as typeof globalThis & { window?: unknown }).window = {
+      vibeAde: {
+        workspace: { updateSubscription: vi.fn() },
+        billing: { recordUsage: vi.fn() }
+      }
+    };
   });
 
   it('creates a task with normalized defaults', async () => {

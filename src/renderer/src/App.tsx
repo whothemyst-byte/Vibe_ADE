@@ -329,33 +329,6 @@ export function App(): JSX.Element {
               <span className="env-status-dot" />
               Tasks {taskUsageLabel}
             </span>
-            {updateStatus.state === 'error' && (
-              <button
-                className="env-status-item update error"
-                title={updateStatus.error ?? 'Update failed'}
-                onClick={() => void window.vibeAde.update.check()}
-              >
-                Update Error
-              </button>
-            )}
-            {(updateStatus.state === 'available' || updateStatus.state === 'downloaded' || updateStatus.state === 'downloading') && (
-              <button
-                className="env-status-item update"
-                onClick={() => {
-                  if (updateStatus.state === 'downloaded') {
-                    void window.vibeAde.update.install();
-                    return;
-                  }
-                  void window.vibeAde.update.download();
-                }}
-              >
-                {updateStatus.state === 'downloaded'
-                  ? 'Install Update'
-                  : updateStatus.state === 'downloading'
-                  ? 'Updating...'
-                  : 'Update Available'}
-              </button>
-            )}
           </div>
         </footer>
 

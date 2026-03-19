@@ -37,16 +37,6 @@ export function WorkspaceTabs(): JSX.Element {
   const subscription = useMemo(() => normalizeSubscriptionState(appState.subscription), [appState.subscription]);
   const taskBoardLocked = !SUBSCRIPTION_PLANS[subscription.tier].features.taskBoard;
   const updateStatus = ui.updateStatus;
-  const showUpdateButton =
-    updateStatus.state === 'available'
-    || updateStatus.state === 'downloading'
-    || updateStatus.state === 'downloaded';
-  const updateLabel =
-    updateStatus.state === 'downloaded'
-      ? 'Install Update'
-      : updateStatus.state === 'downloading'
-        ? `Downloading ${Math.round(updateStatus.progress ?? 0)}%`
-        : 'Update Available';
   const [showReleaseNotes, setShowReleaseNotes] = useState(false);
 
   useEffect(() => {
@@ -178,25 +168,6 @@ export function WorkspaceTabs(): JSX.Element {
 
       <div className="top-nav-right">
         <LayoutSelector />
-        {showUpdateButton && (
-          <button
-            className="top-button update-button"
-            onClick={() => {
-              if (updateStatus.state === 'downloaded') {
-                void window.vibeAde.update.install();
-                return;
-              }
-              if (updateStatus.state === 'available') {
-                void window.vibeAde.update.download();
-              }
-            }}
-            disabled={updateStatus.state === 'downloading'}
-            title={updateLabel}
-          >
-            <UiIcon name="bolt" className="ui-icon ui-icon-sm" />
-            {updateLabel}
-          </button>
-        )}
         <button
           className={ui.taskBoardTabOpen ? 'top-button active task-board-nav-button' : 'top-button task-board-nav-button'}
           title="Task Board"
@@ -206,7 +177,12 @@ export function WorkspaceTabs(): JSX.Element {
           Task Board
           {taskBoardLocked && <UiIcon name="lock" className="ui-icon ui-icon-sm lock-icon" />}
         </button>
-        <button className="top-button icon-top-button" title="Settings" aria-label="Settings" onClick={openSettings}>
+        <button
+          className="top-button icon-top-button"
+          title="Settings"
+          aria-label="Settings"
+          onClick={() => openSettings('appearance')}
+        >
           <UiIcon name="settings" className="ui-icon" />
         </button>
       </div>
