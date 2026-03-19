@@ -16,13 +16,16 @@ import { ToastContainer } from './components/Toast';
 import { AuthScreen } from './components/AuthScreen';
 import { CreateFlowOverlay } from './components/CreateFlowOverlay';
 import { OpenEnvironmentOverlay } from './components/OpenEnvironmentOverlay';
+import { UiIcon } from './components/UiIcon';
 import { applyAppearanceMode, getStoredAppearanceMode } from './theme/appearance';
 import { isTypingTarget, loadShortcuts, toShortcutCombo, type ShortcutAction } from './services/preferences';
+import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 
 export function App(): JSX.Element {
   const [authLoading, setAuthLoading] = useState(true);
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [authAvailable, setAuthAvailable] = useState(true);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const initialize = useWorkspaceStore((s) => s.initialize);
   const appState = useWorkspaceStore((s) => s.appState);
   const loading = useWorkspaceStore((s) => s.loading);
@@ -40,6 +43,7 @@ export function App(): JSX.Element {
   const setTaskFilters = useWorkspaceStore((s) => s.setTaskFilters);
   const cancelCloseWorkspace = useWorkspaceStore((s) => s.cancelCloseWorkspace);
   const confirmCloseWorkspace = useWorkspaceStore((s) => s.confirmCloseWorkspace);
+  const openStartPage = useWorkspaceStore((s) => s.openStartPage);
 
   const activeWorkspace = useMemo(
     () => appState.workspaces.find((w) => w.id === appState.activeWorkspaceId),
@@ -60,6 +64,17 @@ export function App(): JSX.Element {
     return () => {
       mediaQuery.removeEventListener('change', apply);
       window.removeEventListener('storage', apply);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -226,6 +241,12 @@ export function App(): JSX.Element {
     ui.taskFilters.archived
   ]);
 
+  const subscription = useMemo(() => normalizeSubscriptionState(appState.subscription), [appState.subscription]);
+  const plan = SUBSCRIPTION_PLANS[subscription.tier] ?? SUBSCRIPTION_PLANS.spark;
+  const taskLimit = plan.limits.taskBoardTasksPerMonth;
+  const taskUsageLabel = plan.features.taskBoard ? `${subscription.usage.tasksCreated}/${taskLimit ?? '∞'}` : 'Locked';
+  const updateStatus = ui.updateStatus;
+
   if (authLoading) {
     return <div className="centered">Checking session...</div>;
   }
@@ -277,12 +298,55 @@ export function App(): JSX.Element {
         </main>
         <footer className="env-statusbar">
           <div className="env-status-left">
-            <span>Main</span>
-            <span>Warnings: 0</span>
+            <span className="env-status-item strong" title={activeWorkspace ? activeWorkspace.rootDir : 'Workspace'}>
+              <span className="env-status-icon accent">
+                <UiIcon name="terminal" className="ui-icon ui-icon-sm" />
+              </span>
+              {activeWorkspace ? activeWorkspace.name : 'No Workspace'}
+            </span>
+            {activeWorkspace && (
+              <>
+                <span className="env-status-separator">|</span>
+                <span className="env-status-item muted" title={activeWorkspace.rootDir}>
+                  <span className="env-status-icon accent">
+                    <UiIcon name="folder" className="ui-icon ui-icon-sm" />
+                  </span>
+                  {activeWorkspace.rootDir}
+                </span>
+              </>
+            )}
           </div>
+
+          <div className="env-status-center">
+          </div>
+
           <div className="env-status-right">
-            <span>Spaces: 4</span>
-            <span>UTF-8</span>
+            <span className={`env-status-connection ${isOnline ? 'online' : 'offline'}`}>
+              <span className="env-status-connection-dot" />
+              {isOnline ? 'Online' : 'Offline'}
+            </span>
+            <span className="env-status-pill">
+              <span className="env-status-dot" />
+              Tasks {taskUsageLabel}
+            </span>
+            {(updateStatus.state === 'available' || updateStatus.state === 'downloaded' || updateStatus.state === 'downloading') && (
+              <button
+                className="env-status-item update"
+                onClick={() => {
+                  if (updateStatus.state === 'downloaded') {
+                    void window.vibeAde.update.install();
+                    return;
+                  }
+                  void window.vibeAde.update.download();
+                }}
+              >
+                {updateStatus.state === 'downloaded'
+                  ? 'Install Update'
+                  : updateStatus.state === 'downloading'
+                  ? 'Updating...'
+                  : 'Update Available'}
+              </button>
+            )}
           </div>
         </footer>
 

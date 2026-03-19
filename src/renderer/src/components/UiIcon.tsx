@@ -14,7 +14,8 @@ export type UiIconName =
   | 'refresh'
   | 'play'
   | 'stop'
-  | 'lock';
+  | 'lock'
+  | 'terminal';
 
 type UiIconNode =
   | { type: 'path'; d: string }
@@ -82,6 +83,11 @@ const ICON_PATHS: Record<UiIconName, UiIconNode[]> = {
   lock: [
     { type: 'rect', x: 4, y: 10, width: 16, height: 10, rx: 2 },
     { type: 'path', d: 'M8 10V7a4 4 0 0 1 8 0v3' }
+  ],
+  terminal: [
+    { type: 'rect', x: 3, y: 4, width: 18, height: 14, rx: 2 },
+    { type: 'path', d: 'm7 9 2 2-2 2' },
+    { type: 'path', d: 'M11 13h5' }
   ]
 };
 

@@ -12,13 +12,16 @@ export function ToastContainer(): JSX.Element {
     <div className="toast-container">
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast toast-${toast.type}`} onClick={() => removeToast(toast.id)}>
-          <div className="toast-icon">
-            {toast.type === 'success' && 'OK'}
-            {toast.type === 'error' && '!'}
+          <div className="toast-icon" aria-hidden="true">
+            {toast.type === 'success' && '✓'}
+            {toast.type === 'error' && '✕'}
             {toast.type === 'warning' && '!'}
             {toast.type === 'info' && 'i'}
           </div>
-          <div className="toast-message">{toast.message}</div>
+          <div className="toast-body">
+            <div className="toast-title">{toast.title}</div>
+            <div className="toast-message">{toast.message}</div>
+          </div>
           <button
             className="toast-close"
             onClick={(e) => {
@@ -27,7 +30,7 @@ export function ToastContainer(): JSX.Element {
             }}
             aria-label="Close"
           >
-            x
+            ×
           </button>
         </div>
       ))}

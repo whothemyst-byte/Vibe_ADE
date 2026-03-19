@@ -5,6 +5,7 @@ import { LAYOUT_PRESETS } from '@renderer/services/layoutPresets';
 import { applyAppearanceMode, getStoredAppearanceMode, setStoredAppearanceMode, type AppearanceMode } from '@renderer/theme/appearance';
 import { THEME_LABELS, THEME_ORDER } from '@renderer/theme/theme';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
+import { useToastStore } from '@renderer/hooks/useToast';
 
 type MenuId = 'file' | 'edit' | 'view' | 'terminal' | 'tasks' | 'swarm' | 'account' | 'help';
 
@@ -39,6 +40,8 @@ export function AppMenuBar(): JSX.Element {
   const requestTerminalFind = useWorkspaceStore((s) => s.requestTerminalFind);
   const exportTasks = useWorkspaceStore((s) => s.exportTasks);
   const archiveCompletedTasks = useWorkspaceStore((s) => s.archiveCompletedTasks);
+  const updateStatus = useWorkspaceStore((s) => s.ui.updateStatus);
+  const addToast = useToastStore((s) => s.addToast);
   const appState = useWorkspaceStore((s) => s.appState);
 
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
@@ -132,6 +135,19 @@ export function AppMenuBar(): JSX.Element {
     return () => {
       void window.vibeAde.system.openExternal(url);
     };
+  };
+
+  const checkForUpdates = (): void => {
+    void window.vibeAde.update.check();
+    setTimeout(() => {
+      const status = useWorkspaceStore.getState().ui.updateStatus;
+      if (status.state === 'not-available') {
+        addToast('success', 'You are up to date.');
+      }
+      if (status.state === 'error') {
+        addToast('error', status.error ?? 'Update check failed');
+      }
+    }, 1200);
   };
 
   const restartActiveSession = async (): Promise<void> => {
@@ -322,7 +338,7 @@ export function AppMenuBar(): JSX.Element {
           { label: 'Documentation', shortcut: 'F1', action: openExternal('https://website-opal-seven-61.vercel.app/') },
           { label: 'Keyboard Shortcuts', action: () => openSettings('shortcuts') },
           { label: "What's New", action: openExternal('https://github.com/whothemyst-byte/Vibe_ADE/releases/latest') },
-          { label: 'Check for Updates...', action: () => void window.vibeAde.update.check() },
+          { label: 'Check for Updates...', action: () => checkForUpdates() },
           { separator: true, label: 'sep-help-1' },
           { label: 'Send Feedback', action: openExternal('https://github.com/whothemyst-byte/Vibe_ADE/issues/new?template=feature_request.md') },
           { label: 'Report a Bug', action: openExternal('https://github.com/whothemyst-byte/Vibe_ADE/issues/new?template=bug_report.md') },
@@ -427,6 +443,27 @@ export function AppMenuBar(): JSX.Element {
           )}
         </div>
       ))}
+      <div className="app-menu-actions">
+        {(updateStatus.state === 'available' || updateStatus.state === 'downloaded' || updateStatus.state === 'downloading') && (
+          <button
+            className="app-update-button"
+            onClick={() => {
+              if (updateStatus.state === 'downloaded') {
+                void window.vibeAde.update.install();
+                return;
+              }
+              void window.vibeAde.update.download();
+            }}
+            disabled={updateStatus.state === 'downloading'}
+          >
+            {updateStatus.state === 'downloaded'
+              ? 'Install Update'
+              : updateStatus.state === 'downloading'
+              ? 'Downloading...'
+              : 'Update Available'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

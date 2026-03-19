@@ -6,6 +6,7 @@ export interface Toast {
     id: string;
     type: ToastType;
     message: string;
+    title: string;
     duration?: number;
 }
 
@@ -21,7 +22,15 @@ export const useToastStore = create<ToastStore>((set) => ({
 
     addToast: (type, message, duration = 5000) => {
         const id = `toast-${Date.now()}-${Math.random()}`;
-        const toast: Toast = { id, type, message, duration };
+        const title =
+            type === 'success'
+                ? 'Success'
+                : type === 'error'
+                ? 'Error'
+                : type === 'warning'
+                ? 'Warning'
+                : 'Info';
+        const toast: Toast = { id, type, title, message, duration };
 
         set((state) => ({
             toasts: [...state.toasts, toast]
