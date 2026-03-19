@@ -19,7 +19,7 @@ npmRebuild: true
 win:
   icon: build/icon.ico
   signAndEditExecutable: false
-  verifyUpdateCodeSignature: false
+  verifyUpdateCodeSignature: true
   target:
     - target: nsis
       arch:

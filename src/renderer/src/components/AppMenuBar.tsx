@@ -444,6 +444,15 @@ export function AppMenuBar(): JSX.Element {
         </div>
       ))}
       <div className="app-menu-actions">
+        {updateStatus.state === 'error' && (
+          <button
+            className="app-update-button error"
+            onClick={() => void window.vibeAde.update.check()}
+            title={updateStatus.error ?? 'Update failed'}
+          >
+            Update Error
+          </button>
+        )}
         {(updateStatus.state === 'available' || updateStatus.state === 'downloaded' || updateStatus.state === 'downloading') && (
           <button
             className="app-update-button"

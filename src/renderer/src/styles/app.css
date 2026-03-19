@@ -214,6 +214,17 @@ button:focus-visible {
   border-color: transparent;
 }
 
+.app-update-button.error {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.app-update-button.error:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
 .app-update-button:disabled {
   opacity: 0.6;
   cursor: default;
@@ -3307,12 +3318,23 @@ html[data-theme='light'] .task-due.upcoming {
     color: #fff;
     border-color: transparent;
     font-weight: 600;
-  box-shadow: 0 4px 10px rgba(200, 136, 42, 0.3);
-}
+    box-shadow: 0 4px 10px rgba(200, 136, 42, 0.3);
+  }
 
 .env-status-item.update:hover {
-  background: #b97a20;
-}
+    background: #b97a20;
+  }
+
+.env-status-item.update.error {
+    background: rgba(239, 68, 68, 0.18);
+    color: #fecaca;
+    border-color: rgba(239, 68, 68, 0.45);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+  }
+
+.env-status-item.update.error:hover {
+    background: rgba(239, 68, 68, 0.3);
+  }
 
 button.danger {
   background: rgba(220, 38, 38, 0.22);
