@@ -12,11 +12,6 @@ extraResources:
     to: icon.ico
   - from: build/app-config.json
     to: app-config.json
-  - from: .
-    to: .
-    filter:
-      - .env
-      - .env.local
 asar: true
 asarUnpack:
   - node_modules/node-pty/**
