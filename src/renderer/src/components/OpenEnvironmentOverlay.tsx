@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import type { LocalEnvironmentExportSummary } from '@shared/ipc';
 import { loadEnvironmentSaveDirectory, saveEnvironmentSaveDirectory } from '@renderer/services/preferences';
@@ -6,15 +6,12 @@ import { UiIcon } from './UiIcon';
 
 export function OpenEnvironmentOverlay(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
-  const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const importEnvironmentFromFile = useWorkspaceStore((s) => s.importEnvironmentFromFile);
   const close = useWorkspaceStore((s) => s.closeEnvironmentOverlay);
 
   const [environmentSaveDir, setEnvironmentSaveDir] = useState<string | null>(() => loadEnvironmentSaveDirectory());
   const [localExports, setLocalExports] = useState<LocalEnvironmentExportSummary[]>([]);
   const [loadingLocalExports, setLoadingLocalExports] = useState(false);
-
-  const recentWorkspaces = useMemo(() => [...appState.workspaces], [appState.workspaces]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,13 +77,10 @@ export function OpenEnvironmentOverlay(): JSX.Element {
             <UiIcon name="folder" className="ui-icon" />
             <h2>Open Environment</h2>
           </div>
-          <button className="icon-only-button" onClick={close} aria-label="Close">
-            <UiIcon name="close" className="ui-icon ui-icon-sm" />
-          </button>
         </header>
 
         <div className="open-env-body">
-          <section className="open-env-section">
+          <section className="open-env-section open-env-section-wide">
             <div className="open-env-section-title">Local Environments</div>
             <div className="open-env-dir-row">
               <input
@@ -139,38 +133,14 @@ export function OpenEnvironmentOverlay(): JSX.Element {
               </div>
             )}
           </section>
-
-          <section className="open-env-section">
-            <div className="open-env-section-title">Recent Environments</div>
-            {recentWorkspaces.length === 0 ? (
-              <p className="open-env-hint">No recent environments.</p>
-            ) : (
-              <div className="open-env-list">
-                {recentWorkspaces.map((workspace) => (
-                  <article key={workspace.id} className="open-env-item">
-                    <div>
-                      <strong>{workspace.name}</strong>
-                      <div className="open-env-muted">{workspace.rootDir}</div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        void setActiveWorkspace(workspace.id).then(close).catch(() => {});
-                      }}
-                    >
-                      Open
-                    </button>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
         </div>
 
         <footer className="open-env-footer">
-          <button onClick={close}>Cancel</button>
+          <div className="open-env-footer-actions">
+            <button onClick={close}>Cancel</button>
+          </div>
         </footer>
       </section>
     </div>
   );
 }
-

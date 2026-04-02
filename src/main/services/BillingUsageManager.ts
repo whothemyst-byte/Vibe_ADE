@@ -1,5 +1,7 @@
 import type { AuthManager } from './AuthManager';
 
+type UsageEventType = 'task' | 'swarm';
+
 export class BillingUsageManager {
   private static readonly REQUEST_TIMEOUT_MS = 8_000;
   private readonly authManager: AuthManager;
@@ -12,7 +14,7 @@ export class BillingUsageManager {
     this.supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? null;
   }
 
-  async recordUsage(eventType: 'task' | 'swarm', amount = 1): Promise<void> {
+  async recordUsage(eventType: UsageEventType, amount = 1): Promise<void> {
     if (!this.supabaseUrl || !this.supabaseAnonKey) {
       return;
     }

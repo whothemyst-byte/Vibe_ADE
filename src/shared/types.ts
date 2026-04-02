@@ -1,4 +1,5 @@
 export type ShellType = 'powershell' | 'cmd';
+export type PaneType = 'terminal' | 'browser';
 
 export type PaneId = string;
 export type WorkspaceId = string;
@@ -21,6 +22,26 @@ export interface SplitLayoutNode {
 }
 
 export type LayoutNode = PaneLayoutNode | SplitLayoutNode;
+
+export interface BrowserTabState {
+  id: string;
+  url: string;
+  title: string;
+  isLoading: boolean;
+  history: string[];
+  historyIndex: number;
+}
+
+export interface BrowserPaneState {
+  sourcePaneId?: PaneId;
+  activeTabId: string;
+  tabs: BrowserTabState[];
+  url: string;
+  title: string;
+  isLoading: boolean;
+  history: string[];
+  historyIndex: number;
+}
 
 export interface CommandBlock {
   id: string;
@@ -88,7 +109,9 @@ export interface WorkspaceState {
   name: string;
   rootDir: string;
   layout: LayoutNode;
+  paneTypes: Record<PaneId, PaneType>;
   paneShells: Record<PaneId, ShellType>;
+  browserPanes: Record<PaneId, BrowserPaneState>;
   activePaneId: PaneId;
   commandBlocks: Record<PaneId, CommandBlock[]>;
   tasks: TaskItem[];

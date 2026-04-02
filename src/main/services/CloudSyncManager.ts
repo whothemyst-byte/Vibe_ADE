@@ -1,7 +1,8 @@
-import type { AppState, LayoutNode, PaneId, WorkspaceState } from '@shared/types';
+import type { AppState, BrowserPaneState, LayoutNode, PaneId, PaneType, WorkspaceState } from '@shared/types';
 import { normalizeSubscriptionState } from '@shared/subscription';
 import type { AuthManager } from './AuthManager';
 import type { WorkspaceManager } from './WorkspaceManager';
+import { getWorkspaceSyncKey } from './workspaceSync';
 
 interface SupabaseWorkspaceRow {
   id: string;
@@ -19,7 +20,9 @@ interface SupabaseLayoutRow {
   workspace_id: string;
   user_id: string;
   layout: LayoutNode;
+  pane_types: Record<PaneId, PaneType>;
   pane_shells: Record<PaneId, 'powershell' | 'cmd'>;
+  browser_panes: Record<PaneId, BrowserPaneState>;
   command_blocks: WorkspaceState['commandBlocks'];
   tasks: WorkspaceState['tasks'];
   is_current: boolean;
@@ -63,7 +66,13 @@ export interface CloudSyncPreview {
 interface RemoteWorkspaceMeta {
   id: string;
   name: string;
+  rootDir: string;
   updatedAt: string;
+}
+
+interface RemoteWorkspaceLookup {
+  byId: Map<string, RemoteWorkspaceMeta>;
+  byKey: Map<string, RemoteWorkspaceMeta>;
 }
 
 
@@ -72,6 +81,25 @@ function firstPaneId(layout: LayoutNode): string {
     return layout.paneId;
   }
   return firstPaneId(layout.children[0]);
+}
+
+function normalizeBrowserPaneState(pane: Partial<BrowserPaneState> | undefined, fallbackUrl = 'about:blank'): BrowserPaneState {
+  const url = typeof pane?.url === 'string' && pane.url.trim() ? pane.url : fallbackUrl;
+  const history = Array.isArray(pane?.history)
+    ? pane.history.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+  const nextHistory = history.length > 0 ? history : [url];
+  const historyIndex = typeof pane?.historyIndex === 'number' && Number.isFinite(pane.historyIndex)
+    ? Math.max(0, Math.min(nextHistory.length - 1, Math.floor(pane.historyIndex)))
+    : nextHistory.length - 1;
+
+  return {
+    url,
+    title: typeof pane?.title === 'string' && pane.title.trim() ? pane.title : url,
+    isLoading: Boolean(pane?.isLoading),
+    history: nextHistory,
+    historyIndex
+  };
 }
 
 export class CloudSyncManager {
@@ -109,7 +137,7 @@ export class CloudSyncManager {
         id: row.id,
         name: row.name,
         createdAt: row.created_at,
-        updatedAt: metaById.get(row.id)?.updatedAt ?? row.updated_at
+        updatedAt: metaById.byId.get(row.id)?.updatedAt ?? row.updated_at
       }))
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
   }
@@ -117,16 +145,16 @@ export class CloudSyncManager {
   async getSyncPreview(): Promise<CloudSyncPreview> {
     const { accessToken } = await this.requireSession();
     const localState = this.workspaceManager.list();
-    const remoteById = await this.fetchRemoteWorkspaceMeta(accessToken);
-    return this.buildPreview(localState.workspaces, remoteById);
+    const remoteLookup = await this.fetchRemoteWorkspaceMeta(accessToken);
+    return this.buildPreview(localState.workspaces, remoteLookup.byKey);
   }
 
   async pushLocalState(): Promise<void> {
     const session = await this.requireSession();
     const local = this.workspaceManager.list();
-    const remoteById = await this.fetchRemoteWorkspaceMeta(session.accessToken);
+    const remoteLookup = await this.fetchRemoteWorkspaceMeta(session.accessToken);
     const pushableWorkspaces = local.workspaces.filter((workspace) => {
-      const remote = remoteById.get(workspace.id);
+      const remote = remoteLookup.byId.get(workspace.id) ?? remoteLookup.byKey.get(getWorkspaceSyncKey(workspace));
       if (!remote) {
         return true;
       }
@@ -134,13 +162,14 @@ export class CloudSyncManager {
     });
 
     const workspaceRows = pushableWorkspaces.map((workspace) => ({
-      id: workspace.id,
+      id: remoteLookup.byId.get(workspace.id)?.id ?? remoteLookup.byKey.get(getWorkspaceSyncKey(workspace))?.id ?? workspace.id,
       user_id: session.user.id,
       name: workspace.name,
       root_dir: workspace.rootDir,
       selected_model: null,
       active_pane_id: workspace.activePaneId,
       metadata: {
+        sync_key: getWorkspaceSyncKey(workspace),
         local_updated_at: workspace.updatedAt,
         local_created_at: workspace.createdAt
       },
@@ -163,14 +192,16 @@ export class CloudSyncManager {
     }
 
     const layoutRows = pushableWorkspaces.map((workspace) => ({
-      id: workspace.id,
-      workspace_id: workspace.id,
+      id: remoteLookup.byId.get(workspace.id)?.id ?? remoteLookup.byKey.get(getWorkspaceSyncKey(workspace))?.id ?? workspace.id,
+      workspace_id: remoteLookup.byId.get(workspace.id)?.id ?? remoteLookup.byKey.get(getWorkspaceSyncKey(workspace))?.id ?? workspace.id,
       user_id: session.user.id,
       version: 1,
       preset_id: null,
       pane_order: this.collectPaneIds(workspace.layout),
       layout: workspace.layout,
+      pane_types: workspace.paneTypes,
       pane_shells: workspace.paneShells,
+      browser_panes: workspace.browserPanes,
       command_blocks: workspace.commandBlocks,
       tasks: workspace.tasks,
       is_current: true,
@@ -200,7 +231,7 @@ export class CloudSyncManager {
       accessToken
     );
     const layouts = await this.fetchRows<SupabaseLayoutRow[]>(
-      '/rest/v1/terminal_layouts?select=id,workspace_id,user_id,layout,pane_shells,command_blocks,tasks,is_current,updated_at&is_current=eq.true',
+      '/rest/v1/terminal_layouts?select=id,workspace_id,user_id,layout,pane_types,pane_shells,browser_panes,command_blocks,tasks,is_current,updated_at&is_current=eq.true',
       { method: 'GET' },
       accessToken
     );
@@ -218,12 +249,22 @@ export class CloudSyncManager {
         }
         const layout = layoutRow.layout;
         const activePaneId = workspace.active_pane_id ?? firstPaneId(layout);
+        const paneIds = this.collectPaneIds(layout);
+        const paneTypes = Object.fromEntries(
+          paneIds.map((paneId) => [paneId, layoutRow.pane_types?.[paneId] ?? 'terminal'])
+        ) as Record<PaneId, PaneType>;
         return {
           id: workspace.id,
           name: workspace.name,
           rootDir: workspace.root_dir,
           layout,
+          paneTypes,
           paneShells: layoutRow.pane_shells ?? {},
+          browserPanes: Object.fromEntries(
+            paneIds
+              .filter((paneId) => paneTypes[paneId] === 'browser')
+              .map((paneId) => [paneId, normalizeBrowserPaneState(layoutRow.browser_panes?.[paneId])])
+          ) as Record<PaneId, BrowserPaneState>,
           activePaneId,
           commandBlocks: layoutRow.command_blocks ?? {},
           tasks: layoutRow.tasks ?? [],
@@ -294,9 +335,9 @@ export class CloudSyncManager {
     return payload as T;
   }
 
-  private async fetchRemoteWorkspaceMeta(accessToken: string): Promise<Map<string, RemoteWorkspaceMeta>> {
-    const workspaces = await this.fetchRows<Array<Pick<SupabaseWorkspaceRow, 'id' | 'name' | 'updated_at'>>>(
-      '/rest/v1/workspaces?select=id,name,updated_at',
+  private async fetchRemoteWorkspaceMeta(accessToken: string): Promise<RemoteWorkspaceLookup> {
+    const workspaces = await this.fetchRows<Array<Pick<SupabaseWorkspaceRow, 'id' | 'name' | 'root_dir' | 'updated_at'>>>(
+      '/rest/v1/workspaces?select=id,name,root_dir,updated_at',
       { method: 'GET' },
       accessToken
     );
@@ -307,12 +348,16 @@ export class CloudSyncManager {
     );
 
     const metaById = new Map<string, RemoteWorkspaceMeta>();
+    const metaByKey = new Map<string, RemoteWorkspaceMeta>();
     for (const workspace of workspaces) {
-      metaById.set(workspace.id, {
+      const meta = {
         id: workspace.id,
         name: workspace.name,
+        rootDir: workspace.root_dir,
         updatedAt: workspace.updated_at
-      });
+      };
+      metaById.set(workspace.id, meta);
+      metaByKey.set(getWorkspaceSyncKey({ id: workspace.id, rootDir: workspace.root_dir }), meta);
     }
 
     for (const layout of layouts) {
@@ -325,17 +370,17 @@ export class CloudSyncManager {
       }
     }
 
-    return metaById;
+    return { byId: metaById, byKey: metaByKey };
   }
 
-  private buildPreview(localWorkspaces: WorkspaceState[], remoteById: Map<string, RemoteWorkspaceMeta>): CloudSyncPreview {
+  private buildPreview(localWorkspaces: WorkspaceState[], remoteByKey: Map<string, RemoteWorkspaceMeta>): CloudSyncPreview {
     const conflicts: CloudSyncConflict[] = [];
     let localWins = 0;
     let remoteWins = 0;
     let equal = 0;
 
     for (const local of localWorkspaces) {
-      const remote = remoteById.get(local.id);
+      const remote = remoteByKey.get(getWorkspaceSyncKey(local));
       if (!remote) {
         continue;
       }
@@ -370,38 +415,39 @@ export class CloudSyncManager {
   }
 
   private mergeLocalAndRemote(local: AppState, remote: AppState): AppState {
-    const localById = new Map(local.workspaces.map((workspace) => [workspace.id, workspace]));
-    const remoteById = new Map(remote.workspaces.map((workspace) => [workspace.id, workspace]));
-    const mergedById = new Map<string, WorkspaceState>();
+    const localByKey = new Map(local.workspaces.map((workspace) => [getWorkspaceSyncKey(workspace), workspace]));
+    const remoteByKey = new Map(remote.workspaces.map((workspace) => [getWorkspaceSyncKey(workspace), workspace]));
+    const localActiveKey = this.findWorkspaceKey(local.workspaces, local.activeWorkspaceId);
+    const remoteActiveKey = this.findWorkspaceKey(remote.workspaces, remote.activeWorkspaceId);
+    const mergedByKey = new Map<string, WorkspaceState>();
 
-    for (const [workspaceId, localWorkspace] of localById.entries()) {
-      const remoteWorkspace = remoteById.get(workspaceId);
+    for (const [workspaceKey, localWorkspace] of localByKey.entries()) {
+      const remoteWorkspace = remoteByKey.get(workspaceKey);
       if (!remoteWorkspace) {
-        mergedById.set(workspaceId, localWorkspace);
+        mergedByKey.set(workspaceKey, localWorkspace);
         continue;
       }
       const comparison = this.compareIso(localWorkspace.updatedAt, remoteWorkspace.updatedAt);
-      mergedById.set(workspaceId, comparison > 0 ? localWorkspace : remoteWorkspace);
+      const winner = comparison > 0 ? localWorkspace : remoteWorkspace;
+      mergedByKey.set(workspaceKey, winner.id === remoteWorkspace.id ? winner : { ...winner, id: remoteWorkspace.id });
     }
 
-    for (const [workspaceId, remoteWorkspace] of remoteById.entries()) {
-      if (!mergedById.has(workspaceId)) {
-        mergedById.set(workspaceId, remoteWorkspace);
+    for (const [workspaceKey, remoteWorkspace] of remoteByKey.entries()) {
+      if (!mergedByKey.has(workspaceKey)) {
+        mergedByKey.set(workspaceKey, remoteWorkspace);
       }
     }
 
-    const mergedWorkspaces = Array.from(mergedById.values()).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
-    const mergedWorkspaceIds = new Set(mergedWorkspaces.map((workspace) => workspace.id));
-    const activeWorkspaceId = local.activeWorkspaceId && mergedWorkspaceIds.has(local.activeWorkspaceId)
-      ? local.activeWorkspaceId
-      : remote.activeWorkspaceId && mergedWorkspaceIds.has(remote.activeWorkspaceId)
-        ? remote.activeWorkspaceId
-        : mergedWorkspaces[0]?.id ?? null;
+    const mergedWorkspaces = Array.from(mergedByKey.values()).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    const activeWorkspaceId = (localActiveKey && mergedByKey.get(localActiveKey)?.id)
+      ?? (remoteActiveKey && mergedByKey.get(remoteActiveKey)?.id)
+      ?? mergedWorkspaces[0]?.id
+      ?? null;
 
     return {
       activeWorkspaceId,
       workspaces: mergedWorkspaces,
-      subscription: normalizeSubscriptionState(local.subscription ?? remote.subscription)
+      subscription: normalizeSubscriptionState(remote.subscription ?? local.subscription)
     };
   }
 
@@ -421,5 +467,13 @@ export class CloudSyncManager {
       return 0;
     }
     return left > right ? 1 : -1;
+  }
+
+  private findWorkspaceKey(workspaces: WorkspaceState[], workspaceId: string | null): string | null {
+    if (!workspaceId) {
+      return null;
+    }
+    const workspace = workspaces.find((item) => item.id === workspaceId);
+    return workspace ? getWorkspaceSyncKey(workspace) : null;
   }
 }

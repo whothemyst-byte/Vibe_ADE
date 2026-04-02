@@ -5,6 +5,7 @@ import { SearchAddon } from 'xterm-addon-search';
 import 'xterm/css/xterm.css';
 import type { PaneId, WorkspaceState } from '@shared/types';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { isAltModifiedPrimaryShortcut } from '@renderer/services/terminalShortcuts';
 import { UiIcon } from './UiIcon';
 
 interface TerminalPaneProps {
@@ -78,12 +79,14 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   const mentionScrollOffsetRef = useRef(0);
   const pendingFindRef = useRef<{ id: string; query: string } | null>(null);
   const removePaneFromLayout = useWorkspaceStore((s) => s.removePaneFromLayout);
+  const addBrowserPaneToLayout = useWorkspaceStore((s) => s.addBrowserPaneToLayout);
   const terminalFindRequest = useWorkspaceStore((s) => s.ui.terminalFindRequest);
 
   const shell = workspace.paneShells[paneId] ?? 'powershell';
   const isActivePane = workspace.activePaneId === paneId;
   const statusClass = sessionReady ? 'running' : 'idle';
   const shouldEnableMentionAssist = llmAssistAutoEnabled && llmCliActive && detectedCli === 'codex';
+  const browserWindowOpen = Object.values(workspace.browserPanes).some((pane) => pane.sourcePaneId === paneId);
 
   const filteredMentionEntries = useMemo(() => {
     const query = mentionQuery.trim().toLowerCase();
@@ -703,8 +706,11 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       }
 
       const withPrimaryModifier = event.ctrlKey || event.metaKey;
-      if (!withPrimaryModifier || event.altKey) {
+      if (!withPrimaryModifier) {
         return true;
+      }
+      if (isAltModifiedPrimaryShortcut(event)) {
+        return false;
       }
 
       const key = event.key.toLowerCase();
@@ -985,6 +991,18 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
           </span>
         </div>
         <div className="pane-header-actions" ref={actionMenuRef}>
+          <button
+            className="icon-button"
+            title={browserWindowOpen ? 'Browser window already open for this terminal' : 'Open browser pane'}
+            aria-label="Open browser pane"
+            disabled={browserWindowOpen}
+            onClick={(event) => {
+              event.stopPropagation();
+              void addBrowserPaneToLayout(paneId);
+            }}
+          >
+            <UiIcon name="globe" className="ui-icon ui-icon-sm" />
+          </button>
           <button
             className="icon-button"
             title="Terminal actions"

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { TaskItem, TaskPriority, TaskSortMode, TaskStatus, WorkspaceState } from '@shared/types';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 
@@ -133,10 +133,14 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
   const taskFilters = useWorkspaceStore((s) => s.ui.taskFilters);
   const taskSort = useWorkspaceStore((s) => s.ui.taskSort);
 
-  const grouped = COLUMNS.map((column) => ({
-    ...column,
-    tasks: getVisibleTasks(column.key)
-  }));
+  const grouped = useMemo(
+    () =>
+      COLUMNS.map((column) => ({
+        ...column,
+        tasks: getVisibleTasks(column.key)
+      })),
+    [getVisibleTasks, taskFilters, taskSearch, taskSort, workspace.tasks]
+  );
 
   const canCreate = Boolean(title.trim() && startDate && endDate) && endDate >= startDate;
 

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { LayoutNode, PaneId, WorkspaceState } from '@shared/types';
+import type { BrowserPaneState, LayoutNode, PaneId, PaneType, ShellType, WorkspaceState } from '@shared/types';
 import type { LocalEnvironmentExportSummary } from '@shared/ipc';
 import type { TaskItem } from '@shared/types';
 
@@ -10,6 +10,9 @@ interface EnvironmentExportV2 {
   rootDir: string;
   layout: LayoutNode;
   activePaneId?: PaneId;
+  paneTypes: WorkspaceState['paneTypes'];
+  paneShells: WorkspaceState['paneShells'];
+  browserPanes: WorkspaceState['browserPanes'];
 }
 
 interface EnvironmentExportFileV2 {
@@ -45,6 +48,25 @@ function collectPaneIds(layout: LayoutNode): PaneId[] {
   return layout.children.flatMap(collectPaneIds);
 }
 
+function normalizeBrowserPaneState(pane: Partial<BrowserPaneState> | undefined, fallbackUrl = 'about:blank'): BrowserPaneState {
+  const url = typeof pane?.url === 'string' && pane.url.trim() ? pane.url : fallbackUrl;
+  const history = Array.isArray(pane?.history)
+    ? pane.history.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+  const nextHistory = history.length > 0 ? history : [url];
+  const historyIndex = typeof pane?.historyIndex === 'number' && Number.isFinite(pane.historyIndex)
+    ? Math.max(0, Math.min(nextHistory.length - 1, Math.floor(pane.historyIndex)))
+    : nextHistory.length - 1;
+
+  return {
+    url,
+    title: typeof pane?.title === 'string' && pane.title.trim() ? pane.title : url,
+    isLoading: Boolean(pane?.isLoading),
+    history: nextHistory,
+    historyIndex
+  };
+}
+
 function sanitizeFileComponent(value: string): string {
   const replaced = value
     .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
@@ -62,7 +84,10 @@ function toExportEnvironment(workspace: WorkspaceState): EnvironmentExportV2 {
     name: workspace.name,
     rootDir: workspace.rootDir,
     layout: workspace.layout,
-    activePaneId: workspace.activePaneId
+    activePaneId: workspace.activePaneId,
+    paneTypes: workspace.paneTypes,
+    paneShells: workspace.paneShells,
+    browserPanes: workspace.browserPanes
   };
 }
 
@@ -101,7 +126,9 @@ function toImportedWorkspace(environment: EnvironmentExportV2): WorkspaceState {
     rootDir: environment.rootDir,
     layout: environment.layout,
     activePaneId: environment.activePaneId ?? initialPaneIds[0],
+    paneTypes: {},
     paneShells: {},
+    browserPanes: {},
     commandBlocks: {},
     tasks: [],
     createdAt: new Date().toISOString(),
@@ -113,12 +140,33 @@ function toImportedWorkspace(environment: EnvironmentExportV2): WorkspaceState {
   const nextPaneIds = collectPaneIds(nextLayout);
   const nextActivePaneId = paneIdMap.get(snapshot.activePaneId) ?? nextPaneIds[0];
   const now = new Date().toISOString();
+  const nextPaneTypes = Object.fromEntries(
+    nextPaneIds.map((paneId) => {
+      const originalPaneId = [...paneIdMap.entries()].find(([, mappedPaneId]) => mappedPaneId === paneId)?.[0];
+      return [paneId, (originalPaneId ? environment.paneTypes?.[originalPaneId] : undefined) ?? 'terminal'];
+    })
+  ) as Record<string, PaneType>;
+  const nextPaneShells = Object.fromEntries(
+    nextPaneIds
+      .filter((paneId) => nextPaneTypes[paneId] === 'terminal')
+      .map((paneId) => [paneId, 'powershell'])
+  ) as Record<string, ShellType>;
+  const nextBrowserPanes = Object.fromEntries(
+    nextPaneIds
+      .filter((paneId) => nextPaneTypes[paneId] === 'browser')
+      .map((paneId) => {
+        const originalPaneId = [...paneIdMap.entries()].find(([, mappedPaneId]) => mappedPaneId === paneId)?.[0];
+        return [paneId, normalizeBrowserPaneState(originalPaneId ? environment.browserPanes?.[originalPaneId] : undefined)];
+      })
+  ) as Record<string, BrowserPaneState>;
 
   return {
     ...snapshot,
     layout: nextLayout,
     activePaneId: nextActivePaneId,
-    paneShells: Object.fromEntries(nextPaneIds.map((paneId) => [paneId, 'powershell'])),
+    paneTypes: nextPaneTypes,
+    paneShells: nextPaneShells,
+    browserPanes: nextBrowserPanes,
     commandBlocks: Object.fromEntries(nextPaneIds.map((paneId) => [paneId, []])),
     tasks: [],
     createdAt: now,

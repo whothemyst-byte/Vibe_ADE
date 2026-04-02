@@ -13,6 +13,7 @@ export function AuthScreen({ onAuthenticated, authAvailable = true }: AuthScreen
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
@@ -81,105 +82,103 @@ export function AuthScreen({ onAuthenticated, authAvailable = true }: AuthScreen
   };
 
   return (
-    <div className="auth-overlay">
-      <section className="auth-card" onClick={(event) => event.stopPropagation()}>
-        <header className="auth-card-header">
-          <div className="auth-card-brand">
-            <UiIcon name="bolt" className="ui-icon ui-icon-lg" />
-            <small>Vibe-ADE Authentication</small>
-          </div>
-        </header>
+    <div className="auth-overlay auth-overlay-minimal">
+      <section className="auth-shell auth-shell-minimal" onClick={(event) => event.stopPropagation()}>
+        <section className="auth-card auth-card-minimal">
+          <div className="auth-card-body">
+            <div className="auth-title">
+              <span className="auth-title-kicker">{mode === 'login' ? 'Return to workspace' : 'Provision your account'}</span>
+              <h2>{mode === 'login' ? 'Log in to Vibe-ADE' : 'Create your Vibe-ADE account'}</h2>
+              <p>{mode === 'login' ? 'Use your email credentials to restore your development surface.' : 'Create an account to initialize synced environments and desktop workspace access.'}</p>
+            </div>
 
-        <div className="auth-card-body">
-          <div className="auth-title">
-            <h1>Vibe-ADE</h1>
-            <p>Sign in to access your terminal workspace</p>
-          </div>
+            <div className="auth-mode-switch">
+              <button
+                className={mode === 'login' ? 'active' : ''}
+                onClick={() => setMode('login')}
+                disabled={submitting || isCooldownActive || !authAvailable}
+              >
+                Login
+              </button>
+              <button
+                className={mode === 'signup' ? 'active' : ''}
+                onClick={() => setMode('signup')}
+                disabled={submitting || isCooldownActive || !authAvailable}
+              >
+                Create Account
+              </button>
+            </div>
 
-          <div className="auth-mode-switch">
+            <label className="auth-field">
+              <span>Email</span>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@company.com"
+                disabled={submitting || !authAvailable}
+              />
+            </label>
+
+            <label className="auth-field">
+              <span>Password</span>
+              <div className="auth-password-row">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={mode === 'login' ? 'Enter password' : 'Create password'}
+                  disabled={submitting || !authAvailable}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void submit();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="auth-password-toggle"
+                  onClick={() => setShowPassword((current) => !current)}
+                  disabled={submitting || !authAvailable}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <UiIcon name={showPassword ? 'eye-off' : 'eye'} className="ui-icon ui-icon-sm" />
+                </button>
+              </div>
+            </label>
+
+            <div className="auth-feedback-stack">
+              {!authAvailable && (
+                <div className="auth-info">
+                  Authentication service is not configured. Please contact support or your administrator.
+                </div>
+              )}
+
+              {isCooldownActive && <div className="auth-info">Rate limit active. Try again in {cooldownSecondsRemaining}s.</div>}
+              {error && (
+                <div className="auth-error">
+                  <strong>Authentication Error</strong>
+                  <span>{error}</span>
+                </div>
+              )}
+            </div>
+
             <button
-              className={mode === 'login' ? 'active' : ''}
-              onClick={() => setMode('login')}
+              className="primary auth-submit"
+              onClick={() => void submit()}
               disabled={submitting || isCooldownActive || !authAvailable}
             >
-              Login
+              {submitting ? 'Please wait...' : isCooldownActive ? `Try again in ${cooldownSecondsRemaining}s` : mode === 'login' ? 'Access Workspace' : 'Create Account'}
             </button>
-            <button
-              className={mode === 'signup' ? 'active' : ''}
-              onClick={() => setMode('signup')}
-              disabled={submitting || isCooldownActive || !authAvailable}
-            >
-              Create Account
-            </button>
-          </div>
 
-          <label className="auth-field">
-            <span>Email</span>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@company.com"
-              disabled={submitting || !authAvailable}
-            />
-          </label>
-
-          <label className="auth-field">
-            <span>Password</span>
-            <input
-              type="password"
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter password"
-              disabled={submitting || !authAvailable}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  void submit();
-                }
-              }}
-            />
-          </label>
-
-          {!authAvailable && (
-            <div className="auth-info">
-              Authentication service is not configured. Please contact support or your administrator.
+            <div className="auth-terms">
+              By continuing, you agree to Terms of Service and Privacy Policy.
             </div>
-          )}
-
-          {isCooldownActive && <div className="auth-info">Rate limit active. Try again in {cooldownSecondsRemaining}s.</div>}
-          {error && (
-            <div className="auth-error">
-              <strong>Authentication Error</strong>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <button
-            className="primary auth-submit"
-            onClick={() => void submit()}
-            disabled={submitting || isCooldownActive || !authAvailable}
-          >
-            {submitting ? 'Please wait...' : isCooldownActive ? `Try again in ${cooldownSecondsRemaining}s` : mode === 'login' ? 'Sign in with Email' : 'Create an account'}
-          </button>
-
-          <div className="auth-terms">
-            By signing in, you agree to Terms of Service and Privacy Policy.
           </div>
-        </div>
-
-        <footer className="auth-card-footer">
-          <div className="auth-footer-left">
-            <span className="auth-online-dot" />
-            <span>Online</span>
-            <span>v1.0.4-stable</span>
-          </div>
-          <button type="button" className="auth-footer-settings" title="Settings" aria-label="Settings">
-            <UiIcon name="settings" className="ui-icon" />
-          </button>
-        </footer>
+        </section>
       </section>
     </div>
   );

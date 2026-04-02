@@ -35,6 +35,17 @@ const SETTINGS_TABS: Array<{
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; description: string }> = [
   { action: 'newWorkspace', label: 'New Workspace', description: 'Create a new workspace' },
   { action: 'openWorkspace', label: 'Open Workspace', description: 'Open or import a workspace' },
+  { action: 'toggleSidebar', label: 'Toggle Sidebar', description: 'Collapse or expand the workspace sidebar' },
+  { action: 'selectWorkspace1', label: 'Workspace 1', description: 'Switch to workspace 1' },
+  { action: 'selectWorkspace2', label: 'Workspace 2', description: 'Switch to workspace 2' },
+  { action: 'selectWorkspace3', label: 'Workspace 3', description: 'Switch to workspace 3' },
+  { action: 'selectWorkspace4', label: 'Workspace 4', description: 'Switch to workspace 4' },
+  { action: 'selectWorkspace5', label: 'Workspace 5', description: 'Switch to workspace 5' },
+  { action: 'selectWorkspace6', label: 'Workspace 6', description: 'Switch to workspace 6' },
+  { action: 'selectWorkspace7', label: 'Workspace 7', description: 'Switch to workspace 7' },
+  { action: 'selectWorkspace8', label: 'Workspace 8', description: 'Switch to workspace 8' },
+  { action: 'selectWorkspace9', label: 'Workspace 9', description: 'Switch to workspace 9' },
+  { action: 'selectWorkspace10', label: 'Workspace 10', description: 'Switch to workspace 10' },
   { action: 'saveLayout', label: 'Save Layout', description: 'Save current workspace layout' },
   { action: 'findInTerminal', label: 'Find in Terminal', description: 'Search within the active terminal' },
   { action: 'clearActivePane', label: 'Clear Active Pane', description: 'Clear output in the active terminal pane' },
@@ -49,6 +60,35 @@ const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; description:
   { action: 'createTaskQuick', label: 'Quick Task', description: 'Create a backlog task and open task board' },
   { action: 'toggleTaskArchived', label: 'Archived Filter', description: 'Toggle showing archived tasks' },
   { action: 'resetTaskFilters', label: 'Reset Task Filters', description: 'Clear search, filters, and sort' }
+];
+
+const SHORTCUT_GROUPS: Array<{
+  title: string;
+  description: string;
+  items: Array<{ action: ShortcutAction; label: string; description: string }>;
+}> = [
+  {
+    title: 'Workspace',
+    description: 'Actions that shape workspaces and navigation.',
+    items: SHORTCUT_ROWS.filter((item) =>
+      ['newWorkspace', 'openWorkspace', 'toggleSidebar', 'selectWorkspace1', 'selectWorkspace2', 'selectWorkspace3', 'selectWorkspace4', 'selectWorkspace5', 'selectWorkspace6', 'selectWorkspace7', 'selectWorkspace8', 'selectWorkspace9', 'selectWorkspace10', 'saveLayout'].includes(item.action)
+    )
+  },
+  {
+    title: 'Panes',
+    description: 'Shortcuts for pane-level editing and cleanup.',
+    items: SHORTCUT_ROWS.filter((item) => ['findInTerminal', 'clearActivePane', 'newPane', 'closePane'].includes(item.action))
+  },
+  {
+    title: 'View',
+    description: 'Zoom and window-level view controls.',
+    items: SHORTCUT_ROWS.filter((item) => ['resetZoom', 'zoomIn', 'zoomOut', 'toggleFullScreen'].includes(item.action))
+  },
+  {
+    title: 'Tasks',
+    description: 'Task board and task creation controls.',
+    items: SHORTCUT_ROWS.filter((item) => ['openSettings', 'toggleTaskBoard', 'createTaskQuick', 'toggleTaskArchived', 'resetTaskFilters'].includes(item.action))
+  }
 ];
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -79,14 +119,18 @@ export function SettingsDialog(): JSX.Element {
   const [shortcuts, setShortcuts] = useState(loadShortcuts);
   const [capturingAction, setCapturingAction] = useState<ShortcutAction | null>(null);
   const [environmentSaveDir, setEnvironmentSaveDir] = useState<string | null>(() => loadEnvironmentSaveDirectory());
-  const [profile, setProfile] = useState(() => {
-    try {
-      const raw = window.localStorage.getItem('vibeAde.profile');
-      return raw ? (JSON.parse(raw) as { displayName: string; company: string; role: string }) : { displayName: '', company: '', role: '' };
-    } catch {
-      return { displayName: '', company: '', role: '' };
-    }
+  const [profile, setProfile] = useState({
+    displayName: '',
+    company: '',
+    role: '',
+    email: '',
+    timezone: 'Asia/Calcutta',
+    notifications: true,
+    theme: 'system' as 'light' | 'dark' | 'system',
+    defaultWorkspaceId: ''
   });
+  const [profileDraft, setProfileDraft] = useState(profile);
+  const [profileEditing, setProfileEditing] = useState(false);
   const [profileSavedAt, setProfileSavedAt] = useState<string | null>(null);
 
   const refreshCloudData = async (): Promise<void> => {
@@ -128,6 +172,35 @@ export function SettingsDialog(): JSX.Element {
   }, [settingsTab]);
 
   useEffect(() => {
+    let cancelled = false;
+    const loadProfile = async (): Promise<void> => {
+      try {
+        const remote = await window.vibeAde.workspace.getProfile();
+        if (!cancelled && remote) {
+          const nextProfile = {
+            displayName: remote.displayName,
+            company: remote.company,
+            role: remote.role,
+            email: remote.email ?? '',
+            timezone: remote.timezone,
+            notifications: remote.notifications,
+            theme: remote.theme,
+            defaultWorkspaceId: remote.defaultWorkspaceId
+          };
+          setProfile(nextProfile);
+          setProfileDraft(nextProfile);
+        }
+      } catch {
+        // Leave the local defaults in place if Supabase is unavailable.
+      }
+    };
+    void loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
     const update = (): void => setSystemBase(resolveEffectiveTheme('system'));
     mediaQuery.addEventListener('change', update);
@@ -148,6 +221,63 @@ export function SettingsDialog(): JSX.Element {
   const cloudBlocked = cloudLimit !== null && appState.workspaces.length > cloudLimit;
   const taskBoardLocked = !plan.features.taskBoard;
   const updateStatus = useWorkspaceStore((s) => s.ui.updateStatus);
+  const currentVersion = updateStatus.version ? `v${updateStatus.version}` : 'v0.3.8';
+
+  const getCloudErrorMessage = (action: 'sync' | 'pull', error: unknown): string => {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      if (message.includes('no remote data available to pull')) {
+        return 'There is nothing in the cloud to pull yet.';
+      }
+      if (message.includes('cloud sync is not configured')) {
+        return 'Cloud sync is not set up on this device.';
+      }
+      if (message.includes('no authenticated user session')) {
+        return 'Please sign in again to use cloud sync.';
+      }
+    }
+
+    return action === 'pull'
+      ? 'We could not pull from the cloud right now. Please try again.'
+      : 'We could not sync to the cloud right now. Please try again.';
+  };
+
+  const saveProfile = async (): Promise<void> => {
+    try {
+      const updated = await window.vibeAde.workspace.updateProfile({
+        displayName: profileDraft.displayName,
+        company: profileDraft.company,
+        role: profileDraft.role
+      });
+      const nextProfile = {
+        displayName: updated.displayName,
+        company: updated.company,
+        role: updated.role,
+        email: updated.email ?? profile.email,
+        timezone: updated.timezone,
+        notifications: updated.notifications,
+        theme: updated.theme,
+        defaultWorkspaceId: updated.defaultWorkspaceId
+      };
+      setProfile(nextProfile);
+      setProfileDraft(nextProfile);
+      setProfileEditing(false);
+      setProfileSavedAt(new Date().toLocaleString());
+      addToast('info', 'Profile details saved.');
+    } catch (error) {
+      addToast('error', error instanceof Error ? 'Could not save profile changes. Please try again.' : 'Could not save profile changes. Please try again.');
+    }
+  };
+
+  const beginEditProfile = (): void => {
+    setProfileDraft(profile);
+    setProfileEditing(true);
+  };
+
+  const cancelEditProfile = (): void => {
+    setProfileDraft(profile);
+    setProfileEditing(false);
+  };
 
   const logout = async (): Promise<void> => {
     await window.vibeAde.auth.logout();
@@ -157,12 +287,22 @@ export function SettingsDialog(): JSX.Element {
   const pushLocal = async (): Promise<void> => {
     setSyncing(true);
     try {
+      const hadRemoteWorkspaces = remoteWorkspaces.length > 0;
+      const localCount = appState.workspaces.length;
+      if (localCount === 0) {
+        addToast('info', 'There are no workspaces to sync yet.');
+        return;
+      }
       await window.vibeAde.cloud.pushLocalState();
       await refreshCloudData();
-      addToast('success', 'Local state pushed to cloud.');
+      addToast(
+        'info',
+        hadRemoteWorkspaces
+          ? 'Your workspace changes were synced to the cloud.'
+          : 'Your first cloud sync was created successfully.'
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to push local state.';
-      addToast('error', message);
+      addToast('error', getCloudErrorMessage('sync', error));
     } finally {
       setSyncing(false);
     }
@@ -171,12 +311,15 @@ export function SettingsDialog(): JSX.Element {
   const pullRemote = async (): Promise<void> => {
     setSyncing(true);
     try {
+      if (remoteWorkspaces.length === 0) {
+        addToast('info', 'There are no cloud workspaces to pull yet.');
+        return;
+      }
       await window.vibeAde.cloud.pullRemoteToLocal();
-      addToast('success', 'Remote state pulled. Reloading...');
+      addToast('info', 'Cloud workspaces were loaded successfully. Reloading...');
       window.location.reload();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to pull remote state.';
-      addToast('error', message);
+      addToast('error', getCloudErrorMessage('pull', error));
       setSyncing(false);
     }
   };
@@ -246,9 +389,15 @@ export function SettingsDialog(): JSX.Element {
               </button>
             ))}
           </nav>
+
+          <div className="settings-sidebar-status">
+            <small>Current Plan</small>
+            <strong>{plan.label} plan</strong>
+          </div>
         </aside>
 
         <main className="settings-main">
+
           {activeTab === 'appearance' && (
             <>
               <header className="settings-main-header">
@@ -256,7 +405,8 @@ export function SettingsDialog(): JSX.Element {
                 <p>Personalize your workspace with one of the available themes.</p>
               </header>
 
-              <section className="theme-grid">
+              <section className="settings-section-card">
+                <section className="theme-grid">
                 {themeCards.map((theme) => (
                   <button
                     key={theme.id}
@@ -313,6 +463,7 @@ export function SettingsDialog(): JSX.Element {
                     </div>
                   </button>
                 ))}
+                </section>
               </section>
             </>
           )}
@@ -324,22 +475,36 @@ export function SettingsDialog(): JSX.Element {
                 <p>Press a key combination to assign exactly one hotkey per action.</p>
               </header>
 
-              <section className="settings-shortcuts">
-                {SHORTCUT_ROWS.map((item) => (
-                  <article key={item.action} className="shortcut-row">
-                    <div>
-                      <strong>{item.label}</strong>
-                      <small>{item.description}</small>
+              <section className="settings-shortcuts-shell">
+                {SHORTCUT_GROUPS.map((group) => (
+                  <section key={group.title} className="shortcut-group-card settings-section-card">
+                    <div className="shortcut-group-head">
+                      <div>
+                        <div className="account-panel-kicker">{group.title}</div>
+                        <div className="shortcut-group-title">{group.description}</div>
+                      </div>
                     </div>
-                    <button
-                      className={capturingAction === item.action ? 'shortcut-capture active' : 'shortcut-capture'}
-                      onClick={() => setCapturingAction((prev) => (prev === item.action ? null : item.action))}
-                      onKeyDown={(event) => onShortcutKeyDown(item.action, event)}
-                    >
-                      {capturingAction === item.action ? 'Press keys...' : shortcuts[item.action]}
-                    </button>
-                  </article>
+
+                    <div className="shortcut-group-list">
+                      {group.items.map((item) => (
+                        <article key={item.action} className="shortcut-row">
+                          <div className="shortcut-copy">
+                            <strong>{item.label}</strong>
+                            <small>{item.description}</small>
+                          </div>
+                          <button
+                            className={capturingAction === item.action ? 'shortcut-capture active' : 'shortcut-capture'}
+                            onClick={() => setCapturingAction((prev) => (prev === item.action ? null : item.action))}
+                            onKeyDown={(event) => onShortcutKeyDown(item.action, event)}
+                          >
+                            {capturingAction === item.action ? 'Press keys...' : shortcuts[item.action]}
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
                 ))}
+
                 <div className="shortcut-actions">
                   <button
                     onClick={() => {
@@ -362,7 +527,7 @@ export function SettingsDialog(): JSX.Element {
                 <p>Control where File → Save exports your current environment layout.</p>
               </header>
 
-              <section className="cloud-sync-section">
+              <section className="cloud-sync-section settings-section-card">
                 <h4>Environment Save Location</h4>
                 <p>
                   When set, <code>File → Save</code> / <code>Ctrl+S</code> exports the active environment to this folder as a JSON file.
@@ -437,7 +602,7 @@ export function SettingsDialog(): JSX.Element {
                 </section>
               )}
 
-              <section className="settings-task-history">
+              <section className="settings-task-history settings-section-card">
                 {taskHistory.length === 0 ? (
                   <p>No tasks created yet.</p>
                 ) : (
@@ -463,88 +628,184 @@ export function SettingsDialog(): JSX.Element {
                 <p>Cloud sync and account controls.</p>
               </header>
 
-              <div className="account-grid">
-                <section className="account-card">
-                  <div className="account-card-header">
-                    <h4>Profile</h4>
-                    <span className="account-plan-chip">{plan.label}</span>
+              <div className="account-section-shell">
+                <section className="account-profile-panel settings-section-card">
+                  <div className="account-profile-header">
+                    <div className="account-avatar">U</div>
+                    <div className="account-profile-copy">
+                      <div className="account-profile-title-row">
+                        <div>
+                          <h4>{profile.displayName.trim() || 'User'}</h4>
+                          <small>{profile.email.trim() || 'No email set'}</small>
+                        </div>
+                        <span className="account-status-chip">Active</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="account-meta">
-                    <span>Support: {plan.support}</span>
-                    <span>Plan tier: {plan.label}</span>
+
+                  <div className="account-profile-grid">
+                    <div className="account-metric-card">
+                      <small>Email</small>
+                      <strong>{profile.email.trim() || 'Not set'}</strong>
+                    </div>
+                    <div className="account-metric-card">
+                      <small>Account ID</small>
+                      <strong>{profile.defaultWorkspaceId.trim() || 'Unknown'}</strong>
+                    </div>
                   </div>
-                  <div className="account-fields">
+
+                  <div className="account-fields account-fields-compact">
                     <label>
                       Display name
                       <input
-                        value={profile.displayName}
+                        value={profileDraft.displayName}
                         placeholder="Display name"
-                        onChange={(e) => setProfile((prev) => ({ ...prev, displayName: e.target.value }))}
+                        disabled={!profileEditing}
+                        onChange={(e) => setProfileDraft((prev) => ({ ...prev, displayName: e.target.value }))}
                       />
                     </label>
                     <label>
                       Company / Team
                       <input
-                        value={profile.company}
+                        value={profileDraft.company}
                         placeholder="Company / Team"
-                        onChange={(e) => setProfile((prev) => ({ ...prev, company: e.target.value }))}
+                        disabled={!profileEditing}
+                        onChange={(e) => setProfileDraft((prev) => ({ ...prev, company: e.target.value }))}
                       />
                     </label>
                     <label>
                       Role
                       <input
-                        value={profile.role}
+                        value={profileDraft.role}
                         placeholder="Role"
-                        onChange={(e) => setProfile((prev) => ({ ...prev, role: e.target.value }))}
+                        disabled={!profileEditing}
+                        onChange={(e) => setProfileDraft((prev) => ({ ...prev, role: e.target.value }))}
                       />
                     </label>
                   </div>
-                  <div className="account-actions">
-                    <button
-                      onClick={() => {
-                        window.localStorage.setItem('vibeAde.profile', JSON.stringify(profile));
-                        setProfileSavedAt(new Date().toLocaleString());
-                      }}
-                    >
-                      Save Profile
-                    </button>
-                    {profileSavedAt && <span className="account-muted">Saved {profileSavedAt}</span>}
+
+                  <div className="account-card-actions-row">
+                    {!profileEditing ? (
+                      <button className="primary" onClick={beginEditProfile}>
+                        Edit Profile
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={cancelEditProfile}>Cancel</button>
+                        <button className="primary" onClick={() => void saveProfile()}>
+                          Save Profile
+                        </button>
+                      </>
+                    )}
                   </div>
+                  {profileSavedAt && !profileEditing && <div className="account-note">Saved {profileSavedAt}</div>}
                 </section>
 
-                <section className="account-card">
-                  <div className="account-card-header">
-                    <h4>Cloud Sync</h4>
-                    {cloudBlocked && <span className="account-warn">Limit reached</span>}
+                <div className="account-two-column">
+                  <section className="account-billing-panel settings-section-card">
+                    <div className="account-panel-head">
+                      <div>
+                        <div className="account-panel-kicker">Billing</div>
+                        <div className="account-plan-row">
+                          <strong>{plan.label} Plan</strong>
+                        </div>
+                      </div>
+                      <div className="account-plan-actions">
+                        <button
+                          className="primary"
+                          onClick={() => {
+                            void window.vibeAde.system.openExternal('https://quansynd.com');
+                          }}
+                        >
+                          Manage Plan
+                        </button>
+                        <button
+                          onClick={() => {
+                            void window.vibeAde.system.openExternal('https://quansynd.com');
+                          }}
+                        >
+                          View Plans
+                        </button>
+                      </div>
+                    </div>
+                  <p className="account-panel-copy">Account and settings access only. Upgrade to unlock BridgeSpace.</p>
+                  </section>
+
+                  <section className="account-debug-panel settings-section-card">
+                    <div className="account-panel-head">
+                      <div>
+                        <div className="account-panel-kicker">Debug</div>
+                        <div className="account-plan-row">
+                          <strong>Updates</strong>
+                          <small className="account-muted-inline">Current version {currentVersion}</small>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => void window.vibeAde.update.check()}
+                        disabled={updateStatus.state === 'checking' || updateStatus.state === 'downloading'}
+                      >
+                        {updateStatus.state === 'checking' ? 'Checking…' : 'Check for updates'}
+                      </button>
+                    </div>
+                    <div className="account-log-row">
+                      <div className="account-log-copy">
+                        <strong>Log file</strong>
+                        <small>For debugging auth and API issues.</small>
+                      </div>
+                      <div className="account-log-path">
+                        <code>C:\Users\admin\AppData\Local\Vibe-ADE-dev\crash-events.log</code>
+                      </div>
+                      <button disabled>Show in Explorer</button>
+                    </div>
+                  </section>
+                </div>
+
+                <section className="account-sync-panel settings-section-card">
+                  <div className="account-panel-head">
+                    <div>
+                      <div className="account-panel-kicker">Cloud Sync</div>
+                      <div className="account-plan-row">
+                        <strong>Sync Status</strong>
+                        {cloudBlocked && <span className="account-warn">Limit reached</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => void refreshCloudData()} disabled={syncing}>
+                      Refresh
+                    </button>
                   </div>
-                  <div className="account-meta">
-                    <span>Configured: {status?.configured ? 'Yes' : 'No'}</span>
-                    <span>Authenticated: {status?.authenticated ? 'Yes' : 'No'}</span>
-                    <span>Strategy: {syncPreview?.strategy === 'last_write_wins' ? 'Last-write-wins' : '-'}</span>
+                  <div className="account-sync-summary">
+                    <div className="account-sync-meta-row">
+                      <span>Configured: {status?.configured ? 'Yes' : 'No'}</span>
+                      <span>Authenticated: {status?.authenticated ? 'Yes' : 'No'}</span>
+                      <span>Strategy: {syncPreview?.strategy === 'last_write_wins' ? 'Last-write-wins' : '-'}</span>
+                    </div>
+                    {syncPreview && (
+                      <div className="account-sync-stat-grid">
+                        <div className="account-sync-stat">
+                          <small>Compared</small>
+                          <strong>{syncPreview.compared}</strong>
+                        </div>
+                        <div className="account-sync-stat">
+                          <small>Local newer</small>
+                          <strong>{syncPreview.localWins}</strong>
+                        </div>
+                        <div className="account-sync-stat">
+                          <small>Remote newer</small>
+                          <strong>{syncPreview.remoteWins}</strong>
+                        </div>
+                        <div className="account-sync-stat">
+                          <small>Equal</small>
+                          <strong>{syncPreview.equal}</strong>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {cloudLimit !== null && (
                     <p className="account-muted">
                       Spark allows up to {cloudLimit} cloud-synced workspaces. You currently have {appState.workspaces.length}.
                     </p>
                   )}
-                  {syncPreview && (
-                    <div className="cloud-sync-conflict-summary">
-                      <span>Compared: {syncPreview.compared}</span>
-                      <span>Local newer: {syncPreview.localWins}</span>
-                      <span>Remote newer: {syncPreview.remoteWins}</span>
-                      <span>Equal: {syncPreview.equal}</span>
-                    </div>
-                  )}
-                  <div className="account-actions">
-                    <button
-                      onClick={() => void window.vibeAde.update.check()}
-                      disabled={updateStatus.state === 'checking' || updateStatus.state === 'downloading'}
-                    >
-                      {updateStatus.state === 'checking' ? 'Checking…' : 'Check for updates'}
-                    </button>
-                    <button onClick={() => void refreshCloudData()} disabled={syncing}>
-                      Refresh
-                    </button>
+                  <div className="account-actions account-actions-tight">
                     <button
                       onClick={() => void pushLocal()}
                       disabled={syncing || cloudBlocked || !status?.configured || !status?.authenticated}
@@ -586,12 +847,16 @@ export function SettingsDialog(): JSX.Element {
                     )}
                   </div>
                 </section>
-              </div>
 
-              <div className="settings-account-actions">
-                <button className="danger" onClick={() => void logout()}>
-                  Logout
-                </button>
+                <div className="account-signout-footer">
+                  <div>
+                    <strong>Sign Out</strong>
+                    <small>End your session on this device</small>
+                  </div>
+                  <button className="danger" onClick={() => void logout()}>
+                    Sign Out
+                  </button>
+                </div>
               </div>
             </>
           )}

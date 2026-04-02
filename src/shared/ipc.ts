@@ -30,6 +30,14 @@ export interface TemplateProgressEvent {
   success: boolean;
 }
 
+export interface BrowserContextActionEvent {
+  webContentsId: number;
+  action: 'view-source' | 'inspect';
+  url: string;
+  sourceHtml?: string;
+  pageTitle?: string;
+}
+
 export type MentionEntry = Readonly<{
   name: string;
   path: string;
@@ -159,7 +167,43 @@ export interface SwarmTranscriptEvent {
 export interface VibeAdeApi {
   workspace: {
     list: () => Promise<AppState>;
-    create: (input: { name: string; rootDir: string; templateId?: string }) => Promise<WorkspaceState>;
+    syncAccountState: () => Promise<AppState>;
+    getProfile: () => Promise<{
+      id: string;
+      email: string | null;
+      displayName: string;
+      company: string;
+      role: string;
+      timezone: string;
+      notifications: boolean;
+      theme: 'light' | 'dark' | 'system';
+      defaultWorkspaceId: string;
+    } | null>;
+    updateProfile: (input: Partial<{
+      displayName: string;
+      company: string;
+      role: string;
+      timezone: string;
+      notifications: boolean;
+      theme: 'light' | 'dark' | 'system';
+      defaultWorkspaceId: string;
+    }>) => Promise<{
+      id: string;
+      email: string | null;
+      displayName: string;
+      company: string;
+      role: string;
+      timezone: string;
+      notifications: boolean;
+      theme: 'light' | 'dark' | 'system';
+      defaultWorkspaceId: string;
+    }>;
+    create: (input: {
+      name: string;
+      rootDir: string;
+      layoutPresetId?: string;
+      templateId?: string;
+    }) => Promise<WorkspaceState>;
     clone: (workspaceId: WorkspaceId, newName: string) => Promise<WorkspaceState>;
     rename: (workspaceId: WorkspaceId, name: string) => Promise<void>;
     remove: (workspaceId: WorkspaceId) => Promise<void>;
@@ -270,6 +314,7 @@ export interface VibeAdeApi {
   onTerminalExit: (listener: (event: TerminalExitEvent) => void) => () => void;
   onTemplateProgress: (listener: (event: TemplateProgressEvent) => void) => () => void;
   onMenuAction: (listener: (event: MenuActionEvent) => void) => () => void;
+  onBrowserContextAction: (listener: (event: BrowserContextActionEvent) => void) => () => void;
   onUpdateStatus: (listener: (status: UpdateStatus) => void) => () => void;
   swarm: {
     create: (config: SwarmCreateConfig) => Promise<SwarmCreateResult>;

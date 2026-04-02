@@ -22,13 +22,14 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 700,
     title: '',
     ...(iconPath ? { icon: iconPath } : {}),
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     backgroundColor: '#131722',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      webviewTag: true
     }
   });
 
@@ -53,6 +54,15 @@ export function createMainWindow(): BrowserWindow {
     }
   }
 
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.key !== 'Alt') {
+      return;
+    }
+    if (input.control || input.shift || input.meta || input.modifiers?.some((modifier) => modifier === 'control' || modifier === 'shift' || modifier === 'meta')) {
+      return;
+    }
+    event.preventDefault();
+  });
   win.setMenuBarVisibility(false);
   win.on('page-title-updated', (event) => event.preventDefault());
   win.setTitle('');

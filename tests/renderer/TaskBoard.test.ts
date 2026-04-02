@@ -17,6 +17,7 @@ function makeWorkspace(): WorkspaceState {
       paneId: 'pane-1'
     },
     paneShells: { 'pane-1': 'cmd' },
+    browserPanes: {},
     activePaneId: 'pane-1',
     commandBlocks: { 'pane-1': [] },
     tasks: [

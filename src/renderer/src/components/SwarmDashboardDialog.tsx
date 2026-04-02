@@ -6,6 +6,7 @@ import { UiIcon } from './UiIcon';
 // --- Types ---
 type CliProvider = 'claude' | 'codex' | 'gemini';
 type AgentRole = 'coordinator' | 'builder' | 'scout' | 'reviewer';
+type SwarmPresetId = 'squad' | 'team' | 'platoon' | 'battalion' | 'legion';
 
 interface AgentConfig {
   id: string;
@@ -19,30 +20,49 @@ function defaultSwarmId(): string {
   return `swarm-${suffix}`;
 }
 
+const SWARM_PRESETS: Array<{
+  id: SwarmPresetId;
+  label: string;
+  count: number;
+  builders: number;
+  reviewers: number;
+  scouts: number;
+}> = [
+  { id: 'squad', label: 'Squad', count: 5, builders: 2, reviewers: 1, scouts: 1 },
+  { id: 'team', label: 'Team', count: 10, builders: 4, reviewers: 2, scouts: 2 },
+  { id: 'platoon', label: 'Platoon', count: 15, builders: 7, reviewers: 3, scouts: 3 },
+  { id: 'battalion', label: 'Battalion', count: 20, builders: 10, reviewers: 4, scouts: 5 },
+  { id: 'legion', label: 'Legion', count: 50, builders: 26, reviewers: 10, scouts: 13 }
+];
+
+function buildAgentsForPreset(preset: (typeof SWARM_PRESETS)[number]): AgentConfig[] {
+  const agents: AgentConfig[] = [{ id: 'coordinator-1', role: 'coordinator', provider: 'codex' }];
+  for (let index = 0; index < preset.builders; index += 1) {
+    agents.push({ id: `builder-${index + 1}`, role: 'builder', provider: 'codex' });
+  }
+  for (let index = 0; index < preset.reviewers; index += 1) {
+    agents.push({ id: `reviewer-${index + 1}`, role: 'reviewer', provider: 'claude' });
+  }
+  for (let index = 0; index < preset.scouts; index += 1) {
+    agents.push({ id: `scout-${index + 1}`, role: 'scout', provider: 'gemini' });
+  }
+  return agents;
+}
+
 // --- Styles (Injected) ---
 const WIZARD_STYLES = `
   .swarm-wizard-overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
     z-index: 150;
-    background: rgba(5, 8, 12, 0.85);
-    backdrop-filter: blur(8px);
     display: grid;
     place-items: center;
+    padding: 24px;
+    background:
+      radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--body-overlay) 80%, transparent), transparent 40%),
+      color-mix(in srgb, var(--bg-page) 72%, transparent);
+    backdrop-filter: blur(10px);
     animation: fadeIn 0.2s ease-out;
-  }
-
-  .swarm-wizard-card {
-    width: min(800px, 94vw);
-    height: min(700px, 90vh);
-    background: linear-gradient(145deg, var(--bg-panel), var(--bg-panel-2));
-    border: 1px solid var(--border-strong);
-    border-radius: 16px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .swarm-wizard-overlay.embedded {
@@ -51,176 +71,359 @@ const WIZARD_STYLES = `
     z-index: 10;
   }
 
-  .wizard-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border);
-    background: rgba(0, 0, 0, 0.2);
-    flex-shrink: 0;
+  .swarm-wizard-card {
+    width: min(760px, calc(100vw - 48px));
+    max-height: calc(100vh - 48px);
+    display: grid;
+    gap: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
   }
 
-  .wizard-title {
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--text);
+  .swarm-wizard-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 16px;
+    padding: 0 0 12px;
   }
 
-  .wizard-body {
-    padding: 24px;
-    flex: 1;
-    overflow-y: auto;
+  .swarm-wizard-header-copy {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 4px;
+  }
+
+  .swarm-wizard-kicker {
+    color: var(--text-muted);
+    font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .swarm-wizard-header h2 {
+    margin: 0;
+    font-size: clamp(20px, 1.8vw, 26px);
+    letter-spacing: -0.05em;
+  }
+
+  .swarm-wizard-header p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .swarm-wizard-close {
+    justify-self: end;
+    margin-top: 2px;
+  }
+
+  .swarm-wizard-body {
+    display: grid;
+    gap: 14px;
     min-height: 0;
   }
 
-  .wizard-footer {
-    padding: 20px 24px;
-    border-top: 1px solid var(--border);
-    background: rgba(0, 0, 0, 0.2);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
+  .swarm-stage-scroll {
+    min-height: 0;
+    height: min(300px, 34vh);
+    max-height: min(300px, 34vh);
+    overflow-y: auto;
+    padding: 14px 12px 10px 12px;
+    margin-top: 10px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    border-top: 0;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-2) 84%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+    scrollbar-gutter: stable;
   }
 
-  .step-indicator {
-    display: flex;
+  .swarm-wizard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+
+  .swarm-wizard-column {
+    min-width: 0;
+    display: grid;
+    gap: 10px;
+  }
+
+  .swarm-wizard-section,
+  .swarm-wizard-summary-card {
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-2) 82%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+  }
+
+  .swarm-wizard-section {
+    display: grid;
     gap: 8px;
+    padding: 12px;
   }
 
-  .step-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 4px;
-    background: var(--border-strong);
-    transition: all 0.3s ease;
-  }
-
-  .step-dot.active {
-    width: 24px;
-    background: var(--accent);
-    box-shadow: 0 0 10px var(--accent-glow);
-  }
-
-  /* Form Elements */
-  .input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-
-  .input-label {
-    font-size: 12px;
-    font-weight: 500;
+  .swarm-wizard-section label,
+  .swarm-wizard-summary-card label,
+  .swarm-roster-title,
+  .swarm-summary-label {
+    display: block;
     color: var(--text-muted);
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
   }
 
-  .premium-input {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 16px;
-    color: var(--text);
-    font-size: 14px;
-    transition: all 0.2s ease;
-  }
-
-  .premium-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-glow);
-    background: rgba(0, 0, 0, 0.3);
-  }
-
-  /* Roster / Agent List Styles */
-  .roster-section {
-    margin-bottom: 24px;
-    animation: fadeIn 0.3s ease;
-  }
-  
-  .roster-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    padding: 0 4px;
-  }
-  
-  .roster-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .agent-card-grid {
+  .swarm-input-group {
     display: grid;
     gap: 8px;
   }
 
-  .agent-row {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 12px;
+  .swarm-input-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .swarm-input {
+    width: 100%;
+    background: color-mix(in srgb, var(--bg-panel-2) 78%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  .swarm-input:focus {
+    border-color: color-mix(in srgb, var(--accent) 75%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-2) 92%, transparent);
+  }
+
+  .swarm-textarea {
+    resize: none;
+    min-height: 118px;
+    line-height: 1.5;
+  }
+
+  .swarm-root-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: all 0.2s ease;
-  }
-  
-  .agent-row:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: var(--border-strong);
+    gap: 10px;
+    align-items: stretch;
   }
 
-  .agent-row.locked {
-    background: rgba(59, 130, 246, 0.08);
-    border-color: rgba(59, 130, 246, 0.2);
-  }
-
-  .agent-id {
+  .swarm-root-row .swarm-input {
+    flex: 1;
     font-family: var(--font-mono);
     font-size: 13px;
+  }
+
+  .swarm-root-row button {
+    min-width: 92px;
+    padding-inline: 16px;
+    background: color-mix(in srgb, var(--bg-panel-2) 86%, transparent);
+  }
+
+  .swarm-wizard-summary-card {
+    padding: 14px;
+    display: grid;
+    gap: 12px;
+    align-content: start;
+  }
+
+  .swarm-wizard-summary-card strong {
+    font-size: 20px;
+    letter-spacing: -0.03em;
+  }
+
+  .swarm-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .swarm-summary-row {
+    display: grid;
+    gap: 4px;
+    padding: 10px 11px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-2) 88%, transparent);
+  }
+
+  .swarm-summary-row strong,
+  .swarm-summary-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .swarm-summary-row strong {
+    font-size: 13px;
     color: var(--text);
+    font-weight: 700;
+  }
+
+  .swarm-summary-row span {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .swarm-summary-pills {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
-  .role-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: rgba(0,0,0,0.3);
+  .swarm-summary-pill {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-2) 90%, transparent);
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .swarm-stage-note {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+    font-size: 13px;
+  }
+
+  .swarm-preset-section {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-2) 84%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+  }
+
+  .swarm-preset-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .swarm-preset-title {
+    display: grid;
+    gap: 2px;
+  }
+
+  .swarm-preset-title strong {
+    font-size: 15px;
+    color: var(--text);
+  }
+
+  .swarm-preset-title span {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .swarm-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .swarm-preset-card {
+    min-height: 78px;
+    display: grid;
+    gap: 6px;
+    place-items: center;
+    padding: 10px 8px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-2) 82%, transparent);
+    text-align: center;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  }
+
+  .swarm-preset-card strong {
+    font-size: 18px;
+    line-height: 1;
+    letter-spacing: -0.05em;
+  }
+
+  .swarm-preset-card span {
+    font-size: 11px;
     color: var(--text-muted);
     text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
-  .provider-select {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border);
+  .swarm-preset-card:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel-2));
+  }
+
+  .swarm-preset-card.active {
+    border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel-2));
+  }
+
+  .swarm-preset-card.locked {
+    opacity: 0.55;
+  }
+
+  .swarm-preset-card:disabled {
+    cursor: not-allowed;
+  }
+
+  .swarm-roster-section {
+    display: grid;
+    gap: 10px;
+    padding: 0;
+    border-radius: 14px;
+    border: 0;
+    background: transparent;
+  }
+
+  .swarm-coordinator-section {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-2) 84%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+  }
+
+  .swarm-roster-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .swarm-roster-title {
     color: var(--text);
-    font-size: 12px;
-    border-radius: 6px;
-    padding: 4px 8px;
-    cursor: pointer;
-    min-width: 140px;
-  }
-  
-  .provider-select:hover {
-    border-color: var(--accent);
+    font-weight: 700;
   }
 
-  .action-btn-sm {
+  .swarm-roster-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .swarm-action-btn {
     width: 24px;
     height: 24px;
     display: grid;
@@ -230,22 +433,169 @@ const WIZARD_STYLES = `
     background: transparent;
     color: var(--text);
     cursor: pointer;
-    transition: all 0.1s;
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
   }
-  
-  .action-btn-sm:hover:not(:disabled) {
-    background: rgba(255,255,255,0.1);
+
+  .swarm-action-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
     color: var(--accent);
-    border-color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   }
-  
-  .action-btn-sm:disabled {
+
+  .swarm-action-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
   }
 
+  .swarm-agent-grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .swarm-role-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 2px 0 2px;
+  }
+
+  .swarm-role-chip {
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-2) 90%, transparent);
+    color: var(--text-muted);
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .swarm-role-chip strong {
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .swarm-agent-row {
+    padding: 6px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .swarm-agent-id {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .swarm-provider-select {
+    min-width: 138px;
+    background: color-mix(in srgb, var(--bg-panel-2) 84%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    color: var(--text);
+    font-size: 12px;
+    border-radius: 8px;
+    padding: 5px 8px;
+    cursor: pointer;
+  }
+
+  .swarm-provider-select:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  }
+
+  .swarm-step-indicator {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .swarm-step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--border-strong);
+    transition: width 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .swarm-step-dot.active {
+    width: 22px;
+    background: var(--accent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+
+  .swarm-wizard-footer {
+    width: 100%;
+    padding: 8px 0 0;
+    border-top: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: center;
+  }
+
+  .swarm-wizard-footer-actions {
+    grid-column: 1;
+    justify-self: end;
+    display: flex;
+    gap: 10px;
+  }
+
+  .swarm-wizard-footer-actions button {
+    min-width: 118px;
+  }
+
+  @media (max-width: 1100px) {
+    .swarm-wizard-card {
+      width: min(720px, calc(100vw - 32px));
+    }
+  }
+
+  @media (max-width: 900px) {
+    .swarm-wizard-card {
+      width: calc(100vw - 24px);
+      max-height: calc(100vh - 24px);
+    }
+
+    .swarm-summary-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .swarm-root-row {
+      flex-direction: column;
+    }
+
+    .swarm-root-row button {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .swarm-agent-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .swarm-provider-select {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .swarm-preset-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .swarm-stage-scroll {
+      max-height: none;
+      height: auto;
+    }
+  }
+
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
 // --- Components ---
@@ -268,12 +618,12 @@ function RosterSection({
   max?: number;
 }) {
   return (
-    <div className="roster-section">
-      <div className="roster-header">
-        <div className="roster-title">{title} ({agents.length})</div>
-        <div style={{ display: 'flex', gap: 6 }}>
+    <div className="swarm-agent-grid">
+      <div className="swarm-roster-header">
+        <div className="swarm-roster-title">{title} ({agents.length})</div>
+        <div className="swarm-roster-actions">
           <button 
-            className="action-btn-sm" 
+            className="swarm-action-btn" 
             onClick={onRemove} 
             disabled={agents.length === 0}
             title="Remove last"
@@ -281,7 +631,7 @@ function RosterSection({
             <UiIcon name="minus" className="ui-icon-sm" />
           </button>
           <button 
-            className="action-btn-sm" 
+            className="swarm-action-btn" 
             onClick={onAdd} 
             disabled={agents.length >= max}
             title="Add new"
@@ -291,30 +641,28 @@ function RosterSection({
         </div>
       </div>
       
-      <div className="agent-card-grid">
-        {agents.length === 0 && (
-          <div style={{ padding: 12, border: '1px dashed var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
-            No {title.toLowerCase()} assigned.
+      {agents.length === 0 && (
+        <div style={{ padding: 12, border: '1px dashed color-mix(in srgb, var(--border) 70%, transparent)', borderRadius: 10, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+          No {title.toLowerCase()} assigned.
+        </div>
+      )}
+      {agents.map(agent => (
+        <div key={agent.id} className="swarm-agent-row">
+          <div className="swarm-agent-id">
+            <UiIcon name="user" className="ui-icon-sm" />
+            {agent.id}
           </div>
-        )}
-        {agents.map(agent => (
-          <div key={agent.id} className="agent-row">
-            <div className="agent-id">
-              <UiIcon name="user" className="ui-icon-sm" />
-              {agent.id}
-            </div>
-            <select 
-              className="provider-select"
-              value={agent.provider}
-              onChange={(e) => onUpdateProvider(agent.id, e.target.value as CliProvider)}
-            >
-              <option value="codex">OpenAI (Codex)</option>
-              <option value="claude">Anthropic (Claude)</option>
-              <option value="gemini">Google (Gemini)</option>
-            </select>
-          </div>
-        ))}
-      </div>
+          <select 
+            className="swarm-provider-select"
+            value={agent.provider}
+            onChange={(e) => onUpdateProvider(agent.id, e.target.value as CliProvider)}
+          >
+            <option value="codex">OpenAI (Codex)</option>
+            <option value="claude">Anthropic (Claude)</option>
+            <option value="gemini">Google (Gemini)</option>
+          </select>
+        </div>
+      ))}
     </div>
   );
 }
@@ -335,26 +683,26 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
   const [swarmName, setSwarmName] = useState('');
   const [goal, setGoal] = useState('');
   const [codebaseRoot, setCodebaseRoot] = useState(activeWorkspace?.rootDir ?? 'C:\\');
+  const [selectedPreset, setSelectedPreset] = useState<SwarmPresetId>('squad');
   
   // -- Agent State --
   // Initialize with 1 coordinator (locked) and 1 builder by default
-  const [agents, setAgents] = useState<AgentConfig[]>([
-    { id: 'coordinator-1', role: 'coordinator', provider: 'codex' },
-    { id: 'builder-1', role: 'builder', provider: 'codex' },
-    { id: 'reviewer-1', role: 'reviewer', provider: 'claude' }
-  ]);
+  const [agents, setAgents] = useState<AgentConfig[]>(() => buildAgentsForPreset(SWARM_PRESETS[0]));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const subscription = normalizeSubscriptionState(appState.subscription);
   const plan = SUBSCRIPTION_PLANS[subscription.tier];
   const maxAgents = plan.limits.concurrentAgentsPerSwarm;
+  const maxAgentsLabel = maxAgents === null ? 'Unlimited' : String(maxAgents);
+  const activePreset = SWARM_PRESETS.find((preset) => preset.id === selectedPreset) ?? null;
 
   // -- Handlers --
 
   const getAgentsByRole = (role: AgentRole) => agents.filter(a => a.role === role);
 
   const handleAddAgent = (role: AgentRole) => {
+    setSelectedPreset(null);
     setAgents(prev => {
       if (maxAgents !== null && prev.length >= maxAgents) {
         setError(`Flux plan allows up to ${maxAgents} concurrent agents per swarm.`);
@@ -377,6 +725,7 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
   };
 
   const handleRemoveAgent = (role: AgentRole) => {
+    setSelectedPreset(null);
     setAgents(prev => {
       const others = prev.filter(a => a.role !== role);
       const targets = prev.filter(a => a.role === role);
@@ -398,6 +747,20 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
 
   const handleUpdateProvider = (id: string, provider: CliProvider) => {
     setAgents(prev => prev.map(a => a.id === id ? { ...a, provider } : a));
+  };
+
+  const applyPreset = (presetId: SwarmPresetId) => {
+    const preset = SWARM_PRESETS.find((item) => item.id === presetId);
+    if (!preset) {
+      return;
+    }
+    if (maxAgents !== null && preset.count > maxAgents) {
+      setError(`Flux plan allows up to ${maxAgents} concurrent agents per swarm.`);
+      return;
+    }
+    setError(null);
+    setSelectedPreset(presetId);
+    setAgents(buildAgentsForPreset(preset));
   };
 
   const validateStep1 = () => {
@@ -480,110 +843,130 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
 
   const coordinator = agents.find(a => a.role === 'coordinator');
 
-  return (
+  const content = (
     <>
       <style>{WIZARD_STYLES}</style>
-      <div className={props.embedded ? 'swarm-wizard-overlay embedded' : 'swarm-wizard-overlay'} onClick={() => close()}>
-        <div className="swarm-wizard-card" onClick={(e) => e.stopPropagation()}>
-          
-          {/* Header */}
-          <div className="wizard-header">
-            <div className="wizard-title">
-              <div style={{ 
-                width: 32, height: 32, borderRadius: 8, 
-                background: 'rgba(59, 130, 246, 0.15)', 
-                display: 'grid', placeItems: 'center',
-                color: 'var(--accent)'
-              }}>
-                <UiIcon name="bolt" className="ui-icon" />
-              </div>
-              Create QuanSwarm
-            </div>
-            <button onClick={() => close()} className="action-btn-sm" title="Close" style={{ border: 0 }}>
-              <UiIcon name="close" className="ui-icon-sm" />
-            </button>
+      <section className="swarm-wizard-card" onClick={(event) => event.stopPropagation()}>
+        <header className="swarm-wizard-header">
+          <div className="swarm-wizard-header-copy">
+            <h2>Create QuanSwarm</h2>
+            <p>Define the mission first, then assemble the squad.</p>
           </div>
+        </header>
 
-          {/* Body */}
-          <div className="wizard-body">
-            {step === 1 ? (
-              <div style={{ display: 'grid', gap: 20, animation: 'fadeIn 0.3s ease' }}>
-                <div className="input-group">
-                  <label className="input-label">Swarm Name</label>
-                  <input 
-                    className="premium-input" 
-                    placeholder="e.g. Auth System Refactor" 
+        <div className="swarm-wizard-body">
+          {step === 1 ? (
+            <div className="swarm-wizard-grid">
+              <div className="swarm-wizard-column">
+                <section className="swarm-wizard-section">
+                  <label>Swarm Name</label>
+                  <input
+                    className="swarm-input"
+                    placeholder="e.g. Auth System Refactor"
                     value={swarmName}
-                    onChange={e => setSwarmName(e.target.value)}
+                    onChange={(event) => setSwarmName(event.target.value)}
                     autoFocus
                   />
-                </div>
+                </section>
 
-                <div className="input-group">
-                  <label className="input-label">Mission Goal</label>
-                  <textarea 
-                    className="premium-input" 
-                    placeholder="Describe exactly what the agents should build or fix..." 
+                <section className="swarm-wizard-section">
+                  <label>Mission Goal</label>
+                  <textarea
+                    className="swarm-input swarm-textarea"
+                    placeholder="Describe exactly what the agents should build or fix..."
                     rows={5}
-                    style={{ resize: 'none', lineHeight: 1.5 }}
                     value={goal}
-                    onChange={e => setGoal(e.target.value)}
+                    onChange={(event) => setGoal(event.target.value)}
                   />
-                </div>
+                </section>
 
-                <div className="input-group">
-                  <label className="input-label">Codebase Root</label>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <input 
-                      className="premium-input" 
-                      style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 13 }}
+                <section className="swarm-wizard-section">
+                  <label>Codebase Root</label>
+                  <div className="swarm-root-row">
+                    <input
+                      className="swarm-input"
                       value={codebaseRoot}
-                      onChange={e => setCodebaseRoot(e.target.value)}
+                      onChange={(event) => setCodebaseRoot(event.target.value)}
                     />
-                    <button 
-                      className="premium-input"
-                      style={{ padding: '0 20px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)' }}
+                    <button
+                      type="button"
                       onClick={async () => {
                         const selected = await window.vibeAde.system.selectDirectory();
-                        if (selected) setCodebaseRoot(selected);
+                        if (selected) {
+                          setCodebaseRoot(selected);
+                        }
                       }}
                     >
                       Browse
                     </button>
                   </div>
-                </div>
+                </section>
               </div>
-            ) : (
-              <div style={{ animation: 'fadeIn 0.3s ease' }}>
-                <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--text-muted)' }}>
-                  Assemble your squad. Configure the AI model for each agent individually.
-                </div>
-
-                {/* Coordinator - Locked (Visual) */}
-                <div className="roster-section">
-                  <div className="roster-header">
-                    <div className="roster-title" style={{ color: 'var(--accent)' }}>COORDINATOR (LOCKED)</div>
+            </div>
+          ) : (
+            <div className="swarm-wizard-column">
+              <section className="swarm-preset-section">
+                <div className="swarm-preset-header">
+                  <div className="swarm-preset-title">
+                    <strong>Quick Presets</strong>
+                    <span>Choose a roster size to seed the swarm.</span>
                   </div>
-                  <div className="agent-row locked">
-                    <div className="agent-id" style={{ color: 'var(--accent)' }}>
-                      <UiIcon name="bolt" className="ui-icon-sm" />
-                      {coordinator?.id || 'coordinator-1'}
-                    </div>
-                    <select 
-                      className="provider-select"
-                      value={coordinator?.provider || 'codex'}
-                      onChange={(e) => coordinator && handleUpdateProvider(coordinator.id, e.target.value as CliProvider)}
-                    >
-                      <option value="codex">OpenAI (Codex)</option>
-                      <option value="claude">Anthropic (Claude)</option>
-                      <option value="gemini">Google (Gemini)</option>
-                    </select>
+                  <div className="swarm-preset-title" style={{ textAlign: 'right' }}>
+                    <strong>{activePreset?.label ?? 'Custom'}</strong>
+                    <span>{agents.length} total</span>
                   </div>
                 </div>
+                <div className="swarm-preset-grid">
+                  {SWARM_PRESETS.map((preset) => {
+                    const locked = maxAgents !== null && preset.count > maxAgents;
+                    const active = selectedPreset === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className={locked ? `swarm-preset-card locked${active ? ' active' : ''}` : `swarm-preset-card${active ? ' active' : ''}`}
+                        disabled={locked}
+                        onClick={() => applyPreset(preset.id)}
+                      >
+                        <strong>{preset.count}</strong>
+                        <span>{preset.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
 
-                <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+              <div className="swarm-role-chips">
+                <span className="swarm-role-chip"><strong>1</strong> Coordinator</span>
+                <span className="swarm-role-chip"><strong>{getAgentsByRole('builder').length}</strong> Builders</span>
+                <span className="swarm-role-chip"><strong>{getAgentsByRole('scout').length}</strong> Scouts</span>
+                <span className="swarm-role-chip"><strong>{getAgentsByRole('reviewer').length}</strong> Reviewers</span>
+                <span className="swarm-role-chip"><strong>{agents.length}</strong> total</span>
+              </div>
 
-                <RosterSection 
+              <section className="swarm-coordinator-section">
+                <div className="swarm-roster-header">
+                  <div className="swarm-roster-title" style={{ color: 'var(--accent)' }}>Coordinator (Locked)</div>
+                </div>
+                <div className="swarm-agent-row locked">
+                  <div className="swarm-agent-id" style={{ color: 'var(--accent)' }}>
+                    <UiIcon name="bolt" className="ui-icon-sm" />
+                    {coordinator?.id || 'coordinator-1'}
+                  </div>
+                  <select
+                    className="swarm-provider-select"
+                    value={coordinator?.provider || 'codex'}
+                    onChange={(event) => coordinator && handleUpdateProvider(coordinator.id, event.target.value as CliProvider)}
+                  >
+                    <option value="codex">OpenAI (Codex)</option>
+                    <option value="claude">Anthropic (Claude)</option>
+                    <option value="gemini">Google (Gemini)</option>
+                  </select>
+                </div>
+              </section>
+
+              <div className="swarm-stage-scroll">
+                <RosterSection
                   title="Builders"
                   role="builder"
                   agents={getAgentsByRole('builder')}
@@ -592,7 +975,7 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
                   onUpdateProvider={handleUpdateProvider}
                 />
 
-                <RosterSection 
+                <RosterSection
                   title="Reviewers"
                   role="reviewer"
                   agents={getAgentsByRole('reviewer')}
@@ -602,7 +985,7 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
                   max={3}
                 />
 
-                <RosterSection 
+                <RosterSection
                   title="Scouts"
                   role="scout"
                   agents={getAgentsByRole('scout')}
@@ -612,57 +995,61 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
                   max={3}
                 />
               </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="wizard-footer">
-            {error ? (
-              <div style={{ color: 'var(--danger)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <UiIcon name="close" className="ui-icon-sm" />
-                {error}
-              </div>
-            ) : (
-              <div className="step-indicator">
-                <div className={`step-dot ${step === 1 ? 'active' : ''}`} />
-                <div className={`step-dot ${step === 2 ? 'active' : ''}`} />
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 12 }}>
-              {step === 2 && (
-                <button 
-                  onClick={() => setStep(1)} 
-                  disabled={loading}
-                  className="premium-input"
-                  style={{ cursor: 'pointer', padding: '8px 16px' }}
-                >
-                  Back
-                </button>
-              )}
-              {step === 1 ? (
-                <button 
-                  className="premium-input" 
-                  onClick={handleNext}
-                  style={{ background: 'var(--accent)', borderColor: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}
-                >
-                  Next: Assemble Squad
-                </button>
-              ) : (
-                <button 
-                  className="premium-input" 
-                  onClick={() => void startSwarm()} 
-                  disabled={loading}
-                  style={{ background: 'var(--accent)', borderColor: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}
-                >
-                  {loading ? 'Launching...' : 'Launch Swarm'}
-                </button>
-              )}
             </div>
-          </div>
-
+          )}
         </div>
-      </div>
+
+        <footer className="swarm-wizard-footer">
+          {error ? (
+            <div style={{ color: 'var(--danger)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <UiIcon name="close" className="ui-icon-sm" />
+              {error}
+            </div>
+          ) : (
+            <div className="swarm-step-indicator">
+              <div className={`swarm-step-dot ${step === 1 ? 'active' : ''}`} />
+              <div className={`swarm-step-dot ${step === 2 ? 'active' : ''}`} />
+            </div>
+          )}
+
+          <div className="swarm-wizard-footer-actions">
+            {step === 2 && (
+              <button
+                onClick={() => setStep(1)}
+                disabled={loading}
+              >
+                Back
+              </button>
+            )}
+            {step === 1 ? (
+              <button
+                className="primary"
+                onClick={handleNext}
+              >
+                Next: Assemble Squad
+              </button>
+            ) : (
+              <button
+                className="primary"
+                onClick={() => void startSwarm()}
+                disabled={loading}
+              >
+                {loading ? 'Launching...' : 'Launch Swarm'}
+              </button>
+            )}
+          </div>
+        </footer>
+      </section>
     </>
+  );
+
+  if (props.embedded) {
+    return content;
+  }
+
+  return (
+    <div className="swarm-wizard-overlay" onClick={() => close()}>
+      {content}
+    </div>
   );
 }

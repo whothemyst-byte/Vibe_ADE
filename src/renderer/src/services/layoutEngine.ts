@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { LayoutNode, PaneId, WorkspaceState } from '@shared/types';
+import type { LayoutNode, PaneId, PaneType, WorkspaceState } from '@shared/types';
+import { createBrowserPaneState } from '@shared/browserPane';
 
 export function countPanes(layout: LayoutNode): number {
   if (layout.type === 'pane') {
@@ -43,28 +44,61 @@ function splitNode(node: LayoutNode, targetPaneId: PaneId, newPaneId: PaneId): L
   return node;
 }
 
-export function appendPaneToWorkspace(workspace: WorkspaceState): WorkspaceState {
+function appendPane(
+  workspace: WorkspaceState,
+  targetPaneId: PaneId = workspace.activePaneId,
+  paneType: PaneType = 'terminal',
+  browserUrl?: string
+): WorkspaceState {
   const total = countPanes(workspace.layout);
   if (total >= 16) {
     return workspace;
   }
 
-  const basePaneId = workspace.activePaneId;
+  const paneIds = collectPaneIds(workspace.layout);
+  const basePaneId = paneIds.includes(targetPaneId) ? targetPaneId : workspace.activePaneId;
   const newPaneId = uuidv4();
 
   return {
     ...workspace,
     layout: splitNode(workspace.layout, basePaneId, newPaneId),
     activePaneId: newPaneId,
-    paneShells: {
-      ...workspace.paneShells,
-      [newPaneId]: workspace.paneShells[basePaneId] ?? 'powershell'
+    paneTypes: {
+      ...workspace.paneTypes,
+      [newPaneId]: paneType
+    },
+    paneShells:
+      paneType === 'terminal'
+        ? {
+            ...workspace.paneShells,
+            [newPaneId]: workspace.paneShells[basePaneId] ?? 'powershell'
+          }
+        : { ...workspace.paneShells },
+    browserPanes: {
+      ...workspace.browserPanes,
+      ...(paneType === 'browser' ? { [newPaneId]: createBrowserPaneState({ sourcePaneId: targetPaneId, url: browserUrl }) } : {})
     },
     commandBlocks: {
       ...workspace.commandBlocks,
-      [newPaneId]: []
+      [newPaneId]: paneType === 'terminal' ? [] : workspace.commandBlocks[newPaneId] ?? []
     }
   };
+}
+
+export function appendPaneToWorkspace(workspace: WorkspaceState): WorkspaceState {
+  return appendPane(workspace);
+}
+
+export function appendBrowserPaneToWorkspace(
+  workspace: WorkspaceState,
+  targetPaneId: PaneId = workspace.activePaneId,
+  url = 'about:blank'
+): WorkspaceState {
+  const existingBrowserPane = Object.values(workspace.browserPanes).find((pane) => pane.sourcePaneId === targetPaneId);
+  if (existingBrowserPane) {
+    return workspace;
+  }
+  return appendPane(workspace, targetPaneId, 'browser', url);
 }
 
 function normalizeSizes(count: number, sizes?: number[]): number[] {
@@ -116,16 +150,22 @@ export function removePaneFromWorkspace(workspace: WorkspaceState, paneId: PaneI
     return workspace;
   }
 
+  const nextPaneTypes = { ...workspace.paneTypes };
   const nextPaneShells = { ...workspace.paneShells };
+  const nextBrowserPanes = { ...workspace.browserPanes };
   const nextCommandBlocks = { ...workspace.commandBlocks };
+  delete nextPaneTypes[paneId];
   delete nextPaneShells[paneId];
+  delete nextBrowserPanes[paneId];
   delete nextCommandBlocks[paneId];
 
   return {
     ...workspace,
     layout: nextLayout,
     activePaneId: workspace.activePaneId === paneId ? remainingPaneIds[0] : workspace.activePaneId,
+    paneTypes: nextPaneTypes,
     paneShells: nextPaneShells,
+    browserPanes: nextBrowserPanes,
     commandBlocks: nextCommandBlocks,
     tasks: workspace.tasks.map((task) => (task.paneId === paneId ? { ...task, paneId: undefined } : task))
   };

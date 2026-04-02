@@ -59,6 +59,17 @@ export function getPresetById(id: LayoutPresetId): LayoutPreset {
   return preset ?? LAYOUT_PRESETS[0];
 }
 
+export function getPresetIdForPaneCount(count: number): LayoutPresetId {
+  if (count <= 1) return '1-pane';
+  if (count <= 2) return '2-pane-vertical';
+  if (count <= 3) return '3-pane-left-large';
+  if (count <= 4) return '4-pane-grid';
+  if (count <= 6) return '6-pane-grid';
+  if (count <= 8) return '8-pane-grid';
+  if (count <= 12) return '12-pane-grid';
+  return '16-pane-grid';
+}
+
 export function getPresetSlots(presetId: LayoutPresetId): PaneSlot[] {
   if (presetId === '3-pane-left-large') {
     return [

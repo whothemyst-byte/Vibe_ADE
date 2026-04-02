@@ -11,6 +11,7 @@ import { AuthManager } from './services/AuthManager';
 import { BillingUsageManager } from './services/BillingUsageManager';
 import { CloudSyncManager } from './services/CloudSyncManager';
 import { UpdateManager } from './services/UpdateManager';
+import { installBrowserContextMenus } from './services/browserContextMenu';
 import { installAppMenu, setSaveMenuEnabled } from './windows/appMenu';
 
 let workspaceManager: WorkspaceManager;
@@ -110,17 +111,18 @@ async function bootstrap(): Promise<void> {
   crashRecoveryManager = new CrashRecoveryManager(userDataPath);
   await crashRecoveryManager.initialize();
 
-  workspaceManager = new WorkspaceManager(userDataPath);
+  authManager = new AuthManager(userDataPath);
+  workspaceManager = new WorkspaceManager(userDataPath, authManager);
   await workspaceManager.initialize();
 
   terminalManager = new TerminalManager(userDataPath);
   await terminalManager.initialize();
   templateRunner = new TemplateRunner();
-  authManager = new AuthManager(userDataPath);
   billingUsageManager = new BillingUsageManager(authManager);
   cloudSyncManager = new CloudSyncManager({ authManager, workspaceManager });
 
   const win = createMainWindow();
+  installBrowserContextMenus(win.webContents);
   if (!updateManager) {
     updateManager = new UpdateManager(win.webContents);
     setTimeout(() => {

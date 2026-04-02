@@ -42,7 +42,9 @@ create table if not exists public.terminal_layouts (
   preset_id text,
   pane_order jsonb not null default '[]'::jsonb,
   layout jsonb not null, -- full layout tree from app
+  pane_types jsonb not null default '{}'::jsonb,
   pane_shells jsonb not null default '{}'::jsonb,
+  browser_panes jsonb not null default '{}'::jsonb,
   pane_agents jsonb not null default '{}'::jsonb,
   command_blocks jsonb not null default '{}'::jsonb,
   tasks jsonb not null default '[]'::jsonb,

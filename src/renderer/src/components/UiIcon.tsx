@@ -8,14 +8,20 @@ export type UiIconName =
   | 'ellipsis'
   | 'palette'
   | 'key'
+  | 'eye'
+  | 'eye-off'
   | 'board'
   | 'folder'
   | 'user'
   | 'refresh'
+  | 'bookmark'
   | 'play'
   | 'stop'
   | 'lock'
-  | 'terminal';
+  | 'globe'
+  | 'terminal'
+  | 'chevron-left'
+  | 'chevron-right';
 
 type UiIconNode =
   | { type: 'path'; d: string }
@@ -58,6 +64,16 @@ const ICON_PATHS: Record<UiIconName, UiIconNode[]> = {
     { type: 'path', d: 'M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z' },
     { type: 'circle', cx: 16.5, cy: 7.5, r: 0.5, fill: 'currentColor' }
   ],
+  eye: [
+    { type: 'path', d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z' },
+    { type: 'circle', cx: 12, cy: 12, r: 3 }
+  ],
+  'eye-off': [
+    { type: 'path', d: 'M3 3l18 18' },
+    { type: 'path', d: 'M10.58 10.58A3 3 0 0 0 12 15a3 3 0 0 0 2.42-1.24' },
+    { type: 'path', d: 'M9.88 5.08A9.96 9.96 0 0 1 12 5c6.5 0 10 7 10 7a18.3 18.3 0 0 1-3.08 4.45' },
+    { type: 'path', d: 'M6.1 6.1C3.1 8.3 2 12 2 12s3.5 7 10 7a10.5 10.5 0 0 0 4.55-1.04' }
+  ],
   board: [
     { type: 'path', d: 'M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z' },
     { type: 'path', d: 'M8 10v4' },
@@ -77,9 +93,17 @@ const ICON_PATHS: Record<UiIconName, UiIconNode[]> = {
     { type: 'path', d: 'M3 16v-4h4' },
     { type: 'path', d: 'M21 8v4h-4' }
   ],
+  globe: [
+    { type: 'circle', cx: 12, cy: 12, r: 8 },
+    { type: 'path', d: 'M4 12h16' },
+    { type: 'path', d: 'M12 4a12 12 0 0 1 0 16' },
+    { type: 'path', d: 'M12 4a12 12 0 0 0 0 16' }
+  ],
+  bookmark: [
+    { type: 'path', d: 'M6 4h12a1 1 0 0 1 1 1v16l-7-4-7 4V5a1 1 0 0 1 1-1Z' }
+  ],
   play: [{ type: 'path', d: 'M8 5v14l11-7z' }],
-  stop: [{ type: 'rect', x: 7, y: 7, width: 10, height: 10, rx: 1 }]
-  ,
+  stop: [{ type: 'rect', x: 7, y: 7, width: 10, height: 10, rx: 1 }],
   lock: [
     { type: 'rect', x: 4, y: 10, width: 16, height: 10, rx: 2 },
     { type: 'path', d: 'M8 10V7a4 4 0 0 1 8 0v3' }
@@ -88,7 +112,9 @@ const ICON_PATHS: Record<UiIconName, UiIconNode[]> = {
     { type: 'rect', x: 3, y: 4, width: 18, height: 14, rx: 2 },
     { type: 'path', d: 'm7 9 2 2-2 2' },
     { type: 'path', d: 'M11 13h5' }
-  ]
+  ],
+  'chevron-left': [{ type: 'path', d: 'm15 18-6-6 6-6' }],
+  'chevron-right': [{ type: 'path', d: 'm9 18 6-6-6-6' }]
 };
 
 export function UiIcon({

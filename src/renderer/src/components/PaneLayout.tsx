@@ -1,14 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PaneId, WorkspaceState } from '@shared/types';
 import { collectPaneIds } from '@renderer/services/layoutEngine';
 import { getPresetById, getPresetSlots } from '@renderer/services/layoutPresets';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { BrowserPane } from './BrowserPane';
 import { TerminalPane } from './TerminalPane';
-import { UiIcon } from './UiIcon';
 
 interface PaneLayoutProps {
   workspace: WorkspaceState;
   enableHorizontalScroll?: boolean;
+}
+
+interface PanePlacement {
+  paneId: PaneId;
+  columnStart: number;
+  columnSpan: number;
+  rowStart: number;
+  rowSpan: number;
 }
 
 interface ResizeState {
@@ -26,30 +34,80 @@ function clampSize(value: number, min = 8): number {
   return Math.max(min, Math.min(100 - min, value));
 }
 
+function distributeSpans(columns: number, count: number): number[] {
+  const base = Math.floor(columns / count);
+  const remainder = columns % count;
+  return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
+}
+
+function buildPlacements(paneIds: PaneId[], presetId: string): PanePlacement[] {
+  if (presetId === '3-pane-left-large' && paneIds.length === 3) {
+    return getPresetSlots('3-pane-left-large').map((slot) => ({
+      paneId: paneIds[slot.slotIndex],
+      columnStart: slot.columnStart,
+      columnSpan: slot.columnSpan,
+      rowStart: slot.rowStart,
+      rowSpan: slot.rowSpan
+    }));
+  }
+
+  const preset = getPresetById(presetId as Parameters<typeof getPresetById>[0]);
+  const placements: PanePlacement[] = [];
+  let cursor = 0;
+
+  for (let row = 1; row <= preset.rows && cursor < paneIds.length; row += 1) {
+    const remaining = paneIds.length - cursor;
+    const itemsInRow = row < preset.rows ? Math.min(preset.columns, remaining) : remaining;
+    const spans = distributeSpans(preset.columns, itemsInRow);
+    let columnStart = 1;
+
+    for (let i = 0; i < itemsInRow; i += 1) {
+      placements.push({
+        paneId: paneIds[cursor],
+        columnStart,
+        columnSpan: spans[i],
+        rowStart: row,
+        rowSpan: 1
+      });
+      columnStart += spans[i];
+      cursor += 1;
+    }
+  }
+
+  return placements;
+}
+
 export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLayoutProps): JSX.Element {
   const addPaneToLayout = useWorkspaceStore((s) => s.addPaneToLayout);
   const reorderPanes = useWorkspaceStore((s) => s.reorderPanes);
-  const movePaneToIndex = useWorkspaceStore((s) => s.movePaneToIndex);
   const syncPaneOrder = useWorkspaceStore((s) => s.syncPaneOrder);
   const setActivePane = useWorkspaceStore((s) => s.setActivePane);
-  const ui = useWorkspaceStore((s) => s.ui);
+  const presetId = useWorkspaceStore((s) => s.ui.layoutPresetByWorkspace[workspace.id] ?? '1-pane');
+  const paneOrder = useWorkspaceStore((s) => s.ui.paneOrderByWorkspace[workspace.id] ?? []);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [draggedPaneId, setDraggedPaneId] = useState<PaneId | null>(null);
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
 
   const paneIds = useMemo(() => collectPaneIds(workspace.layout), [workspace.layout]);
-  const presetId = ui.layoutPresetByWorkspace[workspace.id] ?? '1-pane';
-  const preset = getPresetById(presetId);
-  const slots = getPresetSlots(presetId);
-  const paneOrder = ui.paneOrderByWorkspace[workspace.id] ?? paneIds;
+  const preset = getPresetById(presetId as Parameters<typeof getPresetById>[0]);
+  const placements = useMemo(
+    () => buildPlacements(paneOrder.filter((paneId) => paneIds.includes(paneId)), presetId),
+    [paneIds, paneOrder, presetId]
+  );
 
   const [columnSizes, setColumnSizes] = useState<number[]>(() => evenSizes(preset.columns));
   const [rowSizes, setRowSizes] = useState<number[]>(() => evenSizes(preset.rows));
+  const [dropTargetPaneId, setDropTargetPaneId] = useState<PaneId | null>(null);
 
   useEffect(() => {
+    const nextOrder = paneOrder.filter((paneId) => paneIds.includes(paneId));
+    const additions = paneIds.filter((paneId) => !nextOrder.includes(paneId));
+    const syncedOrder = [...nextOrder, ...additions];
+    if (syncedOrder.length === paneOrder.length && syncedOrder.every((paneId, index) => paneId === paneOrder[index])) {
+      return;
+    }
     syncPaneOrder(workspace.id, paneIds);
-  }, [paneIds, syncPaneOrder, workspace.id]);
+  }, [paneIds, paneOrder, syncPaneOrder, workspace.id]);
 
   useEffect(() => {
     setColumnSizes(evenSizes(preset.columns));
@@ -62,17 +120,8 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
     }
 
     const onMove = (event: MouseEvent): void => {
-      const host = containerRef.current;
-      if (!host) {
-        return;
-      }
-
       if (resizeState.axis === 'column') {
-        const total = host.clientWidth;
-        if (total <= 0) {
-          return;
-        }
-        const deltaPercent = ((event.clientX - resizeState.startCoord) / total) * 100;
+        const deltaPercent = ((event.clientX - resizeState.startCoord) / (window.innerWidth || 1)) * 100;
         const next = [...resizeState.snapshot];
         const left = clampSize(resizeState.snapshot[resizeState.index] + deltaPercent);
         const right = clampSize(resizeState.snapshot[resizeState.index + 1] - deltaPercent);
@@ -84,11 +133,7 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
         return;
       }
 
-      const total = host.clientHeight;
-      if (total <= 0) {
-        return;
-      }
-      const deltaPercent = ((event.clientY - resizeState.startCoord) / total) * 100;
+      const deltaPercent = ((event.clientY - resizeState.startCoord) / (window.innerHeight || 1)) * 100;
       const next = [...resizeState.snapshot];
       const top = clampSize(resizeState.snapshot[resizeState.index] + deltaPercent);
       const bottom = clampSize(resizeState.snapshot[resizeState.index + 1] - deltaPercent);
@@ -108,22 +153,6 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
       window.removeEventListener('mouseup', onUp);
     };
   }, [resizeState]);
-
-  const visiblePaneIds = useMemo(() => {
-    const nextOrder = paneOrder.filter((paneId) => paneIds.includes(paneId));
-    return nextOrder.slice(0, preset.slots);
-  }, [paneIds, paneOrder, preset.slots]);
-
-  const slotByPaneId = useMemo(() => {
-    const map = new Map<PaneId, (typeof slots)[number]>();
-    for (const slot of slots) {
-      const paneId = visiblePaneIds[slot.slotIndex];
-      if (paneId) {
-        map.set(paneId, slot);
-      }
-    }
-    return map;
-  }, [slots, visiblePaneIds]);
 
   const columnStops = useMemo(() => {
     const stops: number[] = [];
@@ -148,8 +177,12 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
   const forceWideLayout = enableHorizontalScroll && paneIds.length >= 8;
   const minGridWidth = forceWideLayout ? Math.max(1200, preset.columns * 320) : undefined;
 
+  const paneIndexById = useMemo(() => {
+    return new Map<PaneId, number>(paneOrder.map((paneId, index) => [paneId, index]));
+  }, [paneOrder]);
+
   return (
-    <div className="pane-layout-shell" ref={containerRef}>
+    <div className="pane-layout-shell">
       <div
         className="pane-layout-grid"
         style={{
@@ -158,68 +191,63 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
           gridTemplateRows: rowSizes.map((size) => `${size}fr`).join(' ')
         }}
       >
-        {visiblePaneIds.map((paneId, index) => {
-          const slot = slotByPaneId.get(paneId);
-          if (!slot) {
-            return null;
-          }
-
+        {placements.map((placement) => {
+          const paneId = placement.paneId;
           return (
-            <div
+              <div
               key={`pane-${paneId}`}
-              className="pane-slot filled"
+              className={dropTargetPaneId === paneId ? 'pane-slot filled drop-target' : 'pane-slot filled'}
               style={{
-                gridColumn: `${slot.columnStart} / span ${slot.columnSpan}`,
-                gridRow: `${slot.rowStart} / span ${slot.rowSpan}`
+                gridColumn: `${placement.columnStart} / span ${placement.columnSpan}`,
+                gridRow: `${placement.rowStart} / span ${placement.rowSpan}`
               }}
-              onDragOver={(event) => event.preventDefault()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                if (draggedPaneId && draggedPaneId !== paneId) {
+                  setDropTargetPaneId(paneId);
+                }
+              }}
+              onDragLeave={() => {
+                if (dropTargetPaneId === paneId) {
+                  setDropTargetPaneId(null);
+                }
+              }}
               onDrop={() => {
                 if (draggedPaneId && draggedPaneId !== paneId) {
                   reorderPanes(draggedPaneId, paneId);
                 }
                 setDraggedPaneId(null);
+                setDropTargetPaneId(null);
               }}
-            >
-              <TerminalPane
-                paneId={paneId}
-                displayIndex={index + 1}
-                workspace={workspace}
-                onFocus={() => void setActivePane(paneId)}
-                onPaneDragStart={() => setDraggedPaneId(paneId)}
-                onPaneDragEnd={() => setDraggedPaneId(null)}
-              />
+              >
+              {workspace.paneTypes[paneId] === 'browser' ? (
+                <BrowserPane
+                  paneId={paneId}
+                  displayIndex={(paneIndexById.get(paneId) ?? 0) + 1}
+                  workspace={workspace}
+                  onFocus={() => void setActivePane(paneId)}
+                  onPaneDragStart={() => setDraggedPaneId(paneId)}
+                  onPaneDragEnd={() => {
+                    setDraggedPaneId(null);
+                    setDropTargetPaneId(null);
+                  }}
+                />
+              ) : (
+                <TerminalPane
+                  paneId={paneId}
+                  displayIndex={(paneIndexById.get(paneId) ?? 0) + 1}
+                  workspace={workspace}
+                  onFocus={() => void setActivePane(paneId)}
+                  onPaneDragStart={() => setDraggedPaneId(paneId)}
+                  onPaneDragEnd={() => {
+                    setDraggedPaneId(null);
+                    setDropTargetPaneId(null);
+                  }}
+                />
+              )}
             </div>
           );
         })}
-
-        {slots
-          .filter((slot) => !visiblePaneIds[slot.slotIndex])
-          .map((slot) => (
-            <div
-              key={`empty-slot-${slot.slotIndex}`}
-              className="pane-slot empty"
-              style={{
-                gridColumn: `${slot.columnStart} / span ${slot.columnSpan}`,
-                gridRow: `${slot.rowStart} / span ${slot.rowSpan}`
-              }}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={() => {
-                if (draggedPaneId) {
-                  movePaneToIndex(draggedPaneId, slot.slotIndex);
-                }
-                setDraggedPaneId(null);
-              }}
-            >
-              <button
-                className="empty-slot-button"
-                title="Add Terminal"
-                aria-label="Add Terminal"
-                onClick={() => void addPaneToLayout()}
-              >
-                <UiIcon name="plus" className="ui-icon" />
-              </button>
-            </div>
-          ))}
       </div>
 
       {columnStops.map((stop, index) => (

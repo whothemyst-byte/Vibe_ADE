@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type {
+  BrowserPaneState,
   AppState,
   CommandBlock,
   PaneId,
+  PaneType,
+  ShellType,
   TaskFilterState,
   TaskItem,
   TaskPriority,
@@ -14,13 +17,24 @@ import type {
 } from '@shared/types';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import {
+  appendBrowserTabToPane,
+  getActiveBrowserTab,
+  normalizeBrowserPaneState,
+  moveBrowserTabInPane,
+  moveBrowserTabToEnd,
+  removeBrowserTabFromPane,
+  setActiveBrowserTab as setActiveBrowserTabState,
+  syncBrowserPaneFromActiveTab
+} from '@shared/browserPane';
+import {
   appendPaneToWorkspace,
+  appendBrowserPaneToWorkspace,
   collectPaneIds,
   movePaneInOrder,
   removePaneFromWorkspace,
   syncPaneOrder as syncPaneOrderList
 } from '@renderer/services/layoutEngine';
-import type { LayoutPresetId } from '@renderer/services/layoutPresets';
+import { getPresetById, getPresetIdForPaneCount, type LayoutPresetId } from '@renderer/services/layoutPresets';
 import { useToastStore } from '@renderer/hooks/useToast';
 import { loadEnvironmentSaveDirectory, saveEnvironmentSaveDirectory } from '@renderer/services/preferences';
 
@@ -34,6 +48,7 @@ interface UiState {
   createFlowMode: 'choose' | 'workspace' | 'swarm';
   settingsOpen: boolean;
   settingsTab: 'appearance' | 'shortcuts' | 'environments' | 'task-board' | 'account';
+  sidebarCollapsed: boolean;
   swarmDashboardOpen: boolean;
   activeSwarmId: string | null;
   swarmSessions: Array<{ swarmId: string; name: string }>;
@@ -54,7 +69,7 @@ interface WorkspaceStoreState {
   loading: boolean;
   ui: UiState;
   initialize: () => Promise<void>;
-  createWorkspace: (input: { name: string; rootDir: string; templateId?: string }) => Promise<void>;
+  createWorkspace: (input: { name: string; rootDir: string; layoutPresetId?: string; templateId?: string }) => Promise<void>;
   cloneWorkspace: (workspaceId: string, newName: string) => Promise<void>;
   renameWorkspace: (workspaceId: string, name: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
@@ -67,11 +82,18 @@ interface WorkspaceStoreState {
   saveAsActiveWorkspace: () => Promise<void>;
   setActivePane: (paneId: PaneId) => Promise<void>;
   addPaneToLayout: () => Promise<void>;
+  addBrowserPaneToLayout: (targetPaneId?: PaneId, url?: string) => Promise<void>;
   removePaneFromLayout: (paneId: PaneId) => Promise<boolean>;
+  addBrowserTabToLayout: (workspaceId: string, paneId: PaneId, input?: { url?: string; title?: string }) => void;
+  setActiveBrowserTab: (workspaceId: string, paneId: PaneId, tabId: string) => void;
+  closeBrowserTab: (workspaceId: string, paneId: PaneId, tabId: string) => void;
+  moveBrowserTabToLayout: (workspaceId: string, paneId: PaneId, sourceTabId: string, targetTabId: string) => void;
+  moveBrowserTabToLayoutEnd: (workspaceId: string, paneId: PaneId, sourceTabId: string) => void;
   reorderPanes: (sourcePaneId: PaneId, targetPaneId: PaneId) => void;
   movePaneToIndex: (paneId: PaneId, toIndex: number) => void;
   syncPaneOrder: (workspaceId: string, paneIds: PaneId[]) => void;
-  setLayoutPreset: (presetId: LayoutPresetId) => void;
+  updateBrowserPane: (workspaceId: string, paneId: PaneId, patch: Partial<BrowserPaneState>) => void;
+  setLayoutPreset: (presetId: LayoutPresetId) => Promise<void>;
   appendCommandBlock: (paneId: PaneId, block: CommandBlock) => Promise<void>;
   toggleCommandBlock: (paneId: PaneId, blockId: string) => Promise<void>;
   createTask: (input: {
@@ -107,6 +129,8 @@ interface WorkspaceStoreState {
   openSettings: (tab?: UiState['settingsTab']) => void;
   closeSettings: () => void;
   setSettingsTab: (tab: UiState['settingsTab']) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarCollapsed: () => void;
   requestTerminalFind: (query: string) => void;
   exportTasks: () => Promise<void>;
   archiveCompletedTasks: () => Promise<void>;
@@ -126,6 +150,34 @@ function activeWorkspace(state: WorkspaceStoreState): WorkspaceState | undefined
   return state.appState.workspaces.find((w) => w.id === id);
 }
 
+function normalizeWorkspacePanes(workspace: WorkspaceState): WorkspaceState {
+  const paneIds = collectPaneIds(workspace.layout);
+  const paneTypes = Object.fromEntries(
+    paneIds.map((paneId) => [paneId, workspace.paneTypes?.[paneId] ?? 'terminal'])
+  ) as Record<PaneId, PaneType>;
+  const paneShells = Object.fromEntries(
+    paneIds.filter((paneId) => paneTypes[paneId] === 'terminal').map((paneId) => [paneId, workspace.paneShells?.[paneId] ?? 'powershell'])
+  ) as Record<PaneId, ShellType>;
+  const browserPanes = Object.fromEntries(
+    paneIds
+      .filter((paneId) => paneTypes[paneId] === 'browser')
+      .map((paneId) => [paneId, normalizeBrowserPaneState(workspace.browserPanes?.[paneId])])
+  ) as Record<PaneId, BrowserPaneState>;
+  const commandBlocks = Object.fromEntries(
+    paneIds.map((paneId) => [paneId, workspace.commandBlocks?.[paneId] ?? []])
+  ) as Record<PaneId, CommandBlock[]>;
+  const activePaneId = paneIds.includes(workspace.activePaneId) ? workspace.activePaneId : (paneIds[0] ?? workspace.activePaneId);
+
+  return {
+    ...workspace,
+    paneTypes,
+    paneShells,
+    browserPanes,
+    commandBlocks,
+    activePaneId
+  };
+}
+
 async function resolveEnvironmentSaveDirectory(): Promise<string | null> {
   const existing = loadEnvironmentSaveDirectory();
   if (existing) {
@@ -139,17 +191,6 @@ async function resolveEnvironmentSaveDirectory(): Promise<string | null> {
   return selected;
 }
 
-function presetFromPaneCount(count: number): LayoutPresetId {
-  if (count >= 16) return '16-pane-grid';
-  if (count >= 12) return '12-pane-grid';
-  if (count >= 8) return '8-pane-grid';
-  if (count >= 6) return '6-pane-grid';
-  if (count >= 4) return '4-pane-grid';
-  if (count >= 3) return '3-pane-left-large';
-  if (count >= 2) return '2-pane-vertical';
-  return '1-pane';
-}
-
 function deriveUiMaps(
   workspaces: WorkspaceState[]
 ): Pick<UiState, 'layoutPresetByWorkspace' | 'paneOrderByWorkspace' | 'unsavedByWorkspace'> {
@@ -160,11 +201,22 @@ function deriveUiMaps(
   for (const workspace of workspaces) {
     const paneIds = collectPaneIds(workspace.layout);
     paneOrderByWorkspace[workspace.id] = paneIds;
-    layoutPresetByWorkspace[workspace.id] = presetFromPaneCount(paneIds.length);
+    layoutPresetByWorkspace[workspace.id] = getPresetIdForPaneCount(paneIds.length);
     unsavedByWorkspace[workspace.id] = false;
   }
 
   return { layoutPresetByWorkspace, paneOrderByWorkspace, unsavedByWorkspace };
+}
+
+function insertPaneAfter(order: PaneId[], sourcePaneId: PaneId, newPaneId: PaneId): PaneId[] {
+  const withoutNew = order.filter((paneId) => paneId !== newPaneId);
+  const sourceIndex = withoutNew.indexOf(sourcePaneId);
+  if (sourceIndex < 0) {
+    return [...withoutNew, newPaneId];
+  }
+  const next = [...withoutNew];
+  next.splice(sourceIndex + 1, 0, newPaneId);
+  return next;
 }
 
 function markDirty(state: WorkspaceStoreState, workspaceId: string): UiState {
@@ -295,6 +347,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     createFlowMode: 'choose',
     settingsOpen: false,
     settingsTab: 'appearance',
+    sidebarCollapsed: false,
     swarmDashboardOpen: false,
     activeSwarmId: null,
     swarmSessions: [],
@@ -319,10 +372,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
           paneAgents?: unknown;
           selectedModel?: unknown;
         };
-        return {
+        return normalizeWorkspacePanes({
           ...rest,
           tasks: normalizeTasks(workspace.tasks)
-        };
+        });
       });
       const maps = deriveUiMaps(state.workspaces);
       const hasAnyData = state.workspaces.length > 0;
@@ -366,7 +419,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   },
   createWorkspace: async (input) => {
     try {
-      const created = await window.vibeAde.workspace.create(input);
+      const created = normalizeWorkspacePanes(await window.vibeAde.workspace.create(input));
       const paneIds = collectPaneIds(created.layout);
       set((state) => ({
         appState: {
@@ -383,7 +436,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
           activeView: 'workspace',
           layoutPresetByWorkspace: {
             ...state.ui.layoutPresetByWorkspace,
-            [created.id]: presetFromPaneCount(paneIds.length)
+            [created.id]: input.layoutPresetId ?? getPresetIdForPaneCount(paneIds.length)
           },
           paneOrderByWorkspace: {
             ...state.ui.paneOrderByWorkspace,
@@ -398,12 +451,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       useToastStore.getState().addToast('success', `Environment "${created.name}" created`);
     } catch (error) {
       console.error('Failed to create workspace:', error);
-      useToastStore.getState().addToast('error', 'Failed to create environment');
+      useToastStore.getState().addToast('error', error instanceof Error ? error.message : 'Failed to create environment');
       throw error;
     }
   },
   cloneWorkspace: async (workspaceId, newName) => {
-    const cloned = await window.vibeAde.workspace.clone(workspaceId, newName);
+    const cloned = normalizeWorkspacePanes(await window.vibeAde.workspace.clone(workspaceId, newName));
     const paneIds = collectPaneIds(cloned.layout);
     set((state) => ({
       appState: {
@@ -418,7 +471,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         activeView: 'workspace',
         layoutPresetByWorkspace: {
           ...state.ui.layoutPresetByWorkspace,
-          [cloned.id]: presetFromPaneCount(paneIds.length)
+          [cloned.id]: getPresetIdForPaneCount(paneIds.length)
         },
         paneOrderByWorkspace: {
           ...state.ui.paneOrderByWorkspace,
@@ -475,7 +528,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       });
     } catch (error) {
       console.error('Failed to delete workspace:', error);
-      useToastStore.getState().addToast('error', 'Failed to delete environment');
+      useToastStore.getState().addToast('error', error instanceof Error ? error.message : 'Failed to delete environment');
       throw error;
     }
   },
@@ -547,12 +600,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         paneAgents?: unknown;
         selectedModel?: unknown;
       };
-      return {
+      return normalizeWorkspacePanes({
         ...rest,
         tasks: normalizeTasks(workspace.tasks)
-      };
+      });
     });
-    const maps = deriveUiMaps(state.workspaces);
+    const maps = deriveUiMaps(normalizedWorkspaces);
 
     set((store) => ({
       appState: {
@@ -651,6 +704,9 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     if (!current) {
       return;
     }
+    if (current.activePaneId === paneId) {
+      return;
+    }
     const next = { ...current, activePaneId: paneId };
     set((state) => ({
       appState: {
@@ -684,23 +740,203 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     }
     const paneIds = collectPaneIds(next.layout);
 
+    set((state) => ({
+      appState: {
+        ...state.appState,
+        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? normalizeWorkspacePanes(next) : w))
+      },
+      ui: {
+        ...markDirty(state, next.id),
+        layoutPresetByWorkspace: {
+          ...state.ui.layoutPresetByWorkspace,
+          [next.id]: getPresetIdForPaneCount(paneIds.length)
+        },
+        paneOrderByWorkspace: {
+          ...state.ui.paneOrderByWorkspace,
+          [next.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[next.id] ?? [], paneIds)
+        }
+      }
+    }));
+  },
+  addBrowserPaneToLayout: async (targetPaneId, url = 'about:blank') => {
+    const current = activeWorkspace(get());
+    if (!current) {
+      return;
+    }
+    const normalizedSub = normalizeSubscriptionState(get().appState.subscription);
+    if (normalizedSub !== get().appState.subscription) {
       set((state) => ({
+        appState: { ...state.appState, subscription: normalizedSub }
+      }));
+      void window.vibeAde.workspace.updateSubscription(normalizedSub);
+    }
+    const plan = SUBSCRIPTION_PLANS[normalizedSub.tier];
+    const maxPanes = plan.limits.maxPanesPerWorkspace;
+    const currentPanes = collectPaneIds(current.layout).length;
+    if (maxPanes !== null && currentPanes >= maxPanes) {
+      useToastStore.getState().addToast('info', `Spark plan supports up to ${maxPanes} panes per workspace. Upgrade to add more.`);
+      return;
+    }
+    const existingBrowserPane = Object.values(current.browserPanes).find((pane) => pane.sourcePaneId === (targetPaneId ?? current.activePaneId));
+    if (existingBrowserPane) {
+      useToastStore.getState().addToast('info', 'A browser window is already open for that terminal.');
+      return;
+    }
+    const next = appendBrowserPaneToWorkspace(current, targetPaneId ?? current.activePaneId, url);
+    if (next === current) {
+      return;
+    }
+    const paneIds = collectPaneIds(next.layout);
+
+    set((state) => ({
+      appState: {
+        ...state.appState,
+        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? normalizeWorkspacePanes(next) : w))
+      },
+      ui: {
+        ...markDirty(state, next.id),
+        layoutPresetByWorkspace: {
+          ...state.ui.layoutPresetByWorkspace,
+          [next.id]: getPresetIdForPaneCount(paneIds.length)
+        },
+        paneOrderByWorkspace: {
+          ...state.ui.paneOrderByWorkspace,
+          [next.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[next.id] ?? [], paneIds)
+        }
+      }
+    }));
+  },
+  addBrowserTabToLayout: (workspaceId, paneId, input) => {
+    set((state) => {
+      const workspace = state.appState.workspaces.find((item) => item.id === workspaceId);
+      if (!workspace || workspace.paneTypes[paneId] !== 'browser') {
+        return state;
+      }
+      const currentPane = workspace.browserPanes[paneId] ?? normalizeBrowserPaneState(undefined);
+      const nextBrowserPane = appendBrowserTabToPane(currentPane, input);
+      const nextWorkspace = normalizeWorkspacePanes({
+        ...workspace,
+        browserPanes: {
+          ...workspace.browserPanes,
+          [paneId]: nextBrowserPane
+        }
+      });
+      return {
         appState: {
           ...state.appState,
-          workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
+          workspaces: state.appState.workspaces.map((item) => (item.id === workspaceId ? nextWorkspace : item))
         },
-        ui: {
-          ...markDirty(state, next.id),
-          layoutPresetByWorkspace: {
-            ...state.ui.layoutPresetByWorkspace,
-            [next.id]: presetFromPaneCount(paneIds.length)
-          },
-          paneOrderByWorkspace: {
-            ...state.ui.paneOrderByWorkspace,
-            [next.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[next.id] ?? [], paneIds)
-          }
+        ui: markDirty(state, workspaceId)
+      };
+    });
+  },
+  setActiveBrowserTab: (workspaceId, paneId, tabId) => {
+    set((state) => {
+      const workspace = state.appState.workspaces.find((item) => item.id === workspaceId);
+      if (!workspace || workspace.paneTypes[paneId] !== 'browser') {
+        return state;
+      }
+      const currentPane = workspace.browserPanes[paneId] ?? normalizeBrowserPaneState(undefined);
+      const nextBrowserPane = setActiveBrowserTabState(currentPane, tabId);
+      if (nextBrowserPane === currentPane) {
+        return state;
+      }
+      const nextWorkspace = normalizeWorkspacePanes({
+        ...workspace,
+        browserPanes: {
+          ...workspace.browserPanes,
+          [paneId]: nextBrowserPane
         }
-      }));
+      });
+      return {
+        appState: {
+          ...state.appState,
+          workspaces: state.appState.workspaces.map((item) => (item.id === workspaceId ? nextWorkspace : item))
+        },
+        ui: markDirty(state, workspaceId)
+      };
+    });
+  },
+  closeBrowserTab: (workspaceId, paneId, tabId) => {
+    set((state) => {
+      const workspace = state.appState.workspaces.find((item) => item.id === workspaceId);
+      if (!workspace || workspace.paneTypes[paneId] !== 'browser') {
+        return state;
+      }
+      const currentPane = workspace.browserPanes[paneId] ?? normalizeBrowserPaneState(undefined);
+      const nextBrowserPane = removeBrowserTabFromPane(currentPane, tabId);
+      if (nextBrowserPane === currentPane) {
+        return state;
+      }
+      const nextWorkspace = normalizeWorkspacePanes({
+        ...workspace,
+        browserPanes: {
+          ...workspace.browserPanes,
+          [paneId]: nextBrowserPane
+        }
+      });
+      return {
+        appState: {
+          ...state.appState,
+          workspaces: state.appState.workspaces.map((item) => (item.id === workspaceId ? nextWorkspace : item))
+        },
+        ui: markDirty(state, workspaceId)
+      };
+    });
+  },
+  moveBrowserTabToLayout: (workspaceId, paneId, sourceTabId, targetTabId) => {
+    set((state) => {
+      const workspace = state.appState.workspaces.find((item) => item.id === workspaceId);
+      if (!workspace || workspace.paneTypes[paneId] !== 'browser') {
+        return state;
+      }
+      const currentPane = workspace.browserPanes[paneId] ?? normalizeBrowserPaneState(undefined);
+      const nextBrowserPane = moveBrowserTabInPane(currentPane, sourceTabId, targetTabId);
+      if (nextBrowserPane === currentPane) {
+        return state;
+      }
+      const nextWorkspace = normalizeWorkspacePanes({
+        ...workspace,
+        browserPanes: {
+          ...workspace.browserPanes,
+          [paneId]: nextBrowserPane
+        }
+      });
+      return {
+        appState: {
+          ...state.appState,
+          workspaces: state.appState.workspaces.map((item) => (item.id === workspaceId ? nextWorkspace : item))
+        },
+        ui: markDirty(state, workspaceId)
+      };
+    });
+  },
+  moveBrowserTabToLayoutEnd: (workspaceId, paneId, sourceTabId) => {
+    set((state) => {
+      const workspace = state.appState.workspaces.find((item) => item.id === workspaceId);
+      if (!workspace || workspace.paneTypes[paneId] !== 'browser') {
+        return state;
+      }
+      const currentPane = workspace.browserPanes[paneId] ?? normalizeBrowserPaneState(undefined);
+      const nextBrowserPane = moveBrowserTabToEnd(currentPane, sourceTabId);
+      if (nextBrowserPane === currentPane) {
+        return state;
+      }
+      const nextWorkspace = normalizeWorkspacePanes({
+        ...workspace,
+        browserPanes: {
+          ...workspace.browserPanes,
+          [paneId]: nextBrowserPane
+        }
+      });
+      return {
+        appState: {
+          ...state.appState,
+          workspaces: state.appState.workspaces.map((item) => (item.id === workspaceId ? nextWorkspace : item))
+        },
+        ui: markDirty(state, workspaceId)
+      };
+    });
   },
   removePaneFromLayout: async (paneId) => {
     const current = activeWorkspace(get());
@@ -716,13 +952,13 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
     set((state) => ({
       appState: {
         ...state.appState,
-        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? next : w))
+        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? normalizeWorkspacePanes(next) : w))
       },
       ui: {
         ...markDirty(state, next.id),
         layoutPresetByWorkspace: {
           ...state.ui.layoutPresetByWorkspace,
-          [next.id]: presetFromPaneCount(paneIds.length)
+          [next.id]: getPresetIdForPaneCount(paneIds.length)
         },
         paneOrderByWorkspace: {
           ...state.ui.paneOrderByWorkspace,
@@ -793,20 +1029,82 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       };
     });
   },
-  setLayoutPreset: (presetId) => {
+  updateBrowserPane: (workspaceId, paneId, patch) => {
+    set((state) => {
+      const workspace = state.appState.workspaces.find((item) => item.id === workspaceId);
+      if (!workspace) {
+        return state;
+      }
+      const currentPane = workspace.browserPanes[paneId] ?? normalizeBrowserPaneState(undefined);
+      const nextBrowserPane = syncBrowserPaneFromActiveTab(currentPane, patch);
+      const nextWorkspace = normalizeWorkspacePanes({
+        ...workspace,
+        browserPanes: {
+          ...workspace.browserPanes,
+          [paneId]: nextBrowserPane
+        }
+      });
+      return {
+        appState: {
+          ...state.appState,
+          workspaces: state.appState.workspaces.map((item) => (item.id === workspaceId ? nextWorkspace : item))
+        },
+        ui: markDirty(state, workspaceId)
+      };
+    });
+  },
+  setLayoutPreset: async (presetId) => {
     const workspaceId = get().appState.activeWorkspaceId;
     if (!workspaceId) {
       return;
     }
+
+    const desiredCount = getPresetById(presetId).slots;
+    const current = activeWorkspace(get());
+    if (!current) {
+      return;
+    }
+
+    let next = current;
+    const currentPaneIds = collectPaneIds(current.layout);
+    const order = get().ui.paneOrderByWorkspace[workspaceId] ?? currentPaneIds;
+    const extras = order.filter((paneId) => currentPaneIds.includes(paneId)).slice(desiredCount);
+    const removedPaneIds = [...extras];
+
+    if (extras.length > 0) {
+      for (const paneId of extras) {
+        next = removePaneFromWorkspace(next, paneId);
+      }
+    } else if (currentPaneIds.length < desiredCount) {
+      while (collectPaneIds(next.layout).length < desiredCount) {
+        next = appendPaneToWorkspace(next);
+      }
+    }
+
+    const nextPaneIds = collectPaneIds(next.layout);
     set((state) => ({
+      appState: {
+        ...state.appState,
+        workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? normalizeWorkspacePanes(next) : w))
+      },
       ui: {
-        ...markDirty(state, workspaceId),
+        ...markDirty(state, next.id),
         layoutPresetByWorkspace: {
           ...state.ui.layoutPresetByWorkspace,
-          [workspaceId]: presetId
+          [next.id]: presetId
+        },
+        paneOrderByWorkspace: {
+          ...state.ui.paneOrderByWorkspace,
+          [next.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[next.id] ?? [], nextPaneIds)
         }
       }
     }));
+
+    if (removedPaneIds.length > 0) {
+      void Promise.all(
+        removedPaneIds.map((paneId) => window.vibeAde.terminal.stopSession(paneId).catch(() => undefined))
+      );
+    }
   },
   appendCommandBlock: async (paneId, block) => {
     const current = activeWorkspace(get());
@@ -1156,7 +1454,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         ...state.ui,
         createFlowOpen: true,
         createFlowMode: mode,
-        startPageOpen: false,
+        startPageOpen: state.appState.workspaces.length === 0 ? state.ui.startPageOpen : false,
         openEnvironmentOpen: false
       }
     }));
@@ -1183,7 +1481,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
       ui: {
         ...state.ui,
         openEnvironmentOpen: true,
-        startPageOpen: false,
+        startPageOpen: state.appState.workspaces.length === 0 ? state.ui.startPageOpen : false,
         createFlowOpen: false,
         createFlowMode: 'choose'
       }
@@ -1211,6 +1509,22 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
         ...state.ui,
         settingsOpen: true,
         settingsTab: tab
+      }
+    }));
+  },
+  setSidebarCollapsed: (collapsed) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        sidebarCollapsed: collapsed
+      }
+    }));
+  },
+  toggleSidebarCollapsed: () => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        sidebarCollapsed: !state.ui.sidebarCollapsed
       }
     }));
   },

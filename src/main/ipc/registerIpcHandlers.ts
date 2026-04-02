@@ -351,10 +351,28 @@ export function registerIpcHandlers(deps: Dependencies): void {
   });
 
   ipcMain.handle('workspace:list', () => workspaceManager.list());
+  ipcMain.handle('workspace:syncAccountState', () => workspaceManager.syncAccountState());
+  ipcMain.handle('workspace:getProfile', () => workspaceManager.getProfile());
+  ipcMain.handle('workspace:updateProfile', (_event, input: Partial<{
+    displayName: string;
+    company: string;
+    role: string;
+    timezone: string;
+    notifications: boolean;
+    theme: 'light' | 'dark' | 'system';
+    defaultWorkspaceId: string;
+  }>) => workspaceManager.updateProfile(input));
   ipcMain.handle('workspace:listTemplates', () => workspaceManager.templates());
 
-  ipcMain.handle('workspace:create', async (_event, input: { name: string; rootDir: string; templateId?: string }) => {
-    const workspace = await workspaceManager.create({ name: input.name, rootDir: input.rootDir });
+  ipcMain.handle('workspace:create', async (
+    _event,
+    input: { name: string; rootDir: string; layoutPresetId?: string; templateId?: string }
+  ) => {
+    const workspace = await workspaceManager.create({
+      name: input.name,
+      rootDir: input.rootDir,
+      layoutPresetId: input.layoutPresetId ?? input.templateId
+    });
 
     if (input.templateId) {
       const template = workspaceManager.templates().find((item) => item.id === input.templateId);

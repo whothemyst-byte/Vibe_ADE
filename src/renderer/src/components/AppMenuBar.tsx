@@ -41,8 +41,10 @@ export function AppMenuBar(): JSX.Element {
   const exportTasks = useWorkspaceStore((s) => s.exportTasks);
   const archiveCompletedTasks = useWorkspaceStore((s) => s.archiveCompletedTasks);
   const updateStatus = useWorkspaceStore((s) => s.ui.updateStatus);
+  const workspaces = useWorkspaceStore((s) => s.appState.workspaces);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.appState.activeWorkspaceId);
+  const subscriptionState = useWorkspaceStore((s) => s.appState.subscription);
   const addToast = useToastStore((s) => s.addToast);
-  const appState = useWorkspaceStore((s) => s.appState);
 
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
 
@@ -56,6 +58,7 @@ export function AppMenuBar(): JSX.Element {
       if (event.key === 'Escape') {
         event.preventDefault();
         setOpenMenu(null);
+        return;
       }
     };
     const onMouseDown = (event: MouseEvent): void => {
@@ -80,17 +83,17 @@ export function AppMenuBar(): JSX.Element {
   };
 
   const activeWorkspace = useMemo(
-    () => appState.workspaces.find((w) => w.id === appState.activeWorkspaceId),
-    [appState.activeWorkspaceId, appState.workspaces]
+    () => workspaces.find((w) => w.id === activeWorkspaceId),
+    [activeWorkspaceId, workspaces]
   );
   const activePaneId = activeWorkspace?.activePaneId ?? null;
-  const subscription = useMemo(() => normalizeSubscriptionState(appState.subscription), [appState.subscription]);
+  const subscription = useMemo(() => normalizeSubscriptionState(subscriptionState), [subscriptionState]);
   const plan = SUBSCRIPTION_PLANS[subscription.tier];
   const recentWorkspaces = useMemo(() => {
-    return [...appState.workspaces].sort(
+    return [...workspaces].sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-  }, [appState.workspaces]);
+  }, [workspaces]);
   const appearanceMode = getStoredAppearanceMode();
 
   const withActivePane = (fn: (paneId: string) => void): (() => void) => {
@@ -104,6 +107,9 @@ export function AppMenuBar(): JSX.Element {
 
   const setWorkingDirectory = async (): Promise<void> => {
     if (!activePaneId || !activeWorkspace) {
+      return;
+    }
+    if (activeWorkspace.paneTypes[activePaneId] !== 'terminal') {
       return;
     }
     const selected = await window.vibeAde.system.selectDirectory();
@@ -152,6 +158,9 @@ export function AppMenuBar(): JSX.Element {
 
   const restartActiveSession = async (): Promise<void> => {
     if (!activePaneId || !activeWorkspace) {
+      return;
+    }
+    if (activeWorkspace.paneTypes[activePaneId] !== 'terminal') {
       return;
     }
     const shell = activeWorkspace.paneShells[activePaneId];
@@ -245,7 +254,7 @@ export function AppMenuBar(): JSX.Element {
           { separator: true, label: 'sep-view-1' },
           { label: 'Pane Layout', children: layoutMenuItems },
           { separator: true, label: 'sep-view-2' },
-          { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: systemAction('resetZoom') },
+          { label: 'Reset Zoom', shortcut: 'Ctrl+Shift+0', action: systemAction('resetZoom') },
           { label: 'Zoom In', shortcut: 'Ctrl+=', action: systemAction('zoomIn') },
           { label: 'Zoom Out', shortcut: 'Ctrl+-', action: systemAction('zoomOut') },
           { separator: true, label: 'sep-view-3' },
@@ -352,9 +361,6 @@ export function AppMenuBar(): JSX.Element {
     [
       addPaneToLayout,
       addTask,
-      appState.activeWorkspaceId,
-      appState.subscription,
-      appState.workspaces,
       closeAllPanes,
       openCreateFlow,
       openEnvironmentOverlay,
@@ -372,7 +378,8 @@ export function AppMenuBar(): JSX.Element {
       systemAction,
       toggleTaskBoard,
       exportTasks,
-      archiveCompletedTasks
+      archiveCompletedTasks,
+      workspaces
     ]
   );
 

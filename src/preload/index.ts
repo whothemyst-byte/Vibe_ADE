@@ -4,6 +4,9 @@ import type { VibeAdeApi } from '@shared/ipc';
 const api: VibeAdeApi = {
   workspace: {
     list: () => ipcRenderer.invoke('workspace:list'),
+    syncAccountState: () => ipcRenderer.invoke('workspace:syncAccountState'),
+    getProfile: () => ipcRenderer.invoke('workspace:getProfile'),
+    updateProfile: (input) => ipcRenderer.invoke('workspace:updateProfile', input),
     create: (input) => ipcRenderer.invoke('workspace:create', input),
     clone: (workspaceId, newName) => ipcRenderer.invoke('workspace:clone', workspaceId, newName),
     rename: (workspaceId, name) => ipcRenderer.invoke('workspace:rename', workspaceId, name),
@@ -97,6 +100,11 @@ const api: VibeAdeApi = {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
     ipcRenderer.on('app:menuAction', handler);
     return () => ipcRenderer.off('app:menuAction', handler);
+  },
+  onBrowserContextAction: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('browser:contextAction', handler);
+    return () => ipcRenderer.off('browser:contextAction', handler);
   },
   onUpdateStatus: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);

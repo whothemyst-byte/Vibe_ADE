@@ -21,7 +21,17 @@ function makeWorkspace(): WorkspaceState {
         { id: 'pane-b', type: 'pane', paneId: 'p-b' }
       ]
     },
-    paneShells: { 'p-a': 'cmd', 'p-b': 'powershell' },
+    paneTypes: { 'p-a': 'terminal', 'p-b': 'browser' },
+    paneShells: { 'p-a': 'cmd' },
+    browserPanes: {
+      'p-b': {
+        url: 'about:blank',
+        title: 'about:blank',
+        isLoading: false,
+        history: ['about:blank'],
+        historyIndex: 0
+      }
+    },
     activePaneId: 'p-a',
     commandBlocks: {
       'p-a': [
@@ -55,7 +65,7 @@ function makeWorkspace(): WorkspaceState {
 }
 
 describe('EnvironmentFileManager', () => {
-  it('exports a plain-terminal snapshot and lists it', async () => {
+  it('exports a browser-aware snapshot and lists it', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'vibe-ade-env-'));
     const workspace = makeWorkspace();
 
@@ -74,7 +84,7 @@ describe('EnvironmentFileManager', () => {
     expect(list[0].name).toBe('My Env');
   });
 
-  it('imports with new ids and no command history', async () => {
+  it('imports with new ids, clears command history, and preserves browser panes', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'vibe-ade-env-'));
     const workspace = makeWorkspace();
     const filePath = await exportEnvironmentToDirectory(workspace, directory);
@@ -84,6 +94,15 @@ describe('EnvironmentFileManager', () => {
     expect(imported.commandBlocks).toBeDefined();
     expect(Object.values(imported.commandBlocks).every((blocks) => blocks.length === 0)).toBe(true);
     expect(Object.values(imported.paneShells).every((shell) => shell === 'powershell')).toBe(true);
+    const importedBrowserPaneId = Object.keys(imported.browserPanes)[0];
+    expect(importedBrowserPaneId).toBeDefined();
+    expect(imported.browserPanes[importedBrowserPaneId]).toMatchObject({
+      url: 'about:blank',
+      title: 'about:blank',
+      isLoading: false,
+      history: ['about:blank'],
+      historyIndex: 0
+    });
     expect(imported.tasks).toEqual([]);
 
     const importedPaneIds =

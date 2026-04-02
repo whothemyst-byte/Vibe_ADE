@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppState, WorkspaceState } from '../../src/shared/types';
 import { WorkspaceManager } from '../../src/main/services/WorkspaceManager';
+import { normalizeSubscriptionState } from '../../src/shared/subscription';
 
 function makeWorkspace(id: string): WorkspaceState {
   const now = new Date().toISOString();
@@ -16,7 +17,9 @@ function makeWorkspace(id: string): WorkspaceState {
       type: 'pane',
       paneId: `pane-${id}`
     },
+    paneTypes: { [`pane-${id}`]: 'terminal' },
     paneShells: { [`pane-${id}`]: 'cmd' },
+    browserPanes: {},
     activePaneId: `pane-${id}`,
     commandBlocks: { [`pane-${id}`]: [] },
     tasks: [],
@@ -25,18 +28,29 @@ function makeWorkspace(id: string): WorkspaceState {
   };
 }
 
+function collectPaneIds(layout: WorkspaceState['layout']): string[] {
+  if (layout.type === 'pane') {
+    return [layout.paneId];
+  }
+  return layout.children.flatMap(collectPaneIds);
+}
+
 describe('WorkspaceManager task migration and normalization', () => {
   let userDataDir: string;
   let warnSpy: ReturnType<typeof vi.spyOn>;
   let infoSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
+    vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co');
+    vi.stubEnv('SUPABASE_ANON_KEY', 'test-anon-key');
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
     userDataDir = await mkdtemp(path.join(os.tmpdir(), 'vibe-ade-wm-'));
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     warnSpy.mockRestore();
     infoSpy.mockRestore();
   });
@@ -68,7 +82,8 @@ describe('WorkspaceManager task migration and normalization', () => {
 
     const input: AppState = {
       activeWorkspaceId: 'missing-workspace',
-      workspaces: [legacyWorkspace]
+      workspaces: [legacyWorkspace],
+      subscription: normalizeSubscriptionState()
     };
 
     await manager.replaceState(input);
@@ -111,7 +126,8 @@ describe('WorkspaceManager task migration and normalization', () => {
 
     await manager.replaceState({
       activeWorkspaceId: workspace.id,
-      workspaces: [workspace]
+      workspaces: [workspace],
+      subscription: normalizeSubscriptionState()
     });
 
     const saved = manager.list().workspaces[0];
@@ -146,7 +162,8 @@ describe('WorkspaceManager task migration and normalization', () => {
 
     await first.replaceState({
       activeWorkspaceId: workspace.id,
-      workspaces: [workspace]
+      workspaces: [workspace],
+      subscription: normalizeSubscriptionState()
     });
 
     const second = new WorkspaceManager(userDataDir);
@@ -158,5 +175,104 @@ describe('WorkspaceManager task migration and normalization', () => {
     expect(reloaded.archived).toBe(false);
     expect(reloaded.order).toBe(1);
     expect(reloaded.labels).toEqual(['api']);
+  });
+
+  it('blocks spark cloud workspace creation after the configured limit', async () => {
+    const manager = new WorkspaceManager(userDataDir, {
+      isConfigured: vi.fn(() => true),
+      getSession: vi.fn(async () => ({ id: 'user-1', email: 'test@example.com' })),
+      getSessionWithToken: vi.fn(async () => ({
+        accessToken: 'token',
+        user: { id: 'user-1', email: 'test@example.com' }
+      })),
+      login: vi.fn(),
+      signup: vi.fn(),
+      logout: vi.fn()
+    });
+    await manager.initialize();
+
+    await manager.replaceState({
+      activeWorkspaceId: null,
+      workspaces: [makeWorkspace('w1'), makeWorkspace('w2')],
+      subscription: normalizeSubscriptionState({
+        tier: 'spark',
+        usage: { month: '2026-03', tasksCreated: 0, swarmsStarted: 0 }
+      })
+    });
+
+    await expect(manager.create({ name: 'w3', rootDir: 'C:\\Repo3' })).rejects.toThrow(
+      'Spark plan allows up to 2 cloud-synced workspaces'
+    );
+  });
+
+  it('creates all panes for the selected layout preset', async () => {
+    const manager = new WorkspaceManager(userDataDir);
+    await manager.initialize();
+
+    const workspace = await manager.create({
+      name: 'layout-w',
+      rootDir: 'C:\\Repo',
+      layoutPresetId: '12-pane-grid'
+    });
+
+    const paneIds = collectPaneIds(workspace.layout);
+    expect(paneIds).toHaveLength(12);
+    expect(Object.keys(workspace.paneTypes)).toHaveLength(12);
+    expect(Object.keys(workspace.paneShells)).toHaveLength(12);
+    expect(paneIds.every((paneId) => workspace.paneTypes[paneId] === 'terminal')).toBe(true);
+    expect(paneIds.every((paneId) => workspace.commandBlocks[paneId]?.length === 0)).toBe(true);
+    expect(workspace.activePaneId).toBe(paneIds[0]);
+  });
+
+  it('preserves the existing subscription when replaceState omits it', async () => {
+    const manager = new WorkspaceManager(userDataDir);
+    await manager.initialize();
+
+    await manager.updateSubscription(
+      normalizeSubscriptionState({
+        tier: 'forge',
+        usage: { month: '2026-03', tasksCreated: 0, swarmsStarted: 0 }
+      })
+    );
+
+    await manager.replaceState({
+      activeWorkspaceId: null,
+      workspaces: [makeWorkspace('keep-tier')] as WorkspaceState[],
+      subscription: undefined as unknown as AppState['subscription']
+    } as unknown as AppState);
+
+    expect(manager.list().subscription.tier).toBe('forge');
+  });
+
+  it('removes a workspace locally even if remote cleanup fails', async () => {
+    const getSessionWithToken = vi.fn(async () => ({
+      accessToken: 'header.payload.signature',
+      user: { id: 'user-1', email: 'test@example.com' }
+    }));
+    const manager = new WorkspaceManager(userDataDir, {
+      isConfigured: vi.fn(() => true),
+      getSession: vi.fn(async () => ({ user: { id: 'user-1', email: 'test@example.com' }, expiresAt: Date.now() + 60_000 })),
+      getSessionWithToken,
+      login: vi.fn(),
+      signup: vi.fn(),
+      logout: vi.fn()
+    });
+    await manager.initialize();
+
+    const workspace = makeWorkspace('remove-me');
+    await manager.replaceState({
+      activeWorkspaceId: workspace.id,
+      workspaces: [workspace],
+      subscription: normalizeSubscriptionState()
+    });
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error('Error: Expected 3 parts in JWT; got 1');
+    });
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+
+    await expect(manager.remove(workspace.id)).resolves.toBeUndefined();
+    expect(getSessionWithToken).toHaveBeenCalled();
+    expect(manager.list().workspaces).toHaveLength(0);
   });
 });
