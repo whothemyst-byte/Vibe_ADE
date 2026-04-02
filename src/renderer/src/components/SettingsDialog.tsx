@@ -221,7 +221,7 @@ export function SettingsDialog(): JSX.Element {
   const cloudBlocked = cloudLimit !== null && appState.workspaces.length > cloudLimit;
   const taskBoardLocked = !plan.features.taskBoard;
   const updateStatus = useWorkspaceStore((s) => s.ui.updateStatus);
-  const currentVersion = updateStatus.version ? `v${updateStatus.version}` : 'v0.3.8';
+  const currentVersion = updateStatus.version ? `v${updateStatus.version}` : 'v0.3.9';
 
   const getCloudErrorMessage = (action: 'sync' | 'pull', error: unknown): string => {
     if (error instanceof Error) {
