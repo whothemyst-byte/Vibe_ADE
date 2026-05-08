@@ -166,12 +166,16 @@ export class CloudSyncManager {
       user_id: session.user.id,
       name: workspace.name,
       root_dir: workspace.rootDir,
-      selected_model: null,
+      selected_model: workspace.selectedModelId || null,
       active_pane_id: workspace.activePaneId,
       metadata: {
         sync_key: getWorkspaceSyncKey(workspace),
         local_updated_at: workspace.updatedAt,
-        local_created_at: workspace.createdAt
+        local_created_at: workspace.createdAt,
+        workspace_mode: workspace.workspaceMode,
+        selected_model_id: workspace.selectedModelId,
+        chat_messages: workspace.chatMessages,
+        runs: workspace.runs
       },
       created_at: workspace.createdAt,
       updated_at: workspace.updatedAt
@@ -253,10 +257,13 @@ export class CloudSyncManager {
         const paneTypes = Object.fromEntries(
           paneIds.map((paneId) => [paneId, layoutRow.pane_types?.[paneId] ?? 'terminal'])
         ) as Record<PaneId, PaneType>;
+        const metadata = workspace.metadata ?? {};
         return {
           id: workspace.id,
           name: workspace.name,
           rootDir: workspace.root_dir,
+          workspaceMode: metadata.workspace_mode === 'chat' ? 'chat' : 'terminals',
+          selectedModelId: typeof metadata.selected_model_id === 'string' ? metadata.selected_model_id : '',
           layout,
           paneTypes,
           paneShells: layoutRow.pane_shells ?? {},
@@ -267,6 +274,8 @@ export class CloudSyncManager {
           ) as Record<PaneId, BrowserPaneState>,
           activePaneId,
           commandBlocks: layoutRow.command_blocks ?? {},
+          chatMessages: Array.isArray(metadata.chat_messages) ? metadata.chat_messages : [],
+          runs: Array.isArray(metadata.runs) ? metadata.runs : [],
           tasks: layoutRow.tasks ?? [],
           createdAt: workspace.created_at,
           updatedAt: layoutRow.updated_at ?? workspace.updated_at

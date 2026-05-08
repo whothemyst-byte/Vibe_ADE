@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { MessageRouter } from '../../src/main/services/MessageRouter';
 import { SwarmMessageType, type CoordinatorOutputMessage } from '../../src/main/types/SwarmMessages';
+import { parseAgentOutput } from '../../src/main/services/MessageParser';
 
 describe('MessageRouter coordinator retry', () => {
   it('requests a bounded retry when coordinator output has empty FILES_TO_MODIFY', async () => {
@@ -39,5 +40,16 @@ describe('MessageRouter coordinator retry', () => {
     expect(messenger.sendToAgent).toHaveBeenCalledWith('coordinator-1', expect.stringContaining('FORMAT ERROR'));
     expect(messenger.sendToAgent).toHaveBeenCalledWith('coordinator-1', expect.stringContaining('FILES_TO_MODIFY'));
   });
-});
 
+  it('treats substantive non-task coordinator output as retryable coordinator output', () => {
+    const output = [
+      'Ship recommendation: no-ship yet.',
+      'The report ends with a clear ship/no-ship recommendation and follow-ups.',
+      'Remaining risks include missing scaffold files in the fresh repo.'
+    ].join('\n');
+
+    const messages = parseAgentOutput('coordinator-1', output, 'coordinator');
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.type).toBe(SwarmMessageType.COORDINATOR_OUTPUT);
+  });
+});

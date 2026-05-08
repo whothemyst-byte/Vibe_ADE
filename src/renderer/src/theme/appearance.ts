@@ -1,4 +1,5 @@
 import { THEME_DEFINITIONS, type ThemeId, type ThemeTokens } from './theme';
+import type { UiPreferences } from '@renderer/services/preferences';
 
 export type AppearanceMode = ThemeId;
 
@@ -67,4 +68,28 @@ export function applyAppearanceMode(mode: AppearanceMode): void {
   } catch {
     // No-op: window theme sync is best-effort.
   }
+}
+
+function normalizeHexColor(value: string): string | null {
+  const trimmed = value.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+export function applyUiPreferences(preferences: UiPreferences): void {
+  const root = document.documentElement;
+  const accent = normalizeHexColor(preferences.accentColor) ?? THEME_DEFINITIONS.dark.tokens.accent;
+  root.style.setProperty('--accent', accent);
+  root.style.setProperty('--accent-strong', `color-mix(in srgb, ${accent} 82%, black)`);
+  root.style.setProperty('--body-overlay', `color-mix(in srgb, ${accent} 18%, transparent)`);
+  root.style.setProperty('--app-sans-font',
+    preferences.fontStyle === 'mono'
+      ? '"JetBrains Mono", Consolas, "Courier New", monospace'
+      : preferences.fontStyle === 'balanced'
+        ? 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+        : 'Inter, "Segoe UI", Roboto, Arial, sans-serif'
+  );
+  root.lang = preferences.language === 'system' ? navigator.language || 'en' : preferences.language;
 }

@@ -8,11 +8,15 @@ import type { TaskItem } from '@shared/types';
 interface EnvironmentExportV2 {
   name: string;
   rootDir: string;
+  workspaceMode: WorkspaceState['workspaceMode'];
+  selectedModelId: string;
   layout: LayoutNode;
   activePaneId?: PaneId;
   paneTypes: WorkspaceState['paneTypes'];
   paneShells: WorkspaceState['paneShells'];
   browserPanes: WorkspaceState['browserPanes'];
+  chatMessages: WorkspaceState['chatMessages'];
+  runs: WorkspaceState['runs'];
 }
 
 interface EnvironmentExportFileV2 {
@@ -83,11 +87,15 @@ function toExportEnvironment(workspace: WorkspaceState): EnvironmentExportV2 {
   return {
     name: workspace.name,
     rootDir: workspace.rootDir,
+    workspaceMode: workspace.workspaceMode,
+    selectedModelId: workspace.selectedModelId,
     layout: workspace.layout,
     activePaneId: workspace.activePaneId,
     paneTypes: workspace.paneTypes,
     paneShells: workspace.paneShells,
-    browserPanes: workspace.browserPanes
+    browserPanes: workspace.browserPanes,
+    chatMessages: workspace.chatMessages,
+    runs: workspace.runs
   };
 }
 
@@ -124,12 +132,16 @@ function toImportedWorkspace(environment: EnvironmentExportV2): WorkspaceState {
     id: uuidv4(),
     name: environment.name,
     rootDir: environment.rootDir,
+    workspaceMode: environment.workspaceMode ?? 'terminals',
+    selectedModelId: environment.selectedModelId ?? '',
     layout: environment.layout,
     activePaneId: environment.activePaneId ?? initialPaneIds[0],
     paneTypes: {},
     paneShells: {},
     browserPanes: {},
     commandBlocks: {},
+    chatMessages: Array.isArray(environment.chatMessages) ? environment.chatMessages : [],
+    runs: Array.isArray(environment.runs) ? environment.runs : [],
     tasks: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -168,6 +180,8 @@ function toImportedWorkspace(environment: EnvironmentExportV2): WorkspaceState {
     paneShells: nextPaneShells,
     browserPanes: nextBrowserPanes,
     commandBlocks: Object.fromEntries(nextPaneIds.map((paneId) => [paneId, []])),
+    chatMessages: snapshot.chatMessages,
+    runs: snapshot.runs,
     tasks: [],
     createdAt: now,
     updatedAt: now
@@ -277,7 +291,11 @@ export async function loadEnvironmentExport(filePath: string): Promise<Workspace
     name: workspace.name,
     rootDir: workspace.rootDir,
     layout: workspace.layout as LayoutNode,
-    activePaneId: workspace.activePaneId as PaneId | undefined
+    activePaneId: workspace.activePaneId as PaneId | undefined,
+    workspaceMode: workspace.workspaceMode,
+    selectedModelId: workspace.selectedModelId,
+    chatMessages: workspace.chatMessages,
+    runs: workspace.runs
   });
 }
 

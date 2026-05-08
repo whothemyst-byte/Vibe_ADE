@@ -3,11 +3,10 @@ import type { BrowserPaneState, BrowserTabState, PaneId, WorkspaceState } from '
 import { getActiveBrowserTab, syncBrowserPaneFromActiveTab } from '@shared/browserPane';
 import { collectPaneIds } from '@renderer/services/layoutEngine';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
-import { UiIcon } from './UiIcon';
+import { Icon, cn } from './ui';
 
 interface BrowserPaneProps {
   paneId: PaneId;
-  displayIndex: number;
   workspace: WorkspaceState;
   onFocus: () => void;
   onPaneDragStart: () => void;
@@ -62,7 +61,7 @@ function applyBrowserTabNavigation(
   };
 }
 
-export function BrowserPane({ paneId, displayIndex: _displayIndex, workspace, onFocus, onPaneDragStart, onPaneDragEnd }: BrowserPaneProps): JSX.Element {
+export function BrowserPane({ paneId, workspace, onFocus, onPaneDragStart, onPaneDragEnd }: BrowserPaneProps): JSX.Element {
   const updateBrowserPane = useWorkspaceStore((s) => s.updateBrowserPane);
   const addBrowserTabToLayout = useWorkspaceStore((s) => s.addBrowserTabToLayout);
   const closeBrowserTab = useWorkspaceStore((s) => s.closeBrowserTab);
@@ -336,14 +335,22 @@ export function BrowserPane({ paneId, displayIndex: _displayIndex, workspace, on
 
   return (
     <section
-      className={isActivePane ? 'browser-pane active' : 'browser-pane'}
+      className={cn(
+        'browser-pane relative flex flex-col h-full overflow-hidden rounded-sm border bg-bg-panel transition-colors',
+        isActivePane ? 'border-primary' : 'border-line'
+      )}
       onMouseDown={() => {
         onFocus();
       }}
     >
-      <div className="browser-tab-strip" draggable onDragStart={handlePaneDragStart} onDragEnd={onPaneDragEnd}>
+      <div
+        className="flex items-center gap-1 px-2 pt-1.5 pb-0 border-b border-line bg-bg-panel-2/40 select-none"
+        draggable
+        onDragStart={handlePaneDragStart}
+        onDragEnd={onPaneDragEnd}
+      >
         <div
-          className="browser-tab-list"
+          className="flex-1 flex items-end gap-1 overflow-x-auto"
           role="tablist"
           aria-label="Browser tabs"
           onDragOver={(event) => {
@@ -357,10 +364,17 @@ export function BrowserPane({ paneId, displayIndex: _displayIndex, workspace, on
           {(browserPane?.tabs ?? []).map((tab) => {
             const isActiveTab = tab.id === browserPane?.activeTabId;
             const tabTitle = tab.title && tab.title !== 'about:blank' ? tab.title : 'New Tab';
+            const isDropTarget = dropTargetTabId === tab.id;
             return (
               <div
                 key={tab.id}
-                className={isActiveTab ? 'browser-tab active' : 'browser-tab'}
+                className={cn(
+                  'group flex items-center gap-1 min-w-0 max-w-[200px] px-2 py-1 rounded-t-md border-b-0 text-xs transition-colors',
+                  isActiveTab
+                    ? 'bg-bg-panel text-fg border border-line shadow-sm'
+                    : 'text-fg-muted hover:text-fg hover:bg-bg-panel-2/70',
+                  isDropTarget && 'ring-2 ring-primary/50'
+                )}
                 draggable
                 onDragStart={(event) => handleTabDragStart(event, tab.id)}
                 onDragEnd={handleTabDragEnd}
@@ -382,19 +396,19 @@ export function BrowserPane({ paneId, displayIndex: _displayIndex, workspace, on
                 }}
               >
                 <button
-                  className={dropTargetTabId === tab.id ? 'browser-tab-button drop-target' : 'browser-tab-button'}
                   type="button"
                   role="tab"
                   aria-selected={isActiveTab}
                   title={tab.title || tab.url}
+                  className="flex-1 min-w-0 text-left truncate"
                   onClick={() => {
                     setActiveBrowserTab(workspace.id, paneId, tab.id);
                   }}
                 >
-                  <span className="browser-tab-title">{tabTitle}</span>
+                  <span className="truncate">{tabTitle}</span>
                 </button>
                 <button
-                  className="browser-tab-close"
+                  className="shrink-0 h-4 w-4 grid place-items-center rounded text-fg-muted hover:text-fg hover:bg-bg-panel disabled:opacity-30 disabled:cursor-not-allowed"
                   type="button"
                   aria-label={`Close tab ${tabTitle}`}
                   title={canCloseTab ? 'Close tab' : 'At least one tab must remain open'}
@@ -404,14 +418,14 @@ export function BrowserPane({ paneId, displayIndex: _displayIndex, workspace, on
                     closeBrowserTab(workspace.id, paneId, tab.id);
                   }}
                 >
-                  <UiIcon name="close" className="ui-icon ui-icon-sm" />
+                  <Icon name="close" size="xs" />
                 </button>
               </div>
             );
           })}
         </div>
         <button
-          className="browser-tab-add"
+          className="shrink-0 h-6 w-6 grid place-items-center rounded-md text-fg-muted hover:text-fg hover:bg-bg-panel-2 transition-colors"
           type="button"
           aria-label="New tab"
           title="New tab"
@@ -430,23 +444,17 @@ export function BrowserPane({ paneId, displayIndex: _displayIndex, workspace, on
             void addBrowserTabToLayout(workspace.id, paneId, { url: 'about:blank', title: 'New Tab' });
           }}
         >
-          <UiIcon name="plus" className="ui-icon ui-icon-sm" />
+          <Icon name="add" size="sm" />
         </button>
       </div>
-      <div className="browser-chrome">
-        <button className="browser-nav-button" type="button" onClick={goBack} aria-label="Back" title="Back" disabled={!canGoBack}>
-          <UiIcon name="chevron-left" className="ui-icon ui-icon-sm" />
-        </button>
-        <button className="browser-nav-button" type="button" onClick={goForward} aria-label="Forward" title="Forward" disabled={!canGoForward}>
-          <UiIcon name="chevron-right" className="ui-icon ui-icon-sm" />
-        </button>
-        <button className="browser-nav-button" type="button" onClick={reload} aria-label="Reload" title="Reload">
-          <UiIcon name="refresh" className="ui-icon ui-icon-sm" />
-        </button>
+      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-line bg-bg-panel">
+        <NavBtn icon="arrow_back" onClick={goBack} disabled={!canGoBack} label="Back" />
+        <NavBtn icon="arrow_forward" onClick={goForward} disabled={!canGoForward} label="Forward" />
+        <NavBtn icon="refresh" onClick={reload} label="Reload" />
 
-        <div className="browser-address-shell">
+        <div className="flex-1 mx-1.5">
           <input
-            className="browser-address-input"
+            className="w-full h-7 px-3 text-xs font-mono rounded-md bg-bg-panel-2/60 border border-line text-fg placeholder:text-fg-muted focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20 transition-all"
             value={addressValue}
             placeholder="Search or enter address"
             spellCheck={false}
@@ -462,39 +470,60 @@ export function BrowserPane({ paneId, displayIndex: _displayIndex, workspace, on
           />
         </div>
 
-        <button className="browser-nav-button" type="button" onClick={openExternally} aria-label="Open externally" title="Open externally">
-          <UiIcon name="bookmark" className="ui-icon ui-icon-sm" />
-        </button>
-        <button
-          className="browser-nav-button browser-close-button"
-          type="button"
-          onClick={() => void closePane()}
-          aria-label="Close browser pane"
-          title={canClose ? 'Close browser pane' : 'At least one pane must remain open'}
-          disabled={!canClose}
-        >
-          <UiIcon name="close" className="ui-icon ui-icon-sm" />
-        </button>
+        <NavBtn icon="open_in_new" onClick={openExternally} label="Open externally" />
+        <NavBtn icon="close" onClick={() => void closePane()} disabled={!canClose} label="Close browser pane" />
       </div>
 
-      <div className="browser-content">
+      <div className="relative flex-1 bg-bg-page">
         <webview
           ref={webviewRef}
-          className="browser-webview"
+          className="browser-webview w-full h-full"
           src={resolvedUrl}
           allowpopups
           partition={`persist:vibe-ade-browser-${paneId}`}
         />
         {isPlaceholder && (
-          <div className="browser-placeholder" aria-hidden="true">
-            <div className="browser-placeholder-mark">
-              <UiIcon name="globe" className="ui-icon ui-icon-xl" />
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-bg-page pointer-events-none"
+            aria-hidden="true"
+          >
+            <div className="h-7 w-7 rounded bg-primary/15 text-primary grid place-items-center">
+              <Icon name="globe" size="xl" />
             </div>
-            <div className="browser-placeholder-title">NO_CONTENT_LOADED</div>
-            <div className="browser-placeholder-subtitle">AWAITING_EXTERNAL_SIGNAL</div>
+            <div className="font-mono text-[11px] font-semibold tracking-[0.22em] uppercase text-fg">
+              NO_CONTENT_LOADED
+            </div>
+            <div className="font-mono text-[10px] tracking-[0.18em] uppercase text-fg-muted">
+              AWAITING_EXTERNAL_SIGNAL
+            </div>
           </div>
         )}
       </div>
     </section>
+  );
+}
+
+function NavBtn({
+  icon,
+  onClick,
+  disabled,
+  label
+}: {
+  icon: string;
+  onClick: () => void;
+  disabled?: boolean;
+  label: string;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      className="shrink-0 h-7 w-7 grid place-items-center rounded-md text-fg-muted hover:text-fg hover:bg-bg-panel-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+    >
+      <Icon name={icon} size="sm" />
+    </button>
   );
 }

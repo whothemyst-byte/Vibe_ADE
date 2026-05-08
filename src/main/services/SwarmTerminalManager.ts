@@ -1,8 +1,11 @@
 import { EventEmitter } from 'node:events';
+import { parseScoutReport, type ScoutAnalysis } from '@main/prompts/ScoutPrompt';
 import { AgentProcess, type AgentProcessConfig, type AgentProcessStatus, type AgentRoleName, type CliProvider } from '@main/services/AgentProcess';
 import { parseAgentOutput } from '@main/services/MessageParser';
 import { MessageRouter, type AgentMessenger } from '@main/services/MessageRouter';
 import { SwarmOrchestrator } from '@main/services/SwarmOrchestrator';
+import type { SwarmMailboxEntry, SwarmTaskArtifact, SwarmTaskEvidence } from '@main/types/SwarmOrchestration';
+import type { SwarmReviewStrictness } from '@shared/ipc';
 
 export type SwarmTerminalAgentConfig = Readonly<{
   swarmId: string;
@@ -12,6 +15,38 @@ export type SwarmTerminalAgentConfig = Readonly<{
   workspaceDir: string;
   initialContext: string;
   startupDelay?: number;
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  promptOverride?: string;
+  reviewStrictness?: SwarmReviewStrictness;
+}>;
+
+type AgentPromptProfile = Readonly<{
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  promptOverride?: string;
+  reviewStrictness?: SwarmReviewStrictness;
+}>;
+
+type SwarmTerminalManagerOptions = Readonly<{
+  resolveTaskCompletionEvidence?: (input: {
+    swarmId: string;
+    taskId: string;
+    agentId: string;
+    summary: string;
+    reportedFilesModified: readonly string[];
+  }) => Promise<SwarmTaskEvidence | null>;
+  postMailboxMessage?: (
+    swarmId: string,
+    entry: Omit<SwarmMailboxEntry, 'id' | 'createdAt'> & Partial<Pick<SwarmMailboxEntry, 'id' | 'createdAt'>>
+  ) => SwarmMailboxEntry;
+  addTaskArtifact?: (
+    swarmId: string,
+    taskId: string,
+    artifact: Omit<SwarmTaskArtifact, 'id' | 'taskId' | 'createdAt'> & Partial<Pick<SwarmTaskArtifact, 'id' | 'createdAt'>>
+  ) => SwarmTaskArtifact;
 }>;
 
 export type SwarmTerminalEvents = {
@@ -35,18 +70,34 @@ export type SwarmTerminalEvents = {
  * - Emit UI-friendly lifecycle events
  */
 export class SwarmTerminalManager implements AgentMessenger {
+  private readonly orchestrator: SwarmOrchestrator;
   private readonly agents: Map<string, AgentProcess> = new Map();
   private readonly agentToSwarm: Map<string, string> = new Map();
   private readonly messageRouter: MessageRouter;
   private readonly eventEmitter: EventEmitter;
+  private readonly options: SwarmTerminalManagerOptions;
+  private readonly agentProfiles: Map<string, AgentPromptProfile> = new Map();
+  private readonly integratedScoutAgents: Set<string> = new Set();
 
   // Bounded per-agent output history for UI "terminal view".
   private readonly outputHistory: Map<string, string[]> = new Map();
   private readonly maxOutputLines = 2_000;
 
-  constructor(orchestrator: SwarmOrchestrator, eventEmitter?: EventEmitter) {
+  constructor(orchestrator: SwarmOrchestrator, eventEmitter?: EventEmitter, options: SwarmTerminalManagerOptions = {}) {
+    this.orchestrator = orchestrator;
     this.eventEmitter = eventEmitter ?? new EventEmitter();
-    this.messageRouter = new MessageRouter(orchestrator, this, this.eventEmitter);
+    this.options = options;
+    this.messageRouter = new MessageRouter(orchestrator, this, this.eventEmitter, {
+      resolveAgentProfile: (_swarmId, agentId) => this.agentProfiles.get(agentId) ?? null,
+      resolveSharedContext: (swarmId) => {
+        try {
+          return this.orchestrator.getSwarmState(swarmId).sharedContext;
+        } catch {
+          return null;
+        }
+      },
+      resolveTaskCompletionEvidence: this.options.resolveTaskCompletionEvidence
+    });
   }
 
   public on<EventName extends keyof SwarmTerminalEvents>(
@@ -77,6 +128,13 @@ export class SwarmTerminalManager implements AgentMessenger {
     const agent = new AgentProcess(processConfig);
     this.agents.set(config.agentId, agent);
     this.agentToSwarm.set(config.agentId, config.swarmId);
+    this.agentProfiles.set(config.agentId, {
+      personaLabel: config.personaLabel,
+      personality: config.personality,
+      specialization: config.specialization,
+      promptOverride: config.promptOverride,
+      reviewStrictness: config.reviewStrictness
+    });
 
     console.log(`[${new Date().toISOString()}] [AGENT:START] ${config.agentId} starting...`);
     this.eventEmitter.emit('agent-started', { swarmId: config.swarmId, agentId: config.agentId, role: config.role, timestamp: Date.now() } satisfies SwarmTerminalEvents['agent-started']);
@@ -91,6 +149,8 @@ export class SwarmTerminalManager implements AgentMessenger {
       // Best-effort cleanup.
       this.agents.delete(payload.agentId);
       this.agentToSwarm.delete(payload.agentId);
+      this.agentProfiles.delete(payload.agentId);
+      this.integratedScoutAgents.delete(payload.agentId);
     });
 
     this.setupOutputCapture(config.agentId, agent);
@@ -145,6 +205,10 @@ export class SwarmTerminalManager implements AgentMessenger {
         }
       }
 
+      if (agent.getRole() === 'scout') {
+        this.tryIntegrateScoutAnalysis(agentId);
+      }
+
       // Emit activity for UI.
       this.eventEmitter.emit('agent-activity', { swarmId, agentId, lastActivity: Date.now() } satisfies SwarmTerminalEvents['agent-activity']);
     });
@@ -165,6 +229,10 @@ export class SwarmTerminalManager implements AgentMessenger {
       if (messages.length > 0) {
         this.logDebug(`[AGENT:MESSAGE:${agentId}]`, `count=${messages.length} (exec-complete seq=${payload.seq})`);
         this.messageRouter.routeMessages(messages, swarmId);
+      }
+
+      if (agent.getRole() === 'scout') {
+        this.tryIntegrateScoutAnalysis(agentId, text);
       }
     });
   }
@@ -207,6 +275,10 @@ export class SwarmTerminalManager implements AgentMessenger {
     return Array.from(this.agents.values()).map((agent) => agent.getStatus());
   }
 
+  public hasAgent(agentId: string): boolean {
+    return this.agents.has(agentId);
+  }
+
   public async stopAgent(agentId: string): Promise<void> {
     const swarmId = this.agentToSwarm.get(agentId) ?? 'unknown';
     const agent = this.agents.get(agentId);
@@ -216,6 +288,8 @@ export class SwarmTerminalManager implements AgentMessenger {
     await agent.terminate();
     this.agents.delete(agentId);
     this.agentToSwarm.delete(agentId);
+    this.agentProfiles.delete(agentId);
+    this.integratedScoutAgents.delete(agentId);
     this.outputHistory.delete(agentId);
     this.eventEmitter.emit('agent-stopped', { swarmId, agentId, timestamp: Date.now() } satisfies SwarmTerminalEvents['agent-stopped']);
   }
@@ -240,4 +314,111 @@ export class SwarmTerminalManager implements AgentMessenger {
     const lines = this.outputHistory.get(agentId) ?? [];
     return lines.slice(-n);
   }
+
+  private tryIntegrateScoutAnalysis(agentId: string, candidateText?: string): void {
+    if (this.integratedScoutAgents.has(agentId)) {
+      return;
+    }
+
+    const swarmId = this.agentToSwarm.get(agentId);
+    if (!swarmId) {
+      return;
+    }
+
+    const text = candidateText?.trim() || this.getAgentOutput(agentId, this.maxOutputLines).join('\n').trim();
+    if (!text.includes('## KEY FILES') || !text.includes('## COMMON PATTERNS')) {
+      return;
+    }
+
+    try {
+      const analysis = parseScoutReport(text);
+      const now = Date.now();
+      this.orchestrator.addCoordinatorContext(swarmId, {
+        conventions: formatScoutConventions(analysis),
+        patterns: formatScoutPatterns(analysis),
+        security: formatScoutSecurity(analysis),
+        testing: formatScoutTesting(analysis),
+        scoutFindings: formatScoutFindings(analysis),
+        scoutUpdatedAt: now
+      });
+      this.integratedScoutAgents.add(agentId);
+      this.notifyCoordinatorOfScoutAnalysis(swarmId, agentId, analysis);
+      this.logDebug(`[SCOUT:CONTEXT:${agentId}]`, 'integrated structured scout report into shared context');
+    } catch {
+      // Scout output may still be streaming; ignore until a complete report is available.
+    }
+  }
+
+  private notifyCoordinatorOfScoutAnalysis(swarmId: string, scoutAgentId: string, analysis: ScoutAnalysis): void {
+    const state = this.orchestrator.getSwarmState(swarmId);
+    const coordinator = Array.from(state.agents.values()).find((agent) => agent.role === 'coordinator');
+    if (!coordinator) {
+      return;
+    }
+
+    const summary = [
+      '[SCOUT CONTEXT UPDATED]',
+      `Scout: ${scoutAgentId}`,
+      `Key files: ${analysis.keyFiles.slice(0, 5).map((item) => item.file).join(', ') || 'none'}`,
+      `Patterns: ${analysis.commonPatterns.slice(0, 4).map((item) => item.name).join(', ') || 'none'}`,
+      `Risks: ${analysis.risks.slice(0, 3).join(' | ') || 'none'}`,
+      'Use this context for future decomposition, blocker handling, and task refinement.'
+    ].join('\r\n');
+
+    try {
+      this.sendToAgent(coordinator.agentId, `${summary}\r\n`);
+    } catch {
+      // Best-effort only.
+    }
+  }
+}
+
+function formatScoutConventions(analysis: ScoutAnalysis): string {
+  const naming = analysis.namingConventions;
+  const keyFiles = analysis.keyFiles.slice(0, 6).map((item) => `${item.file}: ${item.purpose}`);
+  return [
+    `Functions: ${naming.functions}`,
+    `Classes: ${naming.classes}`,
+    `Files: ${naming.files}`,
+    keyFiles.length > 0 ? `Key files: ${keyFiles.join(' | ')}` : null
+  ].filter(Boolean).join('\n');
+}
+
+function formatScoutPatterns(analysis: ScoutAnalysis): string {
+  const patterns = analysis.commonPatterns.map((item) => `${item.name}: ${item.description}`);
+  const utilities = analysis.existingUtilities.slice(0, 8).map((item) => `${item.name}: ${item.description}`);
+  return [
+    patterns.length > 0 ? patterns.join('\n') : null,
+    utilities.length > 0 ? `Utilities: ${utilities.join(' | ')}` : null
+  ].filter(Boolean).join('\n');
+}
+
+function formatScoutSecurity(analysis: ScoutAnalysis): string {
+  const practices = analysis.securityPractices.join(' | ');
+  const risks = analysis.risks.slice(0, 5).join(' | ');
+  return [
+    practices || null,
+    risks ? `Watch-outs: ${risks}` : null
+  ].filter(Boolean).join('\n');
+}
+
+function formatScoutTesting(analysis: ScoutAnalysis): string {
+  const testingSignals = analysis.keyFiles
+    .filter((item) => /test|spec|vitest|jest|playwright/i.test(item.file) || /test/i.test(item.purpose))
+    .slice(0, 6)
+    .map((item) => item.file);
+
+  if (testingSignals.length === 0) {
+    return 'Follow existing automated tests when present and add coverage for changed critical logic.';
+  }
+
+  return `Existing test signals: ${testingSignals.join(', ')}`;
+}
+
+function formatScoutFindings(analysis: ScoutAnalysis): string {
+  return [
+    analysis.keyFiles.slice(0, 8).map((item) => `${item.file}: ${item.purpose}`).join(' | '),
+    analysis.commonPatterns.slice(0, 6).map((item) => `${item.name}: ${item.description}`).join(' | '),
+    analysis.risks.slice(0, 5).join(' | ')
+  ].filter(Boolean).join('\n');
 }

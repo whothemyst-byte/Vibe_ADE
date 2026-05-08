@@ -177,10 +177,6 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
   const forceWideLayout = enableHorizontalScroll && paneIds.length >= 8;
   const minGridWidth = forceWideLayout ? Math.max(1200, preset.columns * 320) : undefined;
 
-  const paneIndexById = useMemo(() => {
-    return new Map<PaneId, number>(paneOrder.map((paneId, index) => [paneId, index]));
-  }, [paneOrder]);
-
   return (
     <div className="pane-layout-shell">
       <div
@@ -223,7 +219,6 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
               {workspace.paneTypes[paneId] === 'browser' ? (
                 <BrowserPane
                   paneId={paneId}
-                  displayIndex={(paneIndexById.get(paneId) ?? 0) + 1}
                   workspace={workspace}
                   onFocus={() => void setActivePane(paneId)}
                   onPaneDragStart={() => setDraggedPaneId(paneId)}
@@ -235,7 +230,6 @@ export function PaneLayout({ workspace, enableHorizontalScroll = false }: PaneLa
               ) : (
                 <TerminalPane
                   paneId={paneId}
-                  displayIndex={(paneIndexById.get(paneId) ?? 0) + 1}
                   workspace={workspace}
                   onFocus={() => void setActivePane(paneId)}
                   onPaneDragStart={() => setDraggedPaneId(paneId)}

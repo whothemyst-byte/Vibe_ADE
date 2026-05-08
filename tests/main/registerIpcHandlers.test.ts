@@ -106,4 +106,68 @@ describe('registerIpcHandlers', () => {
     expect(terminalManager.runStructuredCommand).toHaveBeenCalledTimes(1);
     expect(result.warning).toBeDefined();
   });
+
+  it('normalizes and validates swarm codebaseRoot before initialization', async () => {
+    const webContents = { send: vi.fn() };
+    const workspaceRoot = process.cwd();
+
+    const workspaceManager = {
+      list: vi.fn(() => ({
+        activeWorkspaceId: 'w1',
+        workspaces: [{ id: 'w1', rootDir: workspaceRoot }]
+      })),
+      templates: vi.fn(() => []),
+      create: vi.fn(),
+      clone: vi.fn(),
+      rename: vi.fn(),
+      remove: vi.fn(),
+      setActive: vi.fn(),
+      save: vi.fn()
+    };
+
+    registerIpcHandlers({
+      workspaceManager: workspaceManager as never,
+      terminalManager: {
+        onData: vi.fn(() => () => {}),
+        onExit: vi.fn(() => () => {}),
+        startSession: vi.fn(),
+        stopSession: vi.fn(),
+        sendInput: vi.fn(),
+        executeInSession: vi.fn(),
+        resize: vi.fn(),
+        getSessionSnapshot: vi.fn(),
+        runStructuredCommand: vi.fn()
+      } as never,
+      templateRunner: {
+        onProgress: vi.fn(() => () => {}),
+        run: vi.fn()
+      } as never,
+      authManager: {
+        getSession: vi.fn(),
+        login: vi.fn(),
+        signup: vi.fn(),
+        logout: vi.fn()
+      } as never,
+      cloudSyncManager: {
+        getStatus: vi.fn(),
+        listRemoteWorkspaces: vi.fn(),
+        getSyncPreview: vi.fn(),
+        pushLocalState: vi.fn(),
+        pullRemoteToLocal: vi.fn()
+      } as never,
+      webContents: webContents as never,
+      setSaveMenuEnabled: vi.fn()
+    });
+
+    const create = getHandler('swarm:create');
+    const invalid = await create({}, {
+      swarmId: 'swarm-1',
+      goal: 'Build a site',
+      codebaseRoot: '.\\definitely-missing-folder',
+      agents: [{ agentId: 'coordinator-1', role: 'coordinator', cliProvider: 'codex' }]
+    }) as { success: boolean; error?: string };
+
+    expect(invalid.success).toBe(false);
+    expect(invalid.error).toContain('codebaseRoot');
+  });
 });

@@ -1,16 +1,44 @@
 import type { SwarmSharedContext, SwarmTask } from '@main/types/SwarmOrchestration';
+import type { SwarmReviewStrictness } from '@shared/ipc';
+
+type BuilderProfile = Readonly<{
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  promptOverride?: string;
+  reviewStrictness?: SwarmReviewStrictness;
+}>;
 
 /**
  * Build the Builder role prompt for implementing a specific task.
  */
-export function buildBuilderPrompt(task: SwarmTask, sharedContext: SwarmSharedContext, scout?: string): string {
+export function buildBuilderPrompt(
+  task: SwarmTask,
+  sharedContext: SwarmSharedContext,
+  profile?: BuilderProfile,
+  scout?: string
+): string {
   const ownedFiles = Array.from(task.fileOwnership.files).sort();
   const acceptance = task.context.acceptanceCriteria.map((c) => `- ${c}`).join('\n') || '- (NONE PROVIDED)';
   const constraints = task.context.constraints.length > 0 ? task.context.constraints.map((c) => `- ${c}`).join('\n') : '- (NONE)';
+  const persona = profile?.personaLabel?.trim() || 'Senior Software Engineer';
+  const personality = profile?.personality?.trim() || 'Pragmatic, methodical, low-chatter, and biased toward shipping correct code.';
+  const specialization = profile?.specialization?.trim() || 'General implementation';
+  const scoutFindings = sharedContext.scoutFindings?.trim() || '(NONE AVAILABLE)';
+  const collaborationThread = (task.tracking.completionEvidence?.evidenceNotes?.length ?? 0) > 0
+    ? task.tracking.completionEvidence?.evidenceNotes.map((note) => `- ${note}`).join('\n')
+    : '(NONE)';
 
   return `
 [SYSTEM ROLE]
-YOU ARE A SENIOR SOFTWARE ENGINEER ON A TEAM WORKING ON VIBE-ADE.
+YOU ARE A QUANSWARM BUILDER.
+YOU OPERATE AS A ${persona.toUpperCase()} WORKING ON VIBE-ADE.
+
+[PERSONALITY]
+${personality}
+
+[SPECIALIZATION]
+${specialization}
 
 [YOUR TASK]
 COMPLETE THE FOLLOWING TASK:
@@ -30,6 +58,7 @@ CONVENTIONS: ${sharedContext.conventions}
 EXISTING PATTERNS: ${sharedContext.existingPatterns}
 SECURITY: ${sharedContext.security}
 TESTING: ${sharedContext.testing}
+SCOUT FINDINGS: ${scoutFindings}
 
 [ACCEPTANCE CRITERIA]
 ${acceptance}
@@ -42,15 +71,27 @@ ${constraints}
 
 [WORKFLOW]
 1. UNDERSTAND: READ THIS TASK AND ACCEPTANCE CRITERIA
-2. EXPLORE: IF YOU NEED GUIDANCE, ASK @SCOUT WITH A SINGLE, SPECIFIC QUESTION
+2. EXPLORE: IF YOU NEED GUIDANCE, ASK @scout WITH A SINGLE, SPECIFIC QUESTION
 3. PLAN: DRAFT YOUR APPROACH BRIEFLY
 4. IMPLEMENT: WRITE CODE MATCHING EXISTING PATTERNS
 5. TEST: VERIFY ALL ACCEPTANCE CRITERIA PASS
-6. SUBMIT: WHEN DONE, OUTPUT EXACTLY:
+6. PREP FOR REVIEW: MAKE THE CHANGE LEGIBLE FOR A STRICT REVIEWER
+7. SUBMIT: WHEN DONE, OUTPUT EXACTLY:
+   FILES_MODIFIED: [file1, file2]
    MARK_DONE: ${task.id}
 
 [SCOUT GUIDANCE (IF AVAILABLE)]
 ${scout ? scout : '(NONE)'}
+
+[RECENT EXECUTION SIGNALS]
+${collaborationThread}
+
+[REVIEW POSTURE]
+ASSUME REVIEWER STRICTNESS IS ${profile?.reviewStrictness?.toUpperCase() || 'STRICT'}.
+DO NOT LEAVE OBVIOUS GAPS FOR REVIEW TO CATCH.
+
+[ROLE OVERRIDE]
+${profile?.promptOverride?.trim() || '(NONE)'}
 
 [STRICT RULES]
 - ONLY MODIFY FILES IN YOUR OWNERSHIP LIST
@@ -59,8 +100,10 @@ ${scout ? scout : '(NONE)'}
 - MATCH EXISTING CODE STYLE AND PATTERNS
 - WRITE TESTS FOR CRITICAL LOGIC (IF APPLICABLE)
 - HANDLE ERRORS PROPERLY
+- DO NOT CLAIM DONE UNTIL THE WORK WOULD SURVIVE A PRINCIPAL-ENGINEER REVIEW
 
 WHEN COMPLETE, OUTPUT ONLY:
+FILES_MODIFIED: [file1, file2]
 MARK_DONE: ${task.id}
 `.trim();
 }
@@ -121,4 +164,3 @@ function parseBracketList(raw: string): string[] {
     .filter(Boolean)
     .map((s) => s.replace(/^['"]|['"]$/g, ''));
 }
-

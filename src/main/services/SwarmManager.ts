@@ -1,8 +1,9 @@
 import { EventEmitter } from 'node:events';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { buildCoordinatorPrompt } from '@main/prompts/CoordinatorPrompt';
-import { buildScoutPrompt } from '@main/prompts/ScoutPrompt';
+import { buildScoutWorkPrompt } from '@main/prompts/ScoutPrompt';
 import { buildBuilderPrompt } from '@main/prompts/BuilderPrompt';
 import { buildReviewerWorkPrompt } from '@main/prompts/ReviewerPrompt';
 import { FileOwnershipManager } from '@main/services/FileOwnershipManager';
@@ -11,12 +12,18 @@ import { SwarmEventBus, swarmEventBus } from '@main/services/SwarmEventBus';
 import { SwarmOrchestrator } from '@main/services/SwarmOrchestrator';
 import { SwarmTerminalManager } from '@main/services/SwarmTerminalManager';
 import type { AgentRoleName, CliProvider } from '@main/services/AgentProcess';
-import { AgentRole, type AgentState, type SwarmState, type SwarmTask, type TaskId } from '@main/types/SwarmOrchestration';
+import { AgentRole, type AgentState, type FilePath, type SwarmMailboxEntry, type SwarmState, type SwarmTask, type SwarmTaskArtifact, type SwarmTaskEvidence, type TaskId } from '@main/types/SwarmOrchestration';
+import type { SwarmReviewStrictness } from '@shared/ipc';
 
 export type SwarmAgentConfig = Readonly<{
   agentId: string;
   role: AgentRoleName;
   cliProvider: CliProvider;
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  promptOverride?: string;
+  reviewStrictness?: SwarmReviewStrictness;
 }>;
 
 export type InitializeSwarmConfig = Readonly<{
@@ -32,6 +39,14 @@ type SwarmRuntime = {
   stopRequested: boolean;
   loopRunning: boolean;
 };
+
+type TaskEvidenceBaseline = Readonly<{
+  swarmId: string;
+  taskId: TaskId;
+  rootDir: string;
+  manifest: ReadonlyMap<FilePath, string>;
+  capturedAt: number;
+}>;
 
 /**
  * SwarmManager wires together all core services and provides a single entrypoint
@@ -58,6 +73,7 @@ export class SwarmManager {
 
   // Track which reviewer was asked to review which task.
   private readonly reviewerByTask: Map<string, string> = new Map();
+  private readonly taskEvidenceBaselines: Map<string, TaskEvidenceBaseline> = new Map();
 
   // Throttle agent status updates to UI.
   private readonly lastAgentStatusEmitAt: Map<string, number> = new Map();
@@ -68,7 +84,12 @@ export class SwarmManager {
     this.eventBus = swarmEventBus;
     this.relayEmitter = new EventEmitter();
     this.relayEmitter.setMaxListeners(200);
-    this.terminalManager = new SwarmTerminalManager(this.orchestrator, this.relayEmitter);
+    this.terminalManager = new SwarmTerminalManager(this.orchestrator, this.relayEmitter, {
+      resolveTaskCompletionEvidence: async ({ swarmId, taskId, agentId, summary, reportedFilesModified }) =>
+        this.buildTaskCompletionEvidence(swarmId, taskId as TaskId, agentId, summary, reportedFilesModified),
+      postMailboxMessage: (swarmId, entry) => this.orchestrator.postMailboxMessage(swarmId, entry),
+      addTaskArtifact: (swarmId, taskId, artifact) => this.orchestrator.addTaskArtifact(swarmId, taskId as TaskId, artifact)
+    });
     this.blockerDetection = blockerDetectionService;
 
     this.wireEventBridges();
@@ -88,83 +109,88 @@ export class SwarmManager {
   public async initializeSwarm(config: InitializeSwarmConfig): Promise<SwarmState> {
     console.log(`[SWARM INIT] Starting swarm: ${config.swarmId}`);
 
-    const codebaseStructure = await this.analyzeCodebase(config.codebaseRoot);
-    const swarmState = this.orchestrator.createSwarm(config.swarmId, config.goal, codebaseStructure);
-
-    this.runtime.set(config.swarmId, {
-      rootDir: config.codebaseRoot,
-      agents: config.agents,
-      stopRequested: false,
-      loopRunning: false
-    });
-
-    this.eventBus.emit({
-      type: 'swarm-created',
-      swarmId: config.swarmId,
-      goal: config.goal,
-      timestamp: Date.now()
-    });
-
     const coordinator = config.agents.find((a) => a.role === 'coordinator');
     if (!coordinator) {
       throw new Error('No coordinator agent found');
     }
 
-    // Ensure blocker notifications target the active coordinator agent ID for this swarm.
-    this.blockerDetection.attach({
-      orchestrator: this.orchestrator,
-      terminalManager: this.terminalManager,
-      fileOwnershipManager: this.fileOwnershipManager,
-      messenger: this.terminalManager,
-      coordinatorAgentId: coordinator.agentId
-    });
+    const normalizedRoot = path.resolve(config.codebaseRoot);
+    try {
+      const codebaseStructure = await this.analyzeCodebase(normalizedRoot);
+      const swarmState = this.orchestrator.createSwarm(config.swarmId, config.goal, codebaseStructure, normalizedRoot);
 
-    // Start agents in a resilient order:
-    // 1) Scout (optional) to begin analysis early
-    // 2) Coordinator next, and inject decomposition prompt immediately after it starts
-    // 3) Remaining agents
-    const scouts = config.agents.filter((a) => a.role === 'scout');
-    const others = config.agents.filter((a) => a.role !== 'scout' && a.agentId !== coordinator.agentId);
-
-    for (const agent of scouts) {
-      await this.startAgent(config.swarmId, agent, config.codebaseRoot);
-    }
-
-    await this.startAgent(config.swarmId, coordinator, config.codebaseRoot);
-
-    const coordinatorContext = buildCoordinatorPrompt(config.goal, codebaseStructure, config.agents.length);
-    this.terminalManager.sendToAgent(coordinator.agentId, `${coordinatorContext}\r\n`);
-
-    for (const agent of others) {
-      await this.startAgent(config.swarmId, agent, config.codebaseRoot);
-    }
-
-    // Do NOT block swarm:create on coordinator output.
-    // Task decomposition can take time depending on provider startup (models, MCP, etc).
-    // Instead, start a background waiter that kicks off the scheduler loop when tasks appear.
-    void this.eventBus
-      .waitFor('tasks-decomposed', 120_000)
-      .then(() => {
-        const runtime = this.runtime.get(config.swarmId);
-        if (!runtime || runtime.stopRequested) {
-          return;
-        }
-        void this.runSwarmLoop(config.swarmId);
-      })
-      .catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        this.eventBus.emit({
-          type: 'error-occurred',
-          swarmId: config.swarmId,
-          severity: 'high',
-          message: `Coordinator did not decompose tasks in time. ${message}`,
-          component: 'SwarmManager.initializeSwarm',
-          timestamp: Date.now()
-        });
+      this.runtime.set(config.swarmId, {
+        rootDir: normalizedRoot,
+        agents: config.agents,
+        stopRequested: false,
+        loopRunning: false
       });
 
-    console.log(`[SWARM INIT] Agents started; awaiting task decomposition: ${config.swarmId}`);
-    return swarmState;
+      this.eventBus.emit({
+        type: 'swarm-created',
+        swarmId: config.swarmId,
+        goal: config.goal,
+        timestamp: Date.now()
+      });
+
+      // Ensure blocker notifications target the active coordinator agent ID for this swarm.
+      this.blockerDetection.attach({
+        orchestrator: this.orchestrator,
+        terminalManager: this.terminalManager,
+        fileOwnershipManager: this.fileOwnershipManager,
+        messenger: this.terminalManager,
+        coordinatorAgentId: coordinator.agentId
+      });
+
+      // Start the coordinator first, inject the decomposition prompt, then bring up the rest
+      // of the swarm in an idle state. No non-coordinator agent should begin work until it is assigned.
+      const others = config.agents.filter((a) => a.agentId !== coordinator.agentId);
+
+      await this.startAgent(config.swarmId, coordinator, normalizedRoot);
+
+      const coordinatorContext = buildCoordinatorPrompt(
+        config.goal,
+        codebaseStructure,
+        config.agents,
+        this.orchestrator.getSwarmState(config.swarmId).sharedContext,
+        coordinator.promptOverride
+      );
+      this.terminalManager.sendToAgent(coordinator.agentId, `${coordinatorContext}\r\n`);
+
+      for (const agent of others) {
+        await this.startAgent(config.swarmId, agent, normalizedRoot);
+      }
+
+      // Do NOT block swarm:create on coordinator output.
+      // Task decomposition can take time depending on provider startup (models, MCP, etc).
+      // Instead, start a background waiter that kicks off the scheduler loop when tasks appear.
+      void this.eventBus
+        .waitFor('tasks-decomposed', 300_000, (event) => event.swarmId === config.swarmId)
+        .then(() => {
+          const runtime = this.runtime.get(config.swarmId);
+          if (!runtime || runtime.stopRequested) {
+            return;
+          }
+          void this.runSwarmLoop(config.swarmId);
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          this.eventBus.emit({
+            type: 'error-occurred',
+            swarmId: config.swarmId,
+            severity: 'high',
+            message: `Coordinator did not decompose tasks within 5 minutes. ${message}`,
+            component: 'SwarmManager.initializeSwarm',
+            timestamp: Date.now()
+          });
+        });
+
+      console.log(`[SWARM INIT] Agents started; awaiting task decomposition: ${config.swarmId}`);
+      return swarmState;
+    } catch (error) {
+      await this.cleanupFailedSwarmInitialization(config.swarmId);
+      throw error;
+    }
   }
 
   /**
@@ -180,6 +206,11 @@ export class SwarmManager {
     const agentIds = runtime.agents.map((a) => a.agentId);
     await Promise.all(agentIds.map((id) => this.terminalManager.stopAgent(id)));
     this.runtime.delete(swarmId);
+    for (const key of this.taskEvidenceBaselines.keys()) {
+      if (key.startsWith(`${swarmId}:`)) {
+        this.taskEvidenceBaselines.delete(key);
+      }
+    }
   }
 
   /**
@@ -234,17 +265,16 @@ export class SwarmManager {
       role: agentConfig.role,
       cliProvider: agentConfig.cliProvider,
       workspaceDir: codebaseRoot,
-      initialContext: ''
+      initialContext: '',
+      personaLabel: agentConfig.personaLabel,
+      personality: agentConfig.personality,
+      specialization: agentConfig.specialization,
+      promptOverride: agentConfig.promptOverride,
+      reviewStrictness: agentConfig.reviewStrictness
     });
 
     // Register agent with the orchestrator for role-aware routing/monitoring.
     this.orchestrator.registerAgent(swarmId, agentConfig.agentId, toAgentRoleEnum(agentConfig.role));
-
-    // Start Scout analysis early (best-effort, no hard wait).
-    if (agentConfig.role === 'scout') {
-      const scoutPrompt = buildScoutPrompt(codebaseRoot);
-      this.terminalManager.sendToAgent(agentConfig.agentId, `${scoutPrompt}\r\n`);
-    }
   }
 
   /**
@@ -323,28 +353,59 @@ export class SwarmManager {
     console.log(`[TASK ASSIGN] ${taskId}  ${agentId}`);
 
     this.orchestrator.assignTaskToAgent(swarmId, taskId, agentId);
-    const state = this.orchestrator.getSwarmState(swarmId);
-    const task = state.tasks.get(taskId);
-    if (!task) {
-      throw new Error(`Task "${taskId}" missing after assignment.`);
+    try {
+      const state = this.orchestrator.getSwarmState(swarmId);
+      const task = state.tasks.get(taskId);
+      if (!task) {
+        throw new Error(`Task "${taskId}" missing after assignment.`);
+      }
+
+      // Emit "task-started" for UI purposes (orchestrator uses ASSIGNED internally).
+      this.eventBus.emit({
+        type: 'task-started',
+        swarmId,
+        taskId,
+        agentId,
+        timestamp: Date.now()
+      });
+
+      await this.captureTaskEvidenceBaseline(swarmId, task);
+      this.orchestrator.postMailboxMessage(swarmId, {
+        taskId,
+        fromAgentId: 'system',
+        toAgentId: agentId,
+        category: 'system',
+        subject: `Task assigned: ${taskId}`,
+        body: `Ownership scope: ${Array.from(task.fileOwnership.files).join(', ') || '(none)'}`
+      });
+
+      // Send task prompt (role-aware).
+      const executionRole = task.execution?.role ?? AgentRole.BUILDER;
+      const agentConfig = this.getAgentConfig(swarmId, agentId);
+      const prompt =
+        executionRole === AgentRole.REVIEWER
+          ? buildReviewerWorkPrompt(task, state.sharedContext, agentConfig)
+          : executionRole === AgentRole.SCOUT
+            ? buildScoutWorkPrompt(task, state.sharedContext, agentConfig)
+            : buildBuilderPrompt(task, state.sharedContext, agentConfig);
+      this.terminalManager.sendToAgent(agentId, `${prompt}\r\n`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      try {
+        this.orchestrator.releaseTaskAssignment(swarmId, taskId, agentId, `Task dispatch failed: ${message}`);
+      } catch (rollbackError) {
+        const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        this.eventBus.emit({
+          type: 'error-occurred',
+          swarmId,
+          severity: 'critical',
+          message: `Task dispatch failed for ${taskId} and rollback also failed. ${rollbackMessage}`,
+          component: 'SwarmManager.assignTaskToAgent',
+          timestamp: Date.now()
+        });
+      }
+      throw error;
     }
-
-    // Emit "task-started" for UI purposes (orchestrator uses ASSIGNED internally).
-    this.eventBus.emit({
-      type: 'task-started',
-      swarmId,
-      taskId,
-      agentId,
-      timestamp: Date.now()
-    });
-
-    // Send task prompt (role-aware).
-    const executionRole = task.execution?.role ?? AgentRole.BUILDER;
-    const prompt =
-      executionRole === AgentRole.REVIEWER
-        ? buildReviewerWorkPrompt(task, state.sharedContext)
-        : buildBuilderPrompt(task, state.sharedContext);
-    this.terminalManager.sendToAgent(agentId, `${prompt}\r\n`);
   }
 
   private getAvailableAgentsByRole(swarm: SwarmState, agents: readonly SwarmAgentConfig[]): Map<AgentRole, SwarmAgentConfig[]> {
@@ -359,12 +420,61 @@ export class SwarmManager {
 
     const byRole = new Map<AgentRole, SwarmAgentConfig[]>();
     for (const agent of agents) {
+      if (!this.terminalManager.hasAgent(agent.agentId)) continue;
       if (busy.has(agent.agentId)) continue;
       const role = toAgentRoleEnum(agent.role);
       const prev = byRole.get(role) ?? [];
       byRole.set(role, [...prev, agent]);
     }
+    for (const [role, pool] of byRole.entries()) {
+      byRole.set(role, [...pool].sort((a, b) => this.compareAgentFitForAvailableTask(swarm, role, a, b)));
+    }
     return byRole;
+  }
+
+  private compareAgentFitForAvailableTask(
+    swarm: SwarmState,
+    role: AgentRole,
+    a: SwarmAgentConfig,
+    b: SwarmAgentConfig
+  ): number {
+    const readyTasks = Array.from(swarm.tasks.values()).filter((task) => {
+      const taskRole = task.execution?.role ?? AgentRole.BUILDER;
+      return task.status === 'QUEUED' && taskRole === role;
+    });
+    const bestA = Math.max(0, ...readyTasks.map((task) => this.agentFitScore(task, a)));
+    const bestB = Math.max(0, ...readyTasks.map((task) => this.agentFitScore(task, b)));
+    if (bestA !== bestB) {
+      return bestB - bestA;
+    }
+    return a.agentId.localeCompare(b.agentId);
+  }
+
+  private agentFitScore(task: SwarmTask, agent: SwarmAgentConfig): number {
+    const text = [
+      task.title,
+      task.description,
+      ...Array.from(task.fileOwnership.files),
+      ...task.context.acceptanceCriteria,
+      task.context.codePatterns
+    ].join(' ').toLowerCase();
+    const specialization = `${agent.specialization ?? ''} ${agent.personaLabel ?? ''} ${agent.personality ?? ''}`.toLowerCase();
+    let score = 0;
+    for (const token of specialization.split(/[^a-z0-9]+/).filter((entry) => entry.length >= 4)) {
+      if (text.includes(token)) {
+        score += 4;
+      }
+    }
+    if (agent.role === 'reviewer' && agent.reviewStrictness === 'critical' && /security|auth|payment|shell|command/i.test(text)) {
+      score += 5;
+    }
+    if (agent.role === 'scout' && /map|analy|pattern|risk|audit/i.test(text)) {
+      score += 3;
+    }
+    if (agent.role === 'builder' && /test|refactor|prompt|ui|render|ipc/i.test(text)) {
+      score += 2;
+    }
+    return score;
   }
 
   private wireEventBridges(): void {
@@ -396,6 +506,15 @@ export class SwarmManager {
         currentTask: undefined,
         timestamp
       });
+    });
+    this.orchestrator.on('task-evidence-updated', ({ swarmId, taskId, evidence, timestamp }) => {
+      this.eventBus.emit({ type: 'task-evidence-updated', swarmId, taskId, evidence, timestamp });
+    });
+    this.orchestrator.on('mailbox-message-posted', ({ swarmId, entry, timestamp }) => {
+      this.eventBus.emit({ type: 'mailbox-message-posted', swarmId, entry, timestamp });
+    });
+    this.orchestrator.on('task-artifact-added', ({ swarmId, taskId, artifact, timestamp }) => {
+      this.eventBus.emit({ type: 'task-artifact-added', swarmId, taskId, artifact, timestamp });
     });
     this.orchestrator.on('task-approved', ({ swarmId, taskId, feedback, timestamp }) => {
       const reviewerId = this.reviewerByTask.get(`${swarmId}:${taskId}`) ?? 'reviewer-1';
@@ -447,6 +566,20 @@ export class SwarmManager {
       this.eventBus.emit({ type: 'agent-status-changed', swarmId, agentId, status: 'OFFLINE', currentTask: undefined, timestamp });
     });
     this.terminalManager.on('agent-crashed', ({ swarmId, agentId, exitCode, timestamp }) => {
+      const state = this.safeGetSwarmState(swarmId);
+      const currentTask = state?.agents.get(agentId)?.currentTask;
+      if (currentTask) {
+        try {
+          this.orchestrator.escalateBlocker(swarmId, {
+            agentId,
+            taskId: currentTask,
+            reason: `Agent crashed while handling ${currentTask}: exit code ${exitCode}.`,
+            suggestedFix: 'Restart the agent or reassign the task before resuming the swarm.'
+          });
+        } catch {
+          // Best effort; the error event below still surfaces the failure.
+        }
+      }
       this.eventBus.emit({
         type: 'error-occurred',
         swarmId,
@@ -549,6 +682,11 @@ export class SwarmManager {
     }
   }
 
+  private getAgentConfig(swarmId: string, agentId: string): SwarmAgentConfig | undefined {
+    const runtime = this.runtime.get(swarmId);
+    return runtime?.agents.find((agent) => agent.agentId === agentId);
+  }
+
   private resolveRole(agentId: string, swarmId: string): AgentRoleName | null {
     const runtime = this.runtime.get(swarmId);
     if (!runtime) return null;
@@ -567,6 +705,118 @@ export class SwarmManager {
       }
     }
     return 'unknown';
+  }
+
+  private async cleanupFailedSwarmInitialization(swarmId: string): Promise<void> {
+    try {
+      await this.stopSwarm(swarmId);
+    } catch {
+      // Best effort cleanup.
+    }
+
+    this.orchestrator.removeSwarm(swarmId);
+    this.eventBus.clearHistory(swarmId);
+
+    for (const key of this.reviewerByTask.keys()) {
+      if (key.startsWith(`${swarmId}:`)) {
+        this.reviewerByTask.delete(key);
+      }
+    }
+
+    for (const key of this.lastAgentStatusEmitAt.keys()) {
+      if (key.startsWith(`${swarmId}:`)) {
+        this.lastAgentStatusEmitAt.delete(key);
+      }
+    }
+  }
+
+  private async captureTaskEvidenceBaseline(swarmId: string, task: SwarmTask): Promise<void> {
+    const runtime = this.runtime.get(swarmId);
+    if (!runtime) {
+      return;
+    }
+    const manifest = await this.buildWorkspaceManifest(runtime.rootDir);
+    this.taskEvidenceBaselines.set(`${swarmId}:${task.id}`, {
+      swarmId,
+      taskId: task.id,
+      rootDir: runtime.rootDir,
+      manifest,
+      capturedAt: Date.now()
+    });
+  }
+
+  private async buildTaskCompletionEvidence(
+    swarmId: string,
+    taskId: TaskId,
+    agentId: string,
+    summary: string,
+    reportedFilesModified: readonly string[]
+  ): Promise<SwarmTaskEvidence> {
+    const state = this.orchestrator.getSwarmState(swarmId);
+    const task = state.tasks.get(taskId);
+    const runtime = this.runtime.get(swarmId);
+    const baseline = this.taskEvidenceBaselines.get(`${swarmId}:${taskId}`);
+    const currentManifest = runtime ? await this.buildWorkspaceManifest(runtime.rootDir) : new Map<FilePath, string>();
+    const observedFilesModified = baseline ? diffWorkspaceManifest(baseline.manifest, currentManifest) : [...reportedFilesModified];
+    const ownedFiles = new Set(task ? Array.from(task.fileOwnership.files) : []);
+    const ownershipViolations = Array.from(
+      new Set([...reportedFilesModified, ...observedFilesModified].filter((filePath) => filePath && !ownedFiles.has(filePath)))
+    ).sort();
+    const evidenceNotes: string[] = [];
+
+    if (!baseline) {
+      evidenceNotes.push('No assignment baseline was available; evidence falls back to reported files.');
+    }
+    if (reportedFilesModified.length === 0) {
+      evidenceNotes.push('Builder did not report FILES_MODIFIED.');
+    }
+    if (observedFilesModified.length === 0) {
+      evidenceNotes.push('No workspace file changes were observed relative to the task baseline.');
+    }
+    const unreportedObserved = observedFilesModified.filter((filePath) => !reportedFilesModified.includes(filePath));
+    if (unreportedObserved.length > 0) {
+      evidenceNotes.push(`Observed changes not declared by builder: ${unreportedObserved.join(', ')}`);
+    }
+    const unobservedReported = reportedFilesModified.filter((filePath) => !observedFilesModified.includes(filePath));
+    if (unobservedReported.length > 0) {
+      evidenceNotes.push(`Builder reported files not observed in the workspace diff: ${unobservedReported.join(', ')}`);
+    }
+    if (ownershipViolations.length > 0) {
+      evidenceNotes.push(`Ownership violations detected: ${ownershipViolations.join(', ')}`);
+    }
+
+    const evidence: SwarmTaskEvidence = {
+      reportedFilesModified: [...reportedFilesModified].sort(),
+      observedFilesModified: [...observedFilesModified].sort(),
+      ownershipViolations,
+      evidenceNotes,
+      updatedAt: Date.now()
+    };
+
+    this.orchestrator.updateTaskEvidence(swarmId, taskId, evidence);
+    this.orchestrator.addTaskArtifact(swarmId, taskId, {
+      kind: 'evidence',
+      fromAgentId: 'system',
+      toAgentId: undefined,
+      title: `Completion evidence for ${taskId}`,
+      body: [
+        `Builder: ${agentId}`,
+        `Summary: ${summary}`,
+        `Reported files: ${evidence.reportedFilesModified.join(', ') || '(none)'}`,
+        `Observed files: ${evidence.observedFilesModified.join(', ') || '(none)'}`,
+        `Ownership violations: ${evidence.ownershipViolations.join(', ') || '(none)'}`,
+        `Notes: ${evidence.evidenceNotes.join(' | ') || '(none)'}`
+      ].join('\n')
+    });
+    this.orchestrator.postMailboxMessage(swarmId, {
+      taskId,
+      fromAgentId: 'system',
+      category: 'evidence',
+      subject: `Evidence ready for ${taskId}`,
+      body: `Observed ${evidence.observedFilesModified.length} changed file(s); ownership violations: ${evidence.ownershipViolations.length}.`
+    });
+    this.taskEvidenceBaselines.delete(`${swarmId}:${taskId}`);
+    return evidence;
   }
 
   private async analyzeCodebase(rootDir: string): Promise<string> {
@@ -613,6 +863,59 @@ export class SwarmManager {
     const lines = await walk(rootDir, 0);
     return lines.join('\n');
   }
+
+  private async buildWorkspaceManifest(rootDir: string): Promise<ReadonlyMap<FilePath, string>> {
+    const manifest = new Map<FilePath, string>();
+
+    const walk = async (dir: string): Promise<void> => {
+      const items = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+      for (const item of items) {
+        if (WORKSPACE_MANIFEST_IGNORED_DIRS.has(item.name)) {
+          continue;
+        }
+        const absolute = path.join(dir, item.name);
+        if (item.isDirectory()) {
+          await walk(absolute);
+          continue;
+        }
+        if (!item.isFile()) {
+          continue;
+        }
+        const relative = path.relative(rootDir, absolute).replace(/\\/g, '/');
+        manifest.set(relative, await buildFileSignature(absolute));
+      }
+    };
+
+    await walk(rootDir);
+    return manifest;
+  }
+}
+
+const WORKSPACE_MANIFEST_IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', '.next', '.turbo', '.cache', 'release']);
+
+async function buildFileSignature(filePath: string): Promise<string> {
+  const stats = await fs.stat(filePath);
+  if (!stats.isFile()) {
+    return 'missing';
+  }
+  const buffer = await fs.readFile(filePath);
+  const hash = createHash('sha1').update(buffer).digest('hex');
+  return `${stats.size}:${hash}`;
+}
+
+function diffWorkspaceManifest(previous: ReadonlyMap<FilePath, string>, next: ReadonlyMap<FilePath, string>): FilePath[] {
+  const changed = new Set<FilePath>();
+  for (const [filePath, signature] of previous.entries()) {
+    if (next.get(filePath) !== signature) {
+      changed.add(filePath);
+    }
+  }
+  for (const [filePath, signature] of next.entries()) {
+    if (previous.get(filePath) !== signature) {
+      changed.add(filePath);
+    }
+  }
+  return Array.from(changed).sort();
 }
 
 export const swarmManager = new SwarmManager();

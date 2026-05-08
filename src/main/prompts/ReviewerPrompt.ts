@@ -1,19 +1,38 @@
 import type { SwarmSharedContext, SwarmTask } from '@main/types/SwarmOrchestration';
+import type { SwarmReviewStrictness } from '@shared/ipc';
+
+type ReviewerProfile = Readonly<{
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  promptOverride?: string;
+  reviewStrictness?: SwarmReviewStrictness;
+}>;
 
 /**
  * Build a "Reviewer executes work" prompt for analysis/report tasks assigned to reviewers.
  *
  * This is distinct from {@link buildReviewerPrompt}, which is a quality-gate review of builder work.
  */
-export function buildReviewerWorkPrompt(task: SwarmTask, sharedContext: SwarmSharedContext): string {
+export function buildReviewerWorkPrompt(task: SwarmTask, sharedContext: SwarmSharedContext, profile?: ReviewerProfile): string {
   const ownedFiles = Array.from(task.fileOwnership.files).sort().join('\n') || '(none)';
   const criteria = (task.context.acceptanceCriteria ?? []).map((c) => `- ${c}`).join('\n') || '- (NONE PROVIDED)';
   const constraints = (task.context.constraints ?? []).map((c) => `- ${c}`).join('\n') || '- (NONE)';
   const structure = truncateLines(sharedContext.codebaseStructure || '', 120);
+  const persona = profile?.personaLabel?.trim() || 'Principal Engineer';
+  const personality = profile?.personality?.trim() || 'Exacting, concise, and evidence-driven.';
+  const specialization = profile?.specialization?.trim() || 'Quality audits and report execution';
 
   return `
 [SYSTEM ROLE]
-YOU ARE A PRINCIPAL ENGINEER (REVIEWER ROLE) EXECUTING A REVIEW/REPORT TASK.
+YOU ARE A QUANSWARM REVIEWER EXECUTING A REVIEW OR REPORT TASK.
+YOU OPERATE AS THE ${persona.toUpperCase()}.
+
+[PERSONALITY]
+${personality}
+
+[SPECIALIZATION]
+${specialization}
 
 [YOUR TASK]
 COMPLETE THE FOLLOWING TASK:
@@ -41,6 +60,9 @@ ${sharedContext.conventions || '(unknown)'}
 EXISTING PATTERNS:
 ${sharedContext.existingPatterns || '(unknown)'}
 
+SCOUT FINDINGS:
+${sharedContext.scoutFindings || '(unknown)'}
+
 [WORKFLOW]
 1. UNDERSTAND: READ TASK + ACCEPTANCE CRITERIA
 2. PLAN: OUTLINE WHAT YOU WILL PRODUCE
@@ -55,6 +77,9 @@ ${sharedContext.existingPatterns || '(unknown)'}
 - BE CONCISE AND STRUCTURED
 - FOLLOW PROJECT CONVENTIONS
 - DO NOT OUTPUT CHATTER; ONLY WORK AND FINAL MARK_DONE LINE
+
+[ROLE OVERRIDE]
+${profile?.promptOverride?.trim() || '(NONE)'}
 
 START NOW. WHEN COMPLETE, OUTPUT:
 MARK_DONE: ${task.id}
@@ -71,17 +96,52 @@ function truncateLines(text: string, maxLines: number): string {
 /**
  * Build the Reviewer role prompt for quality-gate review.
  */
-export function buildReviewerPrompt(task: SwarmTask, acceptanceCriteria: string[]): string {
+export function buildReviewerPrompt(
+  task: SwarmTask,
+  acceptanceCriteria: string[],
+  sharedContext: SwarmSharedContext,
+  profile?: ReviewerProfile
+): string {
   const ownedFiles = Array.from(task.fileOwnership.files).sort().join(', ');
   const criteria = (acceptanceCriteria.length > 0 ? acceptanceCriteria : task.context.acceptanceCriteria).map((c) => `- ${c}`).join('\n') || '- (NONE PROVIDED)';
+  const strictness = profile?.reviewStrictness ?? 'strict';
+  const personality = profile?.personality?.trim() || 'Independent, skeptical, and specific.';
+  const evidence = task.tracking.completionEvidence;
+  const reportedFiles = evidence?.reportedFilesModified.length ? evidence.reportedFilesModified.join(', ') : '(not reported)';
+  const observedFiles = evidence?.observedFilesModified.length ? evidence.observedFilesModified.join(', ') : '(not observed)';
+  const ownershipViolations = evidence?.ownershipViolations.length ? evidence.ownershipViolations.join(', ') : '(none)';
+  const evidenceNotes = evidence?.evidenceNotes.length ? evidence.evidenceNotes.map((note) => `- ${note}`).join('\n') : '- (none)';
 
   return `
 [SYSTEM ROLE]
-YOU ARE A PRINCIPAL ENGINEER (QUALITY GATE) REVIEWING COMPLETED WORK.
+YOU ARE THE QUANSWARM REVIEWER QUALITY GATE.
+YOU ARE AN INDEPENDENT PRINCIPAL ENGINEER REVIEWING COMPLETED WORK.
+
+[PERSONALITY]
+${personality}
+
+[REVIEW STRICTNESS]
+${strictness.toUpperCase()}
+
+[PROJECT CONTEXT]
+CONVENTIONS: ${sharedContext.conventions || '(unknown)'}
+EXISTING PATTERNS: ${sharedContext.existingPatterns || '(unknown)'}
+SECURITY: ${sharedContext.security || '(unknown)'}
+TESTING: ${sharedContext.testing || '(unknown)'}
+SCOUT FINDINGS: ${sharedContext.scoutFindings || '(unknown)'}
 
 [REVIEW TASK]
 TASK: ${task.id}
 TITLE: ${task.title}
+
+[COMPLETION EVIDENCE]
+REPORTED FILES_MODIFIED: ${reportedFiles}
+OBSERVED FILES_MODIFIED: ${observedFiles}
+TASK OWNERSHIP SCOPE: ${ownedFiles}
+OWNERSHIP VIOLATIONS: ${ownershipViolations}
+BUILDER SUMMARY: ${task.tracking.feedback || '(none provided)'}
+EVIDENCE NOTES:
+${evidenceNotes}
 
 [ACCEPTANCE CRITERIA TO VERIFY]
 ${criteria}
@@ -143,6 +203,12 @@ Blockers:
 - PROVIDE SPECIFIC, ACTIONABLE FEEDBACK
 - BE CONSTRUCTIVE BUT FIRM ON QUALITY
 - DO NOT APPROVE INCOMPLETE WORK
+- TREAT MISSING EVIDENCE AS A REASON TO BE MORE SKEPTICAL, NOT LESS
+- REJECT IF OBSERVED FILES FALL OUTSIDE OWNERSHIP SCOPE
+- REJECT IF THE BUILDER'S REPORTED FILES DO NOT MATCH OBSERVED CHANGES WITHOUT A CREDIBLE EXPLANATION
+
+[ROLE OVERRIDE]
+${profile?.promptOverride?.trim() || '(NONE)'}
 `.trim();
 }
 

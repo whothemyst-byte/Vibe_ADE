@@ -15,9 +15,9 @@ import { ToastContainer } from './components/Toast';
 import { AuthScreen } from './components/AuthScreen';
 import { CreateFlowOverlay } from './components/CreateFlowOverlay';
 import { OpenEnvironmentOverlay } from './components/OpenEnvironmentOverlay';
-import { UiIcon } from './components/UiIcon';
-import { applyAppearanceMode, getStoredAppearanceMode } from './theme/appearance';
-import { isShortcutCaptureTarget, isTypingTarget, loadShortcuts, toShortcutCombo, type ShortcutAction } from './services/preferences';
+import { Icon } from './components/ui';
+import { applyAppearanceMode, applyUiPreferences, getStoredAppearanceMode } from './theme/appearance';
+import { isShortcutCaptureTarget, isTypingTarget, loadShortcuts, loadUiPreferences, toShortcutCombo, type ShortcutAction } from './services/preferences';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 
 export function App(): JSX.Element {
@@ -70,6 +70,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     const apply = (): void => {
       applyAppearanceMode(getStoredAppearanceMode());
+      applyUiPreferences(loadUiPreferences());
     };
     const syncShortcuts = (): void => {
       shortcutsRef.current = loadShortcuts();
@@ -136,7 +137,9 @@ export function App(): JSX.Element {
       return;
     }
     void window.vibeAde.workspace.syncAccountState()
-      .catch(() => undefined)
+      .catch((error) => {
+        console.error('syncAccountState failed; initializing anyway:', error);
+      })
       .finally(() => {
         void initialize();
       });
@@ -176,6 +179,7 @@ export function App(): JSX.Element {
       }
 
       event.preventDefault();
+      event.stopPropagation();
       const [action] = match;
       if (action === 'newWorkspace') {
         openCreateFlow('workspace');
@@ -414,7 +418,7 @@ export function App(): JSX.Element {
           <div className="env-status-left">
             <span className="env-status-item strong" title={activeWorkspace ? activeWorkspace.rootDir : 'Workspace'}>
               <span className="env-status-icon accent">
-                <UiIcon name="terminal" className="ui-icon ui-icon-sm" />
+                <Icon name="terminal" size="sm" />
               </span>
               {activeWorkspace ? activeWorkspace.name : 'No Workspace'}
             </span>
@@ -423,7 +427,7 @@ export function App(): JSX.Element {
                 <span className="env-status-separator">|</span>
                 <span className="env-status-item muted" title={activeWorkspace.rootDir}>
                   <span className="env-status-icon accent">
-                    <UiIcon name="folder" className="ui-icon ui-icon-sm" />
+                    <Icon name="folder" size="sm" />
                   </span>
                   {activeWorkspace.rootDir}
                 </span>

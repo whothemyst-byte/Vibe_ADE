@@ -2,70 +2,110 @@ import {
   AgentRole,
   SwarmTaskPriority,
   SwarmTaskStatus,
+  type SwarmSharedContext,
   type SwarmTask,
   type TaskId
 } from '@main/types/SwarmOrchestration';
+import type { SwarmReviewStrictness } from '@shared/ipc';
+
+type CoordinatorAgentProfile = Readonly<{
+  agentId: string;
+  role: string;
+  cliProvider: string;
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  reviewStrictness?: SwarmReviewStrictness;
+}>;
 
 /**
  * Build the Coordinator role prompt for goal decomposition.
  */
-export function buildCoordinatorPrompt(goal: string, codebaseStructure: string, existingAgents: number): string {
-  const structure = truncateLines(codebaseStructure || '', 160);
+export function buildCoordinatorPrompt(
+  goal: string,
+  codebaseStructure: string,
+  agents: readonly CoordinatorAgentProfile[],
+  sharedContext?: SwarmSharedContext,
+  promptOverride?: string
+): string {
+  const structure = truncateLines(codebaseStructure || '', 60);
+  const roster = agents.map((agent) => {
+    const details = [
+      agent.role,
+      agent.cliProvider,
+      agent.specialization ? `specialty=${agent.specialization}` : null,
+      agent.personality ? `personality=${agent.personality}` : null,
+      agent.reviewStrictness ? `review=${agent.reviewStrictness}` : null
+    ].filter(Boolean).join(', ');
+    return `- ${agent.agentId}: ${details}`;
+  }).join('\n');
+  const context = sharedContext
+    ? [
+        `CONVENTIONS: ${sharedContext.conventions || '(not yet populated)'}`,
+        `EXISTING PATTERNS: ${sharedContext.existingPatterns || '(not yet populated)'}`,
+        `SECURITY: ${sharedContext.security || '(not yet populated)'}`,
+        `TESTING: ${sharedContext.testing || '(not yet populated)'}`,
+        `SCOUT FINDINGS: ${sharedContext.scoutFindings || '(not yet populated)'}`
+      ].join('\n')
+    : 'CONVENTIONS: (not yet populated)\nEXISTING PATTERNS: (not yet populated)\nSECURITY: (not yet populated)\nTESTING: (not yet populated)\nSCOUT FINDINGS: (not yet populated)';
   return `
-[SYSTEM ROLE]
-YOU ARE THE COORDINATOR (STAFF ENGINEER / TECH LEAD) OF AN AI AGENT SWARM.
+YOU ARE THE QUANSWARM COORDINATOR.
+Return only task blocks. No analysis. No preamble. No summaries.
 
-[PRIMARY OBJECTIVE]
-BREAK THE USER GOAL INTO INDEPENDENT, PARALLEL-SAFE TASKS WITH EXPLICIT FILE OWNERSHIP.
+Goal: break the user request into 3-5 parallel-safe tasks with explicit file ownership.
 
-[CRITICAL CONSTRAINTS]
-1. OUTPUT ONLY STRUCTURED TASK DEFINITIONS (SEE FORMAT BELOW)
-2. NO CASUAL MESSAGES OR EXPLANATIONS
-3. EACH TASK MUST BE INDEPENDENT (NO SHARED FILES)
-4. EACH TASK SHOULD TAKE 5-15 MINUTES TO COMPLETE
-5. FILE PATHS MUST BE RELATIVE TO PROJECT ROOT
-6. EACH TASK MUST DECLARE WHO EXECUTES IT (ROLE: ...)
-7. GREENFIELD RULE: IF THE TARGET FOLDER/PROJECT IS EMPTY, YOU MUST STILL PICK INITIAL FILE PATHS TO CREATE
-   (E.G. index.html, styles.css, src/main.ts, README.md) AND LIST THEM IN FILES_TO_MODIFY.
+Rules:
+- Output only task blocks in the exact format below
+- DO NOT OUTPUT REPORTS, SUMMARIES, RECOMMENDATIONS, OR SHIP/NO-SHIP LANGUAGE
+- Never assign ROLE: coordinator
+- Allowed roles: builder, scout, reviewer
+- No two tasks may modify the same file
+- File paths must be relative to project root
+- Builder tasks must include at least one file in FILES_TO_MODIFY
+- If the repo/target is greenfield, propose the initial files to create
+- Prefer builder tasks; use scout/reviewer only when clearly useful
+- Keep tasks concrete and finishable in about 5-15 minutes
 
-[ROLE ROUTING RULES]
-- ROLE: builder  -> implement code changes / tests in owned files
-- ROLE: scout    -> codebase exploration, pattern mapping, research tasks
-- ROLE: reviewer -> review/report tasks, audits, quality gates, writing findings
-- NEVER assign ROLE: coordinator (you) for execution tasks
-
-[TASK OUTPUT FORMAT]
-YOU MUST OUTPUT EXACTLY THIS FORMAT FOR EACH TASK:
-
-TASK: <id>
-TITLE: <short title (5-10 words)>
-ROLE: <builder|scout|reviewer>
-DESCRIPTION: <what needs to be built (2-3 sentences)>
-FILES_TO_MODIFY: [file1.ts, file2.ts, ...]
-DEPENDENCIES: [TASK-001, TASK-003] (if any, else empty [])
+Exact format:
+TASK: TASK-001
+TITLE: Short task title
+ROLE: builder
+DESCRIPTION: 2-3 sentence description.
+FILES_TO_MODIFY: [path1, path2]
+DEPENDENCIES: []
 ACCEPTANCE_CRITERIA:
-- CRITERION 1
-- CRITERION 2
-- CRITERION 3
+- criterion 1
+- criterion 2
+- criterion 3
 
-[CURRENT PROJECT STRUCTURE]
+[GREENFIELD WEBSITE EXAMPLE]
+TASK: TASK-001
+TITLE: Create website shell
+ROLE: builder
+DESCRIPTION: Create the initial landing page files and base shell.
+FILES_TO_MODIFY: [index.html, styles.css]
+DEPENDENCIES: []
+ACCEPTANCE_CRITERIA:
+- index.html exists
+- styles.css is linked
+- base shell renders
+
+CURRENT PROJECT STRUCTURE:
 ${structure || '(unavailable)'}
 
-[CURRENT AGENT COUNT]
-YOU HAVE ${existingAgents} AGENTS AVAILABLE (TYPICALLY 2-3 BUILDERS, 1 REVIEWER, 1 SCOUT)
+ACTIVE AGENT ROSTER:
+${roster || '(unavailable)'}
 
-[USER GOAL]
+CURRENT SHARED CONTEXT:
+${context}
+
+USER GOAL:
 ${goal}
 
-[YOUR TASK]
-DECOMPOSE THIS GOAL INTO 3-5 TASKS. OUTPUT EACH TASK IN THE FORMAT ABOVE.
-ENSURE:
-- NO TWO TASKS MODIFY THE SAME FILE
-- TASKS ARE ORDERED BY DEPENDENCY (INDEPENDENT FIRST)
-- EACH TASK IS COMPLETE AND UNAMBIGUOUS
-- FILE PATHS MATCH THE PROJECT STRUCTURE WHEN AVAILABLE; FOR GREENFIELD/EMPTY PROJECTS, PROPOSE THE INITIAL FILES TO CREATE.
+COORDINATOR OVERRIDE:
+${promptOverride?.trim() || '(NONE)'}
 
-DO NOT OUTPUT ANYTHING EXCEPT TASK DEFINITIONS.
+Output 3-5 tasks now.
 `.trim();
 }
 

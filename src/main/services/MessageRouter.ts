@@ -1,11 +1,12 @@
 import { EventEmitter } from 'node:events';
-import { AgentRole, type SwarmState } from '@main/types/SwarmOrchestration';
+import { AgentRole, type SwarmMailboxEntry, type SwarmSharedContext, type SwarmState, type SwarmTaskArtifact, type SwarmTaskEvidence } from '@main/types/SwarmOrchestration';
 import {
   ReviewDecision,
   SwarmMessageType,
   type BuilderCompletionMessage,
   type BuilderQuestionMessage,
   type CoordinatorOutputMessage,
+  type MailboxNoteMessage,
   type ReviewDecisionMessage,
   type ScoutResponseMessage,
   type SwarmMessage,
@@ -14,6 +15,7 @@ import {
 } from '@main/types/SwarmMessages';
 import { buildReviewerPrompt } from '@main/prompts/ReviewerPrompt';
 import { SwarmOrchestrator } from '@main/services/SwarmOrchestrator';
+import type { SwarmReviewStrictness } from '@shared/ipc';
 
 /**
  * Minimal terminal relay interface used by {@link MessageRouter}.
@@ -28,7 +30,28 @@ type RouterEvents = {
   'message-routing-failed': { swarmId: string; messageType: string; error: string; timestamp: number };
   'message-routed': { swarmId: string; messageType: string; timestamp: number };
   'review-requested': { swarmId: string; taskId: string; reviewerId: string; timestamp: number };
+  'mailbox-note-routed': { swarmId: string; taskId?: string; fromAgent: string; toAgent?: string; timestamp: number };
 };
+
+type AgentPromptProfile = Readonly<{
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  promptOverride?: string;
+  reviewStrictness?: SwarmReviewStrictness;
+}>;
+
+type MessageRouterOptions = Readonly<{
+  resolveAgentProfile?: (swarmId: string, agentId: string) => AgentPromptProfile | null;
+  resolveSharedContext?: (swarmId: string) => SwarmSharedContext | null;
+  resolveTaskCompletionEvidence?: (input: {
+    swarmId: string;
+    taskId: string;
+    agentId: string;
+    summary: string;
+    reportedFilesModified: readonly string[];
+  }) => Promise<SwarmTaskEvidence | null>;
+}>;
 
 /**
  * Route parsed {@link SwarmMessage} instances to their targets (orchestrator, terminals, UI events).
@@ -40,11 +63,13 @@ type RouterEvents = {
 export class MessageRouter {
   private readonly queueBySwarm = new Map<string, Promise<void>>();
   private readonly coordinatorRetryBySwarm = new Map<string, number>();
+  private readonly roleCursorBySwarm = new Map<string, Map<AgentRole, number>>();
 
   constructor(
     private orchestrator: SwarmOrchestrator,
     private messenger: AgentMessenger,
-    private eventEmitter: EventEmitter
+    private eventEmitter: EventEmitter,
+    private options: MessageRouterOptions = {}
   ) {}
 
   /**
@@ -53,7 +78,7 @@ export class MessageRouter {
   public routeMessages(messages: readonly SwarmMessage[], swarmId: string): void {
     this.enqueue(swarmId, async () => {
       for (const message of messages) {
-        this.routeMessageNow(message, swarmId);
+        await this.routeMessageNow(message, swarmId);
       }
     });
   }
@@ -63,11 +88,11 @@ export class MessageRouter {
    */
   public routeMessage(message: SwarmMessage, swarmId: string): void {
     this.enqueue(swarmId, async () => {
-      this.routeMessageNow(message, swarmId);
+      await this.routeMessageNow(message, swarmId);
     });
   }
 
-  private routeMessageNow(message: SwarmMessage, swarmId: string): void {
+  private async routeMessageNow(message: SwarmMessage, swarmId: string): Promise<void> {
     const now = Date.now();
     const source = this.describeSource(message);
     const detail = this.describeMessageDetail(message);
@@ -79,7 +104,7 @@ export class MessageRouter {
           this.handleCoordinatorOutput(message, swarmId);
           break;
         case SwarmMessageType.BUILDER_COMPLETION:
-          this.handleBuilderCompletion(message, swarmId);
+          await this.handleBuilderCompletion(message, swarmId);
           break;
         case SwarmMessageType.BUILDER_QUESTION:
           this.handleBuilderQuestion(message, swarmId);
@@ -89,6 +114,9 @@ export class MessageRouter {
           break;
         case SwarmMessageType.REVIEW_DECISION:
           this.handleReviewerDecision(message, swarmId);
+          break;
+        case SwarmMessageType.MAILBOX_NOTE:
+          this.handleMailboxNote(message, swarmId);
           break;
         case SwarmMessageType.TASK_TIMEOUT:
           this.handleTaskTimeout(message, swarmId);
@@ -134,6 +162,7 @@ export class MessageRouter {
 
     const shouldRetry =
       errorMessage.includes('FILES_TO_MODIFY must contain at least one file')
+      || errorMessage.includes('must start with "TASK:"')
       || errorMessage.includes('missing TASK:')
       || errorMessage.includes('missing TITLE:')
       || errorMessage.includes('missing DESCRIPTION:');
@@ -150,6 +179,7 @@ export class MessageRouter {
       '',
       'Re-output the full task plan in the required format.',
       'Important:',
+      '- Output only task blocks. Do not output reports, summaries, recommendations, or ship/no-ship language.',
       '- For ROLE: builder tasks, FILES_TO_MODIFY must list at least one concrete file path (it can be a new file).',
       '- If the target folder is empty/greenfield, propose the initial files (e.g. index.html, styles.css).',
       '',
@@ -175,9 +205,25 @@ export class MessageRouter {
     }
   }
 
-  private handleBuilderCompletion(msg: BuilderCompletionMessage, swarmId: string): void {
+  private async handleBuilderCompletion(msg: BuilderCompletionMessage, swarmId: string): Promise<void> {
     console.log(`[${new Date(Date.now()).toISOString()}] [ROUTING] BUILDER_COMPLETION -> orchestrator.taskCompleted()`);
-    this.orchestrator.taskCompleted(swarmId, msg.taskId, msg.fromAgent, msg.summary || 'Completed.');
+    const completionEvidence = this.options.resolveTaskCompletionEvidence
+      ? await this.options.resolveTaskCompletionEvidence({
+          swarmId,
+          taskId: msg.taskId,
+          agentId: msg.fromAgent,
+          summary: msg.summary || 'Completed.',
+          reportedFilesModified: msg.filesModified
+        })
+      : null;
+    this.orchestrator.taskCompleted(
+      swarmId,
+      msg.taskId,
+      msg.fromAgent,
+      msg.summary || 'Completed.',
+      msg.filesModified,
+      completionEvidence ?? undefined
+    );
 
     const state = this.orchestrator.getSwarmState(swarmId);
     const task = state.tasks.get(msg.taskId);
@@ -186,13 +232,32 @@ export class MessageRouter {
       return;
     }
 
+    if (task.status === 'BLOCKED') {
+      const violations = task.tracking.completionEvidence?.ownershipViolations ?? [];
+      const details = violations.length > 0 ? ` Ownership violations: ${violations.join(', ')}` : '';
+      this.sendToAgent(
+        msg.fromAgent,
+        `TASK_BLOCKED: ${msg.taskId}\r\nReason: completion evidence failed validation.${details}\r\nFix the task and resubmit.\r\n`
+      );
+      return;
+    }
+
     // Only request an explicit review if the orchestrator put the task into REVIEWING.
     if (task.status !== 'REVIEWING') {
       return;
     }
 
-    const reviewerId = this.resolveAgentByRole(state, AgentRole.REVIEWER) ?? 'reviewer-1';
-    const prompt = buildReviewerPrompt(task, task.context.acceptanceCriteria);
+    const reviewerId = this.resolveAgentByRole(state, AgentRole.REVIEWER, {
+      swarmId,
+      excludeAgentId: msg.fromAgent,
+      taskText: `${task.title}\n${task.description}\n${task.tracking.filesModified?.join('\n') ?? ''}`
+    }) ?? 'reviewer-1';
+    const prompt = buildReviewerPrompt(
+      task,
+      task.context.acceptanceCriteria,
+      this.options.resolveSharedContext?.(swarmId) ?? state.sharedContext,
+      this.options.resolveAgentProfile?.(swarmId, reviewerId) ?? undefined
+    );
     try {
       this.sendToAgent(reviewerId, `${prompt}\r\n`);
       this.eventEmitter.emit('review-requested', { swarmId, taskId: msg.taskId, reviewerId, timestamp: Date.now() } satisfies RouterEvents['review-requested']);
@@ -204,7 +269,10 @@ export class MessageRouter {
 
   private handleBuilderQuestion(msg: BuilderQuestionMessage, swarmId: string): void {
     const state = this.orchestrator.getSwarmState(swarmId);
-    const scoutId = this.resolveAgentByRole(state, AgentRole.SCOUT) ?? (msg.toAgent === 'scout' ? 'scout-1' : msg.toAgent);
+    const scoutId = this.resolveAgentByRole(state, AgentRole.SCOUT, {
+      swarmId,
+      taskText: `${msg.question}\n${state.agents.get(msg.fromAgent)?.currentTask ?? ''}`
+    }) ?? (msg.toAgent === 'scout' ? 'scout-1' : msg.toAgent);
     const currentTask = state.agents.get(msg.fromAgent)?.currentTask;
 
     const header = currentTask ? `QUESTION_FROM ${msg.fromAgent} (TASK: ${currentTask})` : `QUESTION_FROM ${msg.fromAgent}`;
@@ -212,12 +280,32 @@ export class MessageRouter {
 
     console.log(`[${new Date(Date.now()).toISOString()}] [ROUTING] BUILDER_QUESTION -> scout (${scoutId})`);
     this.sendToAgent(scoutId, forwarded);
+    this.orchestrator.postMailboxEntry(swarmId, {
+      taskId: currentTask ?? msg.taskId,
+      fromAgentId: msg.fromAgent,
+      toAgentId: scoutId,
+      category: 'question',
+      subject: `Question for ${scoutId}`,
+      body: msg.question,
+      createdAt: msg.timestamp
+    });
   }
 
-  private handleScoutResponse(msg: ScoutResponseMessage, _swarmId: string): void {
+  private handleScoutResponse(msg: ScoutResponseMessage, swarmId: string): void {
     const payload = `@scout: ${msg.answer}\r\n`;
     console.log(`[${new Date(Date.now()).toISOString()}] [ROUTING] SCOUT_RESPONSE -> ${msg.toAgent}`);
     this.sendToAgent(msg.toAgent, payload);
+    const state = this.orchestrator.getSwarmState(swarmId);
+    const currentTask = state.agents.get(msg.toAgent)?.currentTask;
+    this.orchestrator.postMailboxEntry(swarmId, {
+      taskId: currentTask ?? undefined,
+      fromAgentId: msg.fromAgent,
+      toAgentId: msg.toAgent,
+      category: 'answer',
+      subject: `Scout response to ${msg.toAgent}`,
+      body: msg.answer,
+      createdAt: msg.timestamp
+    });
   }
 
   private handleReviewerDecision(msg: ReviewDecisionMessage, swarmId: string): void {
@@ -237,6 +325,48 @@ export class MessageRouter {
       ].join('\r\n');
       this.sendToAgent(assignedBuilder, `${payload}\r\n`);
     }
+
+    this.orchestrator.postMailboxEntry(swarmId, {
+      taskId: msg.taskId,
+      fromAgentId: 'reviewer',
+      toAgentId: assignedBuilder ?? undefined,
+      category: 'review',
+      subject: `${msg.decision} ${msg.taskId}`,
+      body: msg.feedback,
+      createdAt: msg.timestamp
+    });
+  }
+
+  private handleMailboxNote(msg: MailboxNoteMessage, swarmId: string): void {
+    this.orchestrator.postMailboxEntry(swarmId, {
+      taskId: msg.taskId,
+      fromAgentId: msg.fromAgent,
+      toAgentId: msg.toAgent,
+      category: 'system',
+      subject: msg.subject,
+      body: msg.body,
+      createdAt: msg.timestamp
+    });
+
+    if (msg.toAgent) {
+      const payload = [
+        '[MAILBOX NOTE]',
+        `FROM: ${msg.fromAgent}`,
+        msg.taskId ? `TASK: ${msg.taskId}` : null,
+        `SUBJECT: ${msg.subject}`,
+        'BODY:',
+        msg.body
+      ].filter(Boolean).join('\r\n');
+      this.sendToAgent(msg.toAgent, `${payload}\r\n`);
+    }
+
+    this.eventEmitter.emit('mailbox-note-routed', {
+      swarmId,
+      taskId: msg.taskId,
+      fromAgent: msg.fromAgent,
+      toAgent: msg.toAgent,
+      timestamp: msg.timestamp
+    } satisfies RouterEvents['mailbox-note-routed']);
   }
 
   private handleTaskTimeout(msg: TaskTimeoutMessage, swarmId: string): void {
@@ -282,13 +412,47 @@ export class MessageRouter {
     this.messenger.sendToAgent(agentId, payload);
   }
 
-  private resolveAgentByRole(state: SwarmState, role: AgentRole): string | undefined {
-    for (const agent of state.agents.values()) {
-      if (agent.role === role) {
-        return agent.agentId;
-      }
+  private resolveAgentByRole(
+    state: SwarmState,
+    role: AgentRole,
+    options?: { swarmId?: string; excludeAgentId?: string; taskText?: string }
+  ): string | undefined {
+    const candidates = Array.from(state.agents.values()).filter((agent) => agent.role === role && agent.agentId !== options?.excludeAgentId);
+    if (candidates.length === 0) {
+      return undefined;
     }
-    return undefined;
+    if (candidates.length === 1) {
+      return candidates[0]!.agentId;
+    }
+
+    const text = (options?.taskText || '').toLowerCase();
+    const scored = candidates.map((agent, index) => {
+      const profile = this.options.resolveAgentProfile?.(state.swarmId, agent.agentId);
+      const specialization = `${profile?.specialization ?? ''} ${profile?.personaLabel ?? ''} ${profile?.personality ?? ''}`.toLowerCase();
+      let score = 0;
+      if (text && specialization) {
+        for (const token of specialization.split(/[^a-z0-9]+/).filter((token) => token.length >= 4)) {
+          if (text.includes(token)) {
+            score += 3;
+          }
+        }
+      }
+      score += Math.max(0, (Date.now() - agent.lastActivity) / 1000);
+      return { agentId: agent.agentId, score, index };
+    });
+
+    const maxScore = Math.max(...scored.map((entry) => entry.score));
+    const best = scored.filter((entry) => entry.score === maxScore);
+    if (best.length === 1) {
+      return best[0]!.agentId;
+    }
+
+    const cursorMap = this.roleCursorBySwarm.get(options?.swarmId ?? state.swarmId) ?? new Map<AgentRole, number>();
+    const cursor = cursorMap.get(role) ?? 0;
+    const selected = best[cursor % best.length]!;
+    cursorMap.set(role, cursor + 1);
+    this.roleCursorBySwarm.set(options?.swarmId ?? state.swarmId, cursorMap);
+    return selected.agentId;
   }
 
   private describeSource(message: SwarmMessage): string {
@@ -303,6 +467,8 @@ export class MessageRouter {
         return message.fromAgent;
       case SwarmMessageType.REVIEW_DECISION:
         return 'reviewer';
+      case SwarmMessageType.MAILBOX_NOTE:
+        return message.fromAgent;
       case SwarmMessageType.TASK_TIMEOUT:
         return message.agent;
       case SwarmMessageType.SYSTEM_LOG:
@@ -324,6 +490,8 @@ export class MessageRouter {
         return `to: ${message.toAgent}`;
       case SwarmMessageType.SCOUT_RESPONSE:
         return `to: ${message.toAgent}`;
+      case SwarmMessageType.MAILBOX_NOTE:
+        return `to: ${message.toAgent ?? 'mailbox'}`;
       default:
         return '';
     }

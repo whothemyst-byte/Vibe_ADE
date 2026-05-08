@@ -1,4 +1,12 @@
-import type { AgentState, FileOwnershipConflict, SwarmState, SwarmTask } from './SwarmOrchestration';
+import type {
+  AgentState,
+  FileOwnershipConflict,
+  SwarmMailboxEntry,
+  SwarmState,
+  SwarmTask,
+  SwarmTaskArtifact,
+  SwarmTaskEvidence
+} from './SwarmOrchestration';
 
 /**
  * All swarm events use epoch-millisecond timestamps.
@@ -25,6 +33,9 @@ export type SwarmEventType =
   | 'message-parsed'
   | 'file-ownership-assigned'
   | 'file-conflict-detected'
+  | 'mailbox-message-posted'
+  | 'task-artifact-added'
+  | 'task-evidence-updated'
   | 'blocker-escalated'
   | 'swarm-completed'
   | 'error-occurred';
@@ -141,6 +152,23 @@ export interface FileConflictDetectedEvent extends SwarmEventBase {
   readonly conflict: FileOwnershipConflict;
 }
 
+export interface MailboxMessagePostedEvent extends SwarmEventBase {
+  readonly type: 'mailbox-message-posted';
+  readonly entry: SwarmMailboxEntry;
+}
+
+export interface TaskArtifactAddedEvent extends SwarmEventBase {
+  readonly type: 'task-artifact-added';
+  readonly taskId: string;
+  readonly artifact: SwarmTaskArtifact;
+}
+
+export interface TaskEvidenceUpdatedEvent extends SwarmEventBase {
+  readonly type: 'task-evidence-updated';
+  readonly taskId: string;
+  readonly evidence: SwarmTaskEvidence;
+}
+
 export interface BlockerEscalatedEvent extends SwarmEventBase {
   readonly type: 'blocker-escalated';
   readonly agentId: string;
@@ -186,6 +214,9 @@ export type SwarmEvent =
   | MessageParsedEvent
   | FileOwnershipAssignedEvent
   | FileConflictDetectedEvent
+  | MailboxMessagePostedEvent
+  | TaskArtifactAddedEvent
+  | TaskEvidenceUpdatedEvent
   | BlockerEscalatedEvent
   | SwarmCompletedEvent
   | ErrorOccurredEvent;

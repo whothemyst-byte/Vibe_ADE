@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Terminal, type ITheme } from 'xterm';
+import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { SearchAddon } from 'xterm-addon-search';
 import 'xterm/css/xterm.css';
 import type { PaneId, WorkspaceState } from '@shared/types';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import { isAltModifiedPrimaryShortcut } from '@renderer/services/terminalShortcuts';
-import { UiIcon } from './UiIcon';
+import { clampTerminalDimension, resolveTerminalTheme } from '@renderer/services/terminalTheme';
+import { createOscCwdParser } from '@renderer/services/terminalOscCwd';
+import { TerminalActionMenuDropdown, TerminalHeaderButtons } from './TerminalActionMenu';
 
 interface TerminalPaneProps {
   paneId: PaneId;
-  displayIndex: number;
   workspace: WorkspaceState;
   onFocus: () => void;
   onPaneDragStart: () => void;
@@ -20,22 +21,7 @@ interface TerminalPaneProps {
 const startedSessions = new Set<PaneId>();
 const paneViewportById = new Map<PaneId, number>();
 
-const OSC_CWD_PREFIX = '\u001b]1337;vibe-ade-cwd=';
-const OSC_ST = '\u001b\\';
-const OSC_BEL = '\u0007';
-
-function clampTerminalDimension(value: number, fallback: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) {
-    return fallback;
-  }
-  const rounded = Math.floor(value);
-  if (!Number.isFinite(rounded)) {
-    return fallback;
-  }
-  return Math.max(min, Math.min(max, rounded));
-}
-
-export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneDragStart, onPaneDragEnd }: TerminalPaneProps): JSX.Element {
+export function TerminalPane({ paneId, workspace, onFocus, onPaneDragStart, onPaneDragEnd }: TerminalPaneProps): JSX.Element {
   const sectionRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
@@ -46,8 +32,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
   const scheduleFitRef = useRef<(() => void) | null>(null);
   const suppressAutoCloseOnExitRef = useRef(false);
   const closingPaneRef = useRef(false);
-  const suppressBootOutputRef = useRef(false);
-  const pendingOscRef = useRef('');
+  const oscParserRef = useRef(createOscCwdParser((cwd) => setCurrentCwd(cwd)));
   const cmdLineBufferRef = useRef('');
   const outputTailRef = useRef('');
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
@@ -170,48 +155,6 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
     terminal.focus();
   }, [sessionReady]);
 
-  const consumeOscCwd = (chunk: string): string => {
-    const combined = pendingOscRef.current + chunk;
-    pendingOscRef.current = '';
-
-    let cursor = 0;
-    let out = '';
-    while (cursor < combined.length) {
-      const start = combined.indexOf(OSC_CWD_PREFIX, cursor);
-      if (start === -1) {
-        out += combined.slice(cursor);
-        break;
-      }
-      out += combined.slice(cursor, start);
-      const payloadStart = start + OSC_CWD_PREFIX.length;
-      const belIndex = combined.indexOf(OSC_BEL, payloadStart);
-      const stIndex = combined.indexOf(OSC_ST, payloadStart);
-      let end = -1;
-      let terminatorLen = 0;
-
-      if (belIndex !== -1 && (stIndex === -1 || belIndex < stIndex)) {
-        end = belIndex;
-        terminatorLen = 1;
-      } else if (stIndex !== -1) {
-        end = stIndex;
-        terminatorLen = OSC_ST.length;
-      }
-
-      if (end === -1) {
-        pendingOscRef.current = combined.slice(start);
-        break;
-      }
-
-      const cwd = combined.slice(payloadStart, end).trim();
-      if (cwd) {
-        setCurrentCwd(cwd);
-      }
-      cursor = end + terminatorLen;
-    }
-
-    return out;
-  };
-
   const setLlmCliState = (next: { active: boolean; cli: 'codex' | 'claude' | 'gemini' | null }): void => {
     llmCliActiveRef.current = next.active;
     detectedCliRef.current = next.cli;
@@ -312,16 +255,6 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
     }
   };
 
-  const parentDirectory = (dir: string): string | null => {
-    const normalized = dir.replace(/[\\/]+$/, '');
-    const idx = Math.max(normalized.lastIndexOf('\\'), normalized.lastIndexOf('/'));
-    if (idx <= 2) {
-      // Likely drive root like C:\
-      return normalized.length >= 3 ? normalized.slice(0, 3) : null;
-    }
-    return normalized.slice(0, idx);
-  };
-
   const clearInlineMentionMenu = (): void => {
     const terminal = terminalRef.current;
     const lines = mentionInlineLinesRef.current;
@@ -415,107 +348,6 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
     return Math.min(rawTop, maxTop);
   };
 
-  const resolveTerminalTheme = (): ITheme => {
-    const rootStyles = getComputedStyle(document.documentElement);
-    const background = rootStyles.getPropertyValue('--bg-panel').trim() || '#1c212c';
-    const foreground = rootStyles.getPropertyValue('--text').trim() || '#e6e6e6';
-    const accent = rootStyles.getPropertyValue('--accent').trim() || '#3b82f6';
-    const base = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-
-    const withAlpha = (color: string, alpha: number): string => {
-      const normalized = color.trim();
-      if (normalized.startsWith('rgb')) {
-        const values = normalized
-          .replace(/rgba?\(/, '')
-          .replace(')', '')
-          .split(',')
-          .map((value) => Number.parseFloat(value.trim()))
-          .slice(0, 3);
-        if (values.length === 3 && values.every((value) => Number.isFinite(value))) {
-          return `rgba(${values[0]}, ${values[1]}, ${values[2]}, ${alpha})`;
-        }
-      }
-      if (normalized.startsWith('#')) {
-        const hex = normalized.slice(1);
-        const [r, g, b] =
-          hex.length === 3
-            ? hex.split('').map((ch) => Number.parseInt(ch + ch, 16))
-            : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)].map((ch) => Number.parseInt(ch, 16));
-        if ([r, g, b].every((value) => Number.isFinite(value))) {
-          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-      }
-      return color;
-    };
-
-    const ansiPalette: Pick<
-      ITheme,
-      | 'black'
-      | 'red'
-      | 'green'
-      | 'yellow'
-      | 'blue'
-      | 'magenta'
-      | 'cyan'
-      | 'white'
-      | 'brightBlack'
-      | 'brightRed'
-      | 'brightGreen'
-      | 'brightYellow'
-      | 'brightBlue'
-      | 'brightMagenta'
-      | 'brightCyan'
-      | 'brightWhite'
-    > =
-      base === 'light'
-        ? {
-            black: '#0f172a',
-            red: '#b91c1c',
-            green: '#047857',
-            yellow: '#7a5c00',
-            blue: '#1d4ed8',
-            magenta: '#a21caf',
-            cyan: '#0e7490',
-            white: '#334155',
-            brightBlack: '#64748b',
-            brightRed: '#dc2626',
-            brightGreen: '#059669',
-            brightYellow: '#8a6b00',
-            brightBlue: '#2563eb',
-            brightMagenta: '#c026d3',
-            brightCyan: '#0891b2',
-            brightWhite: '#0f172a'
-          }
-        : {
-            black: '#111827',
-            red: '#f87171',
-            green: '#34d399',
-            yellow: '#fbbf24',
-            blue: '#60a5fa',
-            magenta: '#c084fc',
-            cyan: '#22d3ee',
-            white: '#e5e7eb',
-            brightBlack: '#9ca3af',
-            brightRed: '#fecaca',
-            brightGreen: '#a7f3d0',
-            brightYellow: '#fde68a',
-            brightBlue: '#93c5fd',
-            brightMagenta: '#ddd6fe',
-            brightCyan: '#a5f3fc',
-            brightWhite: '#f9fafb'
-          };
-
-    return {
-      background,
-      foreground,
-      cursorAccent: background,
-      cursor: accent,
-      selectionBackground: withAlpha(accent, 0.28),
-      selectionInactiveBackground: withAlpha(accent, 0.16),
-      ...ansiPalette
-    };
-  };
-
   const pasteFromClipboard = async (): Promise<void> => {
     const text = await window.vibeAde.system.readClipboardText();
     if (text.length > 0) {
@@ -607,7 +439,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
           if (snapshot) {
             startedSessions.add(paneId);
             if (snapshot.history) {
-              const clean = consumeOscCwd(snapshot.history);
+              const clean = oscParserRef.current.consume(snapshot.history);
               if (clean) {
                 terminal.write(clean);
               }
@@ -806,7 +638,7 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
 
     const unsubscribeData = window.vibeAde.onTerminalData((event) => {
       if (!disposed && opened && event.paneId === paneId) {
-        const clean = consumeOscCwd(event.data);
+        const clean = oscParserRef.current.consume(event.data);
         if (clean) {
           terminal.write(clean);
           outputTailRef.current = (outputTailRef.current + clean).slice(-800);
@@ -900,7 +732,6 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       cols,
       rows
     });
-    suppressBootOutputRef.current = false;
     terminalRef.current?.clear();
     setTimeout(() => {
       void window.vibeAde.terminal.executeInSession(paneId, 'cls', true).catch(() => {
@@ -930,6 +761,21 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
       setMentionPickerOpen(false);
     }
   }, [mentionPickerOpen, shouldEnableMentionAssist]);
+
+  useEffect(() => {
+    const handleFocusRequest = (event: Event): void => {
+      const detail = (event as CustomEvent<{ paneId?: string }>).detail;
+      if (!detail || detail.paneId !== paneId) {
+        return;
+      }
+      sectionRef.current?.focus();
+      terminalRef.current?.focus();
+    };
+    window.addEventListener('vibe-ade:focus-terminal-pane', handleFocusRequest as EventListener);
+    return () => {
+      window.removeEventListener('vibe-ade:focus-terminal-pane', handleFocusRequest as EventListener);
+    };
+  }, [paneId]);
 
   useEffect(() => {
     if (!mentionPickerOpen) {
@@ -983,73 +829,40 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
         terminalRef.current?.focus();
       }}
     >
-      <div className="pane-header" draggable onDragStart={onPaneDragStart} onDragEnd={onPaneDragEnd}>
-        <div className="pane-title-wrap">
-          <span className={`status-dot ${statusClass}`} />
-          <span className="pane-title" title={currentCwd || workspace.rootDir}>
+      <div
+        className="pane-header flex items-center justify-between gap-2 px-3 py-2 bg-bg-panel-2/40 border-b border-line select-none"
+        draggable
+        onDragStart={onPaneDragStart}
+        onDragEnd={onPaneDragEnd}
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span
+            className={`status-dot ${statusClass} h-2 w-2 rounded-full shrink-0 shadow-[0_0_8px_currentColor]`}
+          />
+          <span
+            className="font-mono text-[11px] text-fg-muted truncate"
+            title={currentCwd || workspace.rootDir}
+          >
             {currentCwd || workspace.rootDir}
           </span>
         </div>
-        <div className="pane-header-actions" ref={actionMenuRef}>
-          <button
-            className="icon-button"
-            title={browserWindowOpen ? 'Browser window already open for this terminal' : 'Open browser pane'}
-            aria-label="Open browser pane"
-            disabled={browserWindowOpen}
-            onClick={(event) => {
-              event.stopPropagation();
-              void addBrowserPaneToLayout(paneId);
-            }}
-          >
-            <UiIcon name="globe" className="ui-icon ui-icon-sm" />
-          </button>
-          <button
-            className="icon-button"
-            title="Terminal actions"
-            aria-label="Terminal actions"
-            onClick={() => setActionMenuOpen((open) => !open)}
-          >
-            <UiIcon name="ellipsis" className="ui-icon ui-icon-sm" />
-          </button>
+        <div className="relative flex items-center gap-0.5 shrink-0" ref={actionMenuRef}>
+          <TerminalHeaderButtons
+            browserWindowOpen={browserWindowOpen}
+            onOpenBrowser={() => void addBrowserPaneToLayout(paneId)}
+            onToggleMenu={() => setActionMenuOpen((open) => !open)}
+          />
           {actionMenuOpen && (
-            <div className="terminal-actions-menu">
-              <button
-                onClick={() => {
-                  setActionMenuOpen(false);
-                  setLlmAssistAutoEnabled((enabled) => !enabled);
-                }}
-              >
-                {llmAssistAutoEnabled ? 'Disable LLM @ Assist (auto)' : 'Enable LLM @ Assist (auto)'}
-              </button>
-              <button disabled>
-                Detected LLM: {llmCliActive ? (detectedCli ?? 'unknown') : 'none'}
-              </button>
-              <button
-                onClick={() => {
-                  setActionMenuOpen(false);
-                  void restartSession();
-                }}
-              >
-                Restart Session
-              </button>
-              <button
-                onClick={() => {
-                  setActionMenuOpen(false);
-                  terminalRef.current?.clear();
-                }}
-              >
-                Clear Output
-              </button>
-              <button
-                className="danger"
-                onClick={() => {
-                  setActionMenuOpen(false);
-                  void closePane();
-                }}
-              >
-                Close Terminal
-              </button>
-            </div>
+            <TerminalActionMenuDropdown
+              llmAssistAutoEnabled={llmAssistAutoEnabled}
+              llmCliActive={llmCliActive}
+              detectedCli={detectedCli}
+              onToggleAssist={() => setLlmAssistAutoEnabled((enabled) => !enabled)}
+              onRestart={() => void restartSession()}
+              onClear={() => terminalRef.current?.clear()}
+              onClose={() => void closePane()}
+              onRequestCloseMenu={() => setActionMenuOpen(false)}
+            />
           )}
         </div>
       </div>
@@ -1109,3 +922,4 @@ export function TerminalPane({ paneId, displayIndex, workspace, onFocus, onPaneD
     </section>
   );
 }
+

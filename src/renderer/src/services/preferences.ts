@@ -1,3 +1,13 @@
+import type { SwarmAgentRole, SwarmCliProvider, SwarmReviewStrictness } from '@shared/ipc';
+
+export interface WorkspaceModelDefinition {
+  id: string;
+  label: string;
+  enabled: boolean;
+  command: string;
+  description: string;
+}
+
 export type ShortcutAction =
   | 'newWorkspace'
   | 'openWorkspace'
@@ -29,9 +39,100 @@ export type ShortcutAction =
 
 export type ShortcutBindings = Record<ShortcutAction, string>;
 
+export type UiFontStyle = 'modern' | 'balanced' | 'mono';
+export type UiLanguage = 'en' | 'system';
+
+export interface UiPreferences {
+  accentColor: string;
+  fontStyle: UiFontStyle;
+  language: UiLanguage;
+}
+
+export interface SwarmRolePromptPreferences {
+  personaLabel: string;
+  personality: string;
+  specialization: string;
+  promptOverride: string;
+  reviewStrictness?: SwarmReviewStrictness;
+}
+
+export type SwarmPromptPreferences = Record<SwarmAgentRole, SwarmRolePromptPreferences>;
+
 const SHORTCUTS_KEY = 'vibe-ade-shortcuts';
 const SHORTCUTS_CHANGED_EVENT = 'vibe-ade:shortcuts-changed';
 const ENVIRONMENT_SAVE_DIR_KEY = 'vibe-ade-environment-save-dir';
+const UI_PREFERENCES_KEY = 'vibe-ade-ui-preferences';
+const SWARM_PROMPT_PREFERENCES_KEY = 'vibe-ade-swarm-prompt-preferences';
+const WORKSPACE_MODELS_KEY = 'vibe-ade-workspace-models';
+const WORKSPACE_MODELS_CHANGED_EVENT = 'vibe-ade:workspace-models-changed';
+
+export const DEFAULT_UI_PREFERENCES: UiPreferences = {
+  accentColor: '#3b82f6',
+  fontStyle: 'modern',
+  language: 'en'
+};
+
+export function defaultSwarmPersonaLabel(role: SwarmAgentRole): string {
+  if (role === 'coordinator') return 'Delivery Lead';
+  if (role === 'builder') return 'Senior Builder';
+  if (role === 'scout') return 'Intel Scout';
+  return 'Quality Gate';
+}
+
+export function defaultSwarmPersonality(role: SwarmAgentRole): string {
+  if (role === 'coordinator') return 'Calm, decisive, low-chatter, and ruthless about scope control.';
+  if (role === 'builder') return 'Pragmatic, methodical, detail-conscious, and biased toward shipping correct code.';
+  if (role === 'scout') return 'Analytical, evidence-driven, concise, and fast to orient in unfamiliar code.';
+  return 'Exacting, skeptical, concise, and constructive under pressure.';
+}
+
+export function defaultSwarmSpecialization(role: SwarmAgentRole, provider?: SwarmCliProvider): string {
+  if (role === 'coordinator') return provider ? `Parallel planning and unblock management on ${provider}` : 'Parallel planning and unblock management';
+  if (role === 'builder') return provider === 'codex' ? 'Code implementation, tests, and targeted refactors' : 'Implementation support';
+  if (role === 'scout') return 'Codebase mapping, pattern detection, and risk discovery';
+  return 'Strict review, quality gates, and regression detection';
+}
+
+function defaultSwarmRolePromptPreferences(role: SwarmAgentRole): SwarmRolePromptPreferences {
+  return {
+    personaLabel: defaultSwarmPersonaLabel(role),
+    personality: defaultSwarmPersonality(role),
+    specialization: defaultSwarmSpecialization(role),
+    promptOverride: '',
+    reviewStrictness: role === 'reviewer' ? 'strict' : undefined
+  };
+}
+
+export const DEFAULT_SWARM_PROMPT_PREFERENCES: SwarmPromptPreferences = {
+  coordinator: defaultSwarmRolePromptPreferences('coordinator'),
+  builder: defaultSwarmRolePromptPreferences('builder'),
+  scout: defaultSwarmRolePromptPreferences('scout'),
+  reviewer: defaultSwarmRolePromptPreferences('reviewer')
+};
+
+export const DEFAULT_WORKSPACE_MODELS: WorkspaceModelDefinition[] = [
+  {
+    id: 'codex',
+    label: 'Codex',
+    enabled: true,
+    command: 'codex',
+    description: 'OpenAI coding CLI session'
+  },
+  {
+    id: 'claude',
+    label: 'Claude Code',
+    enabled: true,
+    command: 'claude',
+    description: 'Anthropic coding CLI session'
+  },
+  {
+    id: 'gemini',
+    label: 'Gemini CLI',
+    enabled: false,
+    command: 'gemini',
+    description: 'Google Gemini command-line session'
+  }
+];
 export const DEFAULT_SHORTCUTS: ShortcutBindings = {
   newWorkspace: 'Ctrl+Shift+N',
   openWorkspace: 'Ctrl+O',
@@ -127,6 +228,128 @@ export function saveEnvironmentSaveDirectory(directory: string | null): void {
     return;
   }
   window.localStorage.setItem(ENVIRONMENT_SAVE_DIR_KEY, directory.trim());
+}
+
+export function loadUiPreferences(): UiPreferences {
+  try {
+    const raw = window.localStorage.getItem(UI_PREFERENCES_KEY);
+    if (!raw) {
+      return DEFAULT_UI_PREFERENCES;
+    }
+    const parsed = JSON.parse(raw) as Partial<UiPreferences>;
+    return {
+      accentColor: typeof parsed.accentColor === 'string' && parsed.accentColor.trim() ? parsed.accentColor.trim() : DEFAULT_UI_PREFERENCES.accentColor,
+      fontStyle: parsed.fontStyle === 'balanced' || parsed.fontStyle === 'mono' ? parsed.fontStyle : DEFAULT_UI_PREFERENCES.fontStyle,
+      language: parsed.language === 'system' ? 'system' : 'en'
+    };
+  } catch {
+    return DEFAULT_UI_PREFERENCES;
+  }
+}
+
+export function saveUiPreferences(preferences: UiPreferences): void {
+  window.localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(preferences));
+}
+
+export function loadSwarmPromptPreferences(): SwarmPromptPreferences {
+  try {
+    const raw = window.localStorage.getItem(SWARM_PROMPT_PREFERENCES_KEY);
+    if (!raw) {
+      return DEFAULT_SWARM_PROMPT_PREFERENCES;
+    }
+    const parsed = JSON.parse(raw) as Partial<Record<SwarmAgentRole, Partial<SwarmRolePromptPreferences>>>;
+    const roles: SwarmAgentRole[] = ['coordinator', 'builder', 'scout', 'reviewer'];
+    return roles.reduce<SwarmPromptPreferences>((acc, role) => {
+      const defaults = DEFAULT_SWARM_PROMPT_PREFERENCES[role];
+      const candidate = parsed[role] ?? {};
+      acc[role] = {
+        personaLabel: typeof candidate.personaLabel === 'string' && candidate.personaLabel.trim()
+          ? candidate.personaLabel.trim()
+          : defaults.personaLabel,
+        personality: typeof candidate.personality === 'string' && candidate.personality.trim()
+          ? candidate.personality.trim()
+          : defaults.personality,
+        specialization: typeof candidate.specialization === 'string' && candidate.specialization.trim()
+          ? candidate.specialization.trim()
+          : defaults.specialization,
+        promptOverride: typeof candidate.promptOverride === 'string' ? candidate.promptOverride : defaults.promptOverride,
+        reviewStrictness: role === 'reviewer'
+          ? candidate.reviewStrictness === 'balanced' || candidate.reviewStrictness === 'critical'
+            ? candidate.reviewStrictness
+            : 'strict'
+          : undefined
+      };
+      return acc;
+    }, {} as SwarmPromptPreferences);
+  } catch {
+    return DEFAULT_SWARM_PROMPT_PREFERENCES;
+  }
+}
+
+export function saveSwarmPromptPreferences(preferences: SwarmPromptPreferences): void {
+  window.localStorage.setItem(SWARM_PROMPT_PREFERENCES_KEY, JSON.stringify(preferences));
+}
+
+export function loadWorkspaceModels(): WorkspaceModelDefinition[] {
+  try {
+    const raw = window.localStorage.getItem(WORKSPACE_MODELS_KEY);
+    if (!raw) {
+      return DEFAULT_WORKSPACE_MODELS.map((model) => ({ ...model }));
+    }
+    const parsed = JSON.parse(raw) as Partial<WorkspaceModelDefinition>[];
+    const defaults = new Map(DEFAULT_WORKSPACE_MODELS.map((model) => [model.id, model]));
+    const merged = parsed
+      .filter((model): model is Partial<WorkspaceModelDefinition> => Boolean(model && typeof model === 'object'))
+      .map((model, index) => {
+        const fallback = defaults.get(typeof model.id === 'string' ? model.id : '') ?? DEFAULT_WORKSPACE_MODELS[index] ?? DEFAULT_WORKSPACE_MODELS[0];
+        const id = typeof model.id === 'string' && model.id.trim() ? model.id.trim() : fallback.id;
+        const label = typeof model.label === 'string' && model.label.trim() ? model.label.trim() : fallback.label;
+        const command = typeof model.command === 'string' && model.command.trim() ? model.command.trim() : fallback.command;
+        const description = typeof model.description === 'string' && model.description.trim() ? model.description.trim() : fallback.description;
+        return {
+          id,
+          label,
+          enabled: model.enabled !== false ? Boolean(model.enabled ?? fallback.enabled) : false,
+          command,
+          description
+        };
+      });
+    const seen = new Set(merged.map((model) => model.id));
+    for (const model of DEFAULT_WORKSPACE_MODELS) {
+      if (!seen.has(model.id)) {
+        merged.push({ ...model });
+      }
+    }
+    return merged;
+  } catch {
+    return DEFAULT_WORKSPACE_MODELS.map((model) => ({ ...model }));
+  }
+}
+
+export function saveWorkspaceModels(models: WorkspaceModelDefinition[]): void {
+  window.localStorage.setItem(WORKSPACE_MODELS_KEY, JSON.stringify(models));
+  window.dispatchEvent(new Event(WORKSPACE_MODELS_CHANGED_EVENT));
+}
+
+export function getEnabledWorkspaceModels(models: WorkspaceModelDefinition[] = loadWorkspaceModels()): WorkspaceModelDefinition[] {
+  return models.filter((model) => model.enabled);
+}
+
+export function getWorkspaceModelById(modelId: string | undefined, models: WorkspaceModelDefinition[] = loadWorkspaceModels()): WorkspaceModelDefinition | null {
+  if (!modelId) {
+    return null;
+  }
+  return models.find((model) => model.id === modelId) ?? null;
+}
+
+export function resolveWorkspaceModelCommand(
+  command: string,
+  workspace: { rootDir: string; name: string; selectedModelId?: string }
+): string {
+  return command
+    .replaceAll('{{rootDir}}', workspace.rootDir)
+    .replaceAll('{{workspaceName}}', workspace.name)
+    .replaceAll('{{modelId}}', workspace.selectedModelId ?? '');
 }
 
 export function toShortcutCombo(event: KeyboardEvent): string | null {

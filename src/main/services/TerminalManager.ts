@@ -4,21 +4,37 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import pty from 'node-pty';
 import { v4 as uuidv4 } from 'uuid';
-import type { CommandBlock, PaneId, ShellType } from '@shared/types';
+import type { CommandBlock, PaneId, ShellType, WorkspaceId } from '@shared/types';
 
 interface TerminalSession {
+  workspaceId: WorkspaceId;
   paneId: PaneId;
   shell: ShellType;
   cwd: string;
   process: pty.IPty;
   history: string;
+  inputBuffer: string;
+  activeCommand: {
+    command: string;
+    startedAt: string;
+    output: string;
+  } | null;
 }
 
 interface TerminalSessionSnapshot {
+  workspaceId: WorkspaceId;
   paneId: PaneId;
   shell: ShellType;
   cwd: string;
   history: string;
+}
+
+interface TerminalCommandCompletedPayload {
+  workspaceId: WorkspaceId;
+  paneId: PaneId;
+  command: string;
+  summary: string;
+  completedAt: string;
 }
 
 const MAX_SESSION_HISTORY_CHARS = 2_000_000;
@@ -74,6 +90,29 @@ function buildPowerShellProxyCommand(command: string): string {
   return `powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${encoded}`;
 }
 
+function sanitizeTerminalText(input: string): string {
+  return input
+    .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, '')
+    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '')
+    .replace(/\r/g, '');
+}
+
+function summarizeCommandOutput(output: string): string {
+  const cleaned = sanitizeTerminalText(output);
+  const lines = cleaned
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) {
+    return 'Command completed.';
+  }
+  const first = lines[0];
+  if (first.length <= 140) {
+    return first;
+  }
+  return `${first.slice(0, 137)}...`;
+}
+
 export class TerminalManager {
   private readonly sessions = new Map<PaneId, TerminalSession>();
   private readonly emitter = new EventEmitter();
@@ -100,7 +139,12 @@ export class TerminalManager {
     return () => this.emitter.off('exit', listener);
   }
 
-  startSession(input: { paneId: PaneId; shell: ShellType; cwd: string; cols?: number; rows?: number }): void {
+  onCommandCompleted(listener: (payload: TerminalCommandCompletedPayload) => void): () => void {
+    this.emitter.on('commandCompleted', listener);
+    return () => this.emitter.off('commandCompleted', listener);
+  }
+
+  startSession(input: { workspaceId: WorkspaceId; paneId: PaneId; shell: ShellType; cwd: string; cols?: number; rows?: number }): void {
     this.stopSession(input.paneId);
 
     const shell = getShellCommand(input.shell);
@@ -126,11 +170,14 @@ export class TerminalManager {
     });
 
     const session: TerminalSession = {
+      workspaceId: input.workspaceId,
       paneId: input.paneId,
       shell: input.shell,
       cwd: input.cwd,
       process: proc,
-      history: ''
+      history: '',
+      inputBuffer: '',
+      activeCommand: null
     };
 
     proc.onData((data) => this.emitPaneData(input.paneId, data));
@@ -159,6 +206,7 @@ export class TerminalManager {
     if (!session) {
       return;
     }
+    this.trackCommandInput(session, input);
     session.process.write(input);
   }
 
@@ -169,6 +217,7 @@ export class TerminalManager {
     }
     const nextCommand =
       session.shell === 'cmd' && looksLikePowerShellCommand(command) ? buildPowerShellProxyCommand(command) : command;
+    this.startTrackedCommand(session, command);
     // Write command and submit key separately to better mimic interactive key input for TUI/REPL CLIs.
     session.process.write(nextCommand);
     session.process.write('\r');
@@ -199,7 +248,8 @@ export class TerminalManager {
       paneId: session.paneId,
       shell: session.shell,
       cwd: session.cwd,
-      history: session.history
+      history: session.history,
+      workspaceId: session.workspaceId
     };
   }
 
@@ -242,6 +292,13 @@ export class TerminalManager {
       proc.on('close', (code) => {
         block.exitCode = code ?? -1;
         block.completedAt = new Date().toISOString();
+        this.emitter.emit('commandCompleted', {
+          workspaceId: this.sessions.get(input.paneId)?.workspaceId ?? 'unknown-workspace',
+          paneId: input.paneId,
+          command: input.command,
+          summary: summarizeCommandOutput(block.output),
+          completedAt: block.completedAt
+        } satisfies TerminalCommandCompletedPayload);
         resolve(block);
       });
     });
@@ -270,8 +327,67 @@ export class TerminalManager {
       if (session.history.length > MAX_SESSION_HISTORY_CHARS) {
         session.history = session.history.slice(-MAX_SESSION_HISTORY_CHARS);
       }
+      if (session.activeCommand) {
+        session.activeCommand.output += data;
+        if (this.hasPromptReturned(session)) {
+          const completedAt = new Date().toISOString();
+          this.emitter.emit('commandCompleted', {
+            workspaceId: session.workspaceId,
+            paneId: session.paneId,
+            command: session.activeCommand.command,
+            summary: summarizeCommandOutput(session.activeCommand.output),
+            completedAt
+          } satisfies TerminalCommandCompletedPayload);
+          session.activeCommand = null;
+        }
+      }
     }
     this.emitter.emit('data', paneId, data);
+  }
+
+  private trackCommandInput(session: TerminalSession, input: string): void {
+    for (const char of input) {
+      if (char === '\r') {
+        const command = session.inputBuffer.trim();
+        session.inputBuffer = '';
+        if (command.length > 0) {
+          this.startTrackedCommand(session, command);
+        }
+        continue;
+      }
+      if (char === '\u007f') {
+        session.inputBuffer = session.inputBuffer.slice(0, -1);
+        continue;
+      }
+      const code = char.charCodeAt(0);
+      const isPrintable = code >= 32 && code !== 127;
+      if (isPrintable) {
+        session.inputBuffer += char;
+      }
+    }
+  }
+
+  private startTrackedCommand(session: TerminalSession, command: string): void {
+    const trimmed = command.trim();
+    if (!trimmed) {
+      return;
+    }
+    session.activeCommand = {
+      command: trimmed,
+      startedAt: new Date().toISOString(),
+      output: ''
+    };
+  }
+
+  private hasPromptReturned(session: TerminalSession): boolean {
+    const tail = sanitizeTerminalText(session.history.slice(-3000)).trimEnd();
+    if (!tail) {
+      return false;
+    }
+    if (session.shell === 'cmd') {
+      return /(?:^|\n)[A-Za-z]:\\[^\r\n>]*>\s*$/.test(tail);
+    }
+    return /(?:^|\n)(?:PS [^\r\n>]+>\s*|[A-Za-z]:\\[^\r\n>]*>\s*)$/.test(tail);
   }
 
   private untrackPid(pid: number): void {

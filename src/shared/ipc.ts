@@ -7,6 +7,7 @@ import type {
   TaskPriority,
   TaskStatus,
   UpdateStatus,
+  WorkspaceRunEvent,
   WorkspaceId,
   WorkspaceState,
   WorkspaceTemplate
@@ -20,6 +21,14 @@ export interface TerminalDataEvent {
 export interface TerminalExitEvent {
   paneId: PaneId;
   exitCode: number;
+}
+
+export interface TerminalCommandCompletedEvent {
+  workspaceId: WorkspaceId;
+  paneId: PaneId;
+  command: string;
+  summary: string;
+  completedAt: string;
 }
 
 export interface TemplateProgressEvent {
@@ -127,15 +136,29 @@ export interface LocalEnvironmentExportSummary {
   updatedAt: string;
 }
 
+export interface WorkspaceCreationInput {
+  name: string;
+  rootDir: string;
+  layoutPresetId?: string;
+  templateId?: string;
+  selectedModelId?: string;
+}
+
 // ---- QuanSwarm IPC shapes (serializable) ----
 
 export type SwarmAgentRole = 'coordinator' | 'builder' | 'scout' | 'reviewer';
 export type SwarmCliProvider = 'claude' | 'codex' | 'gemini';
+export type SwarmReviewStrictness = 'balanced' | 'strict' | 'critical';
 
 export interface SwarmAgentConfig {
   agentId: string;
   role: SwarmAgentRole;
   cliProvider: SwarmCliProvider;
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  promptOverride?: string;
+  reviewStrictness?: SwarmReviewStrictness;
 }
 
 export interface SwarmCreateConfig {
@@ -198,12 +221,7 @@ export interface VibeAdeApi {
       theme: 'light' | 'dark' | 'system';
       defaultWorkspaceId: string;
     }>;
-    create: (input: {
-      name: string;
-      rootDir: string;
-      layoutPresetId?: string;
-      templateId?: string;
-    }) => Promise<WorkspaceState>;
+    create: (input: WorkspaceCreationInput) => Promise<WorkspaceState>;
     clone: (workspaceId: WorkspaceId, newName: string) => Promise<WorkspaceState>;
     rename: (workspaceId: WorkspaceId, name: string) => Promise<void>;
     remove: (workspaceId: WorkspaceId) => Promise<void>;
@@ -312,6 +330,8 @@ export interface VibeAdeApi {
   };
   onTerminalData: (listener: (event: TerminalDataEvent) => void) => () => void;
   onTerminalExit: (listener: (event: TerminalExitEvent) => void) => () => void;
+  onTerminalCommandCompleted: (listener: (event: TerminalCommandCompletedEvent) => void) => () => void;
+  onWorkspaceRunEvent: (listener: (event: WorkspaceRunEvent) => void) => () => void;
   onTemplateProgress: (listener: (event: TemplateProgressEvent) => void) => () => void;
   onMenuAction: (listener: (event: MenuActionEvent) => void) => () => void;
   onBrowserContextAction: (listener: (event: BrowserContextActionEvent) => void) => () => void;

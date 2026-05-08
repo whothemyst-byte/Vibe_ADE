@@ -4,6 +4,7 @@ import {
   type BuilderCompletionMessage,
   type BuilderQuestionMessage,
   type CoordinatorOutputMessage,
+  type MailboxNoteMessage,
   type ReviewDecisionMessage,
   type ScoutResponseMessage,
   type SwarmMessage,
@@ -11,6 +12,7 @@ import {
   type TaskTimeoutMessage
 } from '@main/types/SwarmMessages';
 import type { SwarmTask } from '@main/types/SwarmOrchestration';
+import { parseBuilderCompletion } from '@main/prompts/BuilderPrompt';
 import { parseCoordinatorOutput } from '@main/prompts/CoordinatorPrompt';
 
 /**
@@ -56,19 +58,19 @@ export class MessageParser {
         }
       }
 
-      // 2) Builder completion (MARK_DONE).
-      for (const match of allMatches(text, /^\s*MARK_DONE:\s*(TASK-\d{3})\s*$/gm)) {
-        const taskId = match.groups?.taskId ?? match.match[1] ?? '';
+      // 2) Builder completion (MARK_DONE + optional evidence block).
+      const completion = parseBuilderCompletion(text);
+      if (completion.complete && completion.taskId) {
         const msg: BuilderCompletionMessage = {
           type: SwarmMessageType.BUILDER_COMPLETION,
-          taskId,
+          taskId: completion.taskId,
           fromAgent: agentId,
           summary: 'MARK_DONE received.',
-          filesModified: [],
+          filesModified: completion.filesModified,
           timestamp: now
         };
         if (this.validateStructure(msg)) {
-          found.push({ index: match.index, message: msg });
+          found.push({ index: firstMatchIndex(text, /^\s*MARK_DONE:\s*(TASK-\d{3})\s*$/m) ?? text.length, message: msg });
         } else {
           console.warn(`[MessageParser] Invalid MARK_DONE line for agent=${agentId}; skipping.`);
         }
@@ -98,6 +100,15 @@ export class MessageParser {
           found.push({ index: reviewIndex, message: decision });
         } else if (decision) {
           console.warn('[MessageParser] Invalid reviewer decision structure; skipping.');
+        }
+      }
+
+      // 4b) Explicit mailbox note block.
+      const mailboxIndex = firstMatchIndex(text, /^\s*MAILBOX:\s*$/m);
+      if (mailboxIndex !== null) {
+        const mailbox = this.parseMailboxNote(text.slice(mailboxIndex), agentId, now);
+        if (mailbox && this.validateStructure(mailbox)) {
+          found.push({ index: mailboxIndex, message: mailbox });
         }
       }
 
@@ -131,21 +142,6 @@ export class MessageParser {
     return parseCoordinatorOutput(text);
   }
 
-  private parseBuilderCompletion(line: string, agentId: string, now: number): BuilderCompletionMessage | null {
-    const match = line.match(/^\s*MARK_DONE:\s*(TASK-\d{3})\s*$/);
-    if (!match) {
-      return null;
-    }
-    return {
-      type: SwarmMessageType.BUILDER_COMPLETION,
-      taskId: match[1]!,
-      fromAgent: agentId,
-      summary: 'MARK_DONE received.',
-      filesModified: [],
-      timestamp: now
-    };
-  }
-
   private parseReviewerDecision(block: string, now: number): ReviewDecisionMessage | null {
     const header = block.match(/^\s*(APPROVE|REJECT):\s*(TASK-\d{3})\s*$/m);
     if (!header) {
@@ -171,6 +167,33 @@ export class MessageParser {
         errorHandling: decision === ReviewDecision.APPROVE,
         noUnrelatedChanges: decision === ReviewDecision.APPROVE
       }
+    };
+  }
+
+  private parseMailboxNote(block: string, fromAgent: string, now: number): MailboxNoteMessage | null {
+    const lines = block.replace(/\r\n/g, '\n').split('\n');
+    if (lines.length === 0 || lines[0]!.trim() !== 'MAILBOX:') {
+      return null;
+    }
+
+    const toAgent = optionalLineValue(lines, 'TO:');
+    const taskId = optionalLineValue(lines, 'TASK:');
+    const subject = optionalLineValue(lines, 'SUBJECT:') || 'Mailbox note';
+    const files = parseOptionalBracketList(optionalLineValue(lines, 'FILES:'));
+    const body = readBodyBlock(lines, 'BODY:');
+    if (!body) {
+      return null;
+    }
+
+    return {
+      type: SwarmMessageType.MAILBOX_NOTE,
+      fromAgent,
+      toAgent: toAgent || undefined,
+      taskId: taskId || undefined,
+      files: files.length > 0 ? files : undefined,
+      subject,
+      body,
+      timestamp: now
     };
   }
 
@@ -283,6 +306,12 @@ export class MessageParser {
         return validAgentId(message.fromAgent) && validAgentId(message.toAgent) && safeStr(message.answer, 50_000);
       case SwarmMessageType.REVIEW_DECISION:
         return validTaskId(message.taskId) && (message.decision === ReviewDecision.APPROVE || message.decision === ReviewDecision.REJECT) && safeStr(message.feedback, 50_000);
+      case SwarmMessageType.MAILBOX_NOTE:
+        return validAgentId(message.fromAgent)
+          && (!message.toAgent || validAgentId(message.toAgent))
+          && (!message.taskId || validTaskId(message.taskId))
+          && safeStr(message.subject, 200)
+          && safeStr(message.body, 50_000);
       case SwarmMessageType.TASK_TIMEOUT:
         return validTaskId(message.taskId) && validAgentId(message.agent) && Number.isFinite(message.timeElapsed) && message.timeElapsed > 0;
       case SwarmMessageType.SYSTEM_LOG:
@@ -304,7 +333,7 @@ export function parseAgentOutput(agentId: string, output: string, agentRole: str
   const role = agentRole.trim().toLowerCase();
 
   // Filter by role to avoid accidental cross-role matches.
-  return messages.filter((msg) => {
+  const filtered = messages.filter((msg) => {
     if (role === 'coordinator') {
       return msg.type === SwarmMessageType.COORDINATOR_OUTPUT;
     }
@@ -312,18 +341,33 @@ export function parseAgentOutput(agentId: string, output: string, agentRole: str
       return (
         msg.type === SwarmMessageType.BUILDER_COMPLETION ||
         msg.type === SwarmMessageType.BUILDER_QUESTION ||
+        msg.type === SwarmMessageType.MAILBOX_NOTE ||
         msg.type === SwarmMessageType.SYSTEM_LOG ||
         msg.type === SwarmMessageType.TASK_TIMEOUT
       );
     }
     if (role === 'reviewer') {
-      return msg.type === SwarmMessageType.REVIEW_DECISION || msg.type === SwarmMessageType.SYSTEM_LOG;
+      return msg.type === SwarmMessageType.REVIEW_DECISION || msg.type === SwarmMessageType.MAILBOX_NOTE || msg.type === SwarmMessageType.SYSTEM_LOG;
     }
     if (role === 'scout') {
-      return msg.type === SwarmMessageType.SCOUT_RESPONSE || msg.type === SwarmMessageType.SYSTEM_LOG;
+      return msg.type === SwarmMessageType.SCOUT_RESPONSE || msg.type === SwarmMessageType.MAILBOX_NOTE || msg.type === SwarmMessageType.SYSTEM_LOG;
     }
     return true;
   });
+
+  if (role === 'coordinator' && filtered.length === 0) {
+    const normalized = normalizeText(output);
+    if (normalized && isSubstantiveCoordinatorOutput(normalized)) {
+      return [{
+        type: SwarmMessageType.COORDINATOR_OUTPUT,
+        fromAgent: agentId,
+        plan: normalized,
+        timestamp: Date.now()
+      }];
+    }
+  }
+
+  return filtered;
 }
 
 /**
@@ -345,6 +389,20 @@ export function extractCompletionSignal(output: string): string | null {
 function normalizeText(value: string): string {
   const text = value.replace(/\r\n/g, '\n').trim();
   return text;
+}
+
+function isSubstantiveCoordinatorOutput(text: string): boolean {
+  if (!text) {
+    return false;
+  }
+  if (/^\s*(ERROR|BLOCKED):/mi.test(text)) {
+    return false;
+  }
+  if (text.length < 80) {
+    return false;
+  }
+  const nonEmptyLines = text.split('\n').filter((line) => line.trim().length > 0);
+  return nonEmptyLines.length >= 3;
 }
 
 function sanitizeText(value: string, maxLen: number): string {
@@ -431,4 +489,43 @@ function readRequiredLineValue(lines: readonly string[], prefix: string): string
     throw new Error(`Line "${prefix}" must have a value.`);
   }
   return value;
+}
+
+function optionalLineValue(lines: readonly string[], prefix: string): string {
+  const line = lines.find((entry) => entry.trimStart().startsWith(prefix));
+  if (!line) {
+    return '';
+  }
+  return line.slice(line.indexOf(prefix) + prefix.length).trim();
+}
+
+function readBodyBlock(lines: readonly string[], header: string): string {
+  const start = lines.findIndex((entry) => entry.trim() === header);
+  if (start < 0) {
+    return '';
+  }
+
+  const body: string[] = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    if (index > start + 1 && /^[A-Z_]+:/.test(line.trim()) && !line.trim().startsWith('-')) {
+      break;
+    }
+    body.push(line);
+  }
+  return body.join('\n').trim();
+}
+
+function parseOptionalBracketList(raw: string): string[] {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return [];
+  }
+  const match = trimmed.match(/^\[(.*)\]$/);
+  const inner = match ? match[1] ?? '' : trimmed;
+  return inner
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => value.replace(/^['"]|['"]$/g, ''));
 }

@@ -44,6 +44,11 @@ export type TaskId = string;
 export type FilePath = string;
 
 /**
+ * Stable identifier for a swarm mailbox or task artifact entry.
+ */
+export type SwarmRecordId = string;
+
+/**
  * Lifecycle state of a task within the swarm.
  */
 export enum SwarmTaskStatus {
@@ -175,6 +180,136 @@ export interface SwarmTaskTracking {
    * Review feedback, including rejection reasons or polish notes.
    */
   readonly feedback?: string;
+
+  /**
+   * Best-effort list of files modified when the task was completed.
+   */
+  readonly filesModified?: readonly FilePath[];
+
+  /**
+   * Runtime evidence captured when the task was completed and prepared for review.
+   */
+  readonly completionEvidence?: SwarmTaskEvidence;
+}
+
+/**
+ * Runtime evidence packet attached to a completed task before review.
+ */
+export interface SwarmTaskEvidence {
+  /**
+   * Files the builder explicitly claimed to have modified.
+   */
+  readonly reportedFilesModified: readonly FilePath[];
+
+  /**
+   * Files the swarm runtime observed to have changed relative to the task baseline.
+   */
+  readonly observedFilesModified: readonly FilePath[];
+
+  /**
+   * Files that appear to fall outside task ownership and should be treated as review blockers.
+   */
+  readonly ownershipViolations: readonly FilePath[];
+
+  /**
+   * Additional evidence notes for reviewer context.
+   */
+  readonly evidenceNotes: readonly string[];
+
+  /**
+   * When the evidence packet was generated.
+   */
+  readonly updatedAt: UnixTimestampMs;
+}
+
+/**
+ * Shared mailbox entry between agents during a swarm run.
+ */
+export interface SwarmMailboxEntry {
+  /**
+   * Stable mailbox entry identifier.
+   */
+  readonly id: SwarmRecordId;
+
+  /**
+   * Optional task association for this message.
+   */
+  readonly taskId?: TaskId;
+
+  /**
+   * Sender agent ID, or a synthetic system sender.
+   */
+  readonly fromAgentId: AgentId | 'system';
+
+  /**
+   * Intended recipient, if any.
+   */
+  readonly toAgentId?: AgentId;
+
+  /**
+   * Mail category used for UI grouping.
+   */
+  readonly category: 'question' | 'answer' | 'review' | 'evidence' | 'system';
+
+  /**
+   * Short subject line.
+   */
+  readonly subject: string;
+
+  /**
+   * Full message body.
+   */
+  readonly body: string;
+
+  /**
+   * When the message was posted.
+   */
+  readonly createdAt: UnixTimestampMs;
+}
+
+/**
+ * Task-scoped artifact captured during handoffs, evidence generation, or review.
+ */
+export interface SwarmTaskArtifact {
+  /**
+   * Stable artifact identifier.
+   */
+  readonly id: SwarmRecordId;
+
+  /**
+   * Task this artifact belongs to.
+   */
+  readonly taskId: TaskId;
+
+  /**
+   * Artifact category.
+   */
+  readonly kind: 'builder-completion' | 'review-decision' | 'evidence' | 'handoff' | 'note';
+
+  /**
+   * Agent or system source.
+   */
+  readonly fromAgentId: AgentId | 'system';
+
+  /**
+   * Optional target agent.
+   */
+  readonly toAgentId?: AgentId;
+
+  /**
+   * Short label for dashboards.
+   */
+  readonly title: string;
+
+  /**
+   * Full artifact payload.
+   */
+  readonly body: string;
+
+  /**
+   * When the artifact was added.
+   */
+  readonly createdAt: UnixTimestampMs;
 }
 
 /**
@@ -347,6 +482,16 @@ export interface SwarmSharedContext {
    * Testing approaches and verification expectations.
    */
   readonly testing: string;
+
+  /**
+   * Most recent structured scout report summary merged into shared context.
+   */
+  readonly scoutFindings: string;
+
+  /**
+   * When scout findings were last updated (epoch ms).
+   */
+  readonly scoutUpdatedAt?: UnixTimestampMs;
 }
 
 /**
@@ -404,6 +549,16 @@ export interface SwarmState {
    * Shared coordination context for the swarm (codebase map + conventions).
    */
   readonly sharedContext: SwarmSharedContext;
+
+  /**
+   * Shared mailbox used for cross-agent collaboration and handoffs.
+   */
+  readonly mailbox: readonly SwarmMailboxEntry[];
+
+  /**
+   * Task-scoped artifacts captured during execution and review.
+   */
+  readonly taskArtifacts: ReadonlyMap<TaskId, readonly SwarmTaskArtifact[]>;
 }
 
 /**

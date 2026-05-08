@@ -91,6 +91,16 @@ const api: VibeAdeApi = {
     ipcRenderer.on('terminal:exit', handler);
     return () => ipcRenderer.off('terminal:exit', handler);
   },
+  onTerminalCommandCompleted: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('terminal:commandCompleted', handler);
+    return () => ipcRenderer.off('terminal:commandCompleted', handler);
+  },
+  onWorkspaceRunEvent: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('workspace-run:event', handler);
+    return () => ipcRenderer.off('workspace-run:event', handler);
+  },
   onTemplateProgress: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
     ipcRenderer.on('template:progress', handler);

@@ -2,8 +2,11 @@ import type {
   AgentState,
   AgentRuntimeStatus,
   AgentRole,
+  SwarmMailboxEntry,
   SwarmSharedContext,
   SwarmState,
+  SwarmTaskArtifact,
+  SwarmTaskEvidence,
   SwarmTask,
   SwarmTaskPriority,
   SwarmTaskStatus
@@ -192,7 +195,11 @@ export class SwarmEventBus {
   /**
    * Wait for a specific event type, with an optional timeout.
    */
-  public async waitFor(eventType: string, timeout: number = 30_000): Promise<SwarmEvent> {
+  public async waitFor(
+    eventType: string,
+    timeout: number = 30_000,
+    filter?: SwarmEventFilter
+  ): Promise<SwarmEvent> {
     const type = eventType.trim();
     if (!type) {
       throw new Error('eventType must be non-empty.');
@@ -209,7 +216,7 @@ export class SwarmEventBus {
         clearTimeout(timer);
         unsubscribe();
         resolve(event);
-      });
+      }, filter);
     });
   }
 
@@ -298,6 +305,12 @@ export class SwarmEventBus {
       case 'task-started':
       case 'task-completed':
         return `${base}|${event.taskId}|${event.agentId}`;
+      case 'mailbox-message-posted':
+        return `${base}|${event.entry.id}|${event.entry.category}|${event.entry.subject}`;
+      case 'task-artifact-added':
+        return `${base}|${event.taskId}|${event.artifact.id}|${event.artifact.kind}`;
+      case 'task-evidence-updated':
+        return `${base}|${event.taskId}|${event.evidence.updatedAt}|${event.evidence.ownershipViolations.join(',')}`;
       case 'agent-status-changed':
         return `${base}|${event.agentId}|${event.status}|${event.currentTask ?? ''}`;
       case 'error-occurred':
@@ -474,6 +487,27 @@ export class SwarmEventBus {
         }
         break;
       }
+      case 'mailbox-message-posted': {
+        next.mailbox = [...next.mailbox, event.entry].slice(-500);
+        break;
+      }
+      case 'task-artifact-added': {
+        const existing = next.taskArtifacts.get(event.taskId) ?? [];
+        next.taskArtifacts.set(event.taskId, [...existing, event.artifact].slice(-100));
+        break;
+      }
+      case 'task-evidence-updated': {
+        const task = ensureTask(next, event.taskId);
+        next.tasks.set(event.taskId, {
+          ...task,
+          tracking: {
+            ...task.tracking,
+            filesModified: event.evidence.observedFilesModified,
+            completionEvidence: event.evidence
+          }
+        });
+        break;
+      }
       case 'blocker-escalated': {
         const agent = ensureAgent(next, event.agentId);
         next.agents.set(event.agentId, { ...agent, status: 'BLOCKED' as AgentRuntimeStatus, blockReason: event.blockReason, lastActivity: event.timestamp });
@@ -514,6 +548,8 @@ type MutableSwarmState = {
   parallelGroups: string[][];
   dependencies: Map<string, string[]>;
   sharedContext: SwarmSharedContext;
+  mailbox: SwarmMailboxEntry[];
+  taskArtifacts: Map<string, SwarmTaskArtifact[]>;
 };
 
 function createEmptyProjection(swarmId: string): MutableSwarmState {
@@ -531,8 +567,12 @@ function createEmptyProjection(swarmId: string): MutableSwarmState {
       conventions: '',
       existingPatterns: '',
       security: '',
-      testing: ''
-    }
+      testing: '',
+      scoutFindings: '',
+      scoutUpdatedAt: undefined
+    },
+    mailbox: [],
+    taskArtifacts: new Map()
   };
 }
 
@@ -546,7 +586,9 @@ function cloneSwarmState(state: SwarmState): MutableSwarmState {
     agents: new Map(state.agents),
     parallelGroups: state.parallelGroups.map((g) => [...g]),
     dependencies: new Map(Array.from(state.dependencies.entries()).map(([k, v]) => [k, [...v]])),
-    sharedContext: { ...state.sharedContext }
+    sharedContext: { ...state.sharedContext },
+    mailbox: [...state.mailbox],
+    taskArtifacts: new Map(Array.from(state.taskArtifacts.entries()).map(([k, v]) => [k, [...v]]))
   };
 }
 
@@ -560,7 +602,9 @@ function freezeProjection(state: MutableSwarmState): SwarmState {
     agents: new Map(state.agents),
     parallelGroups: state.parallelGroups.map((g) => [...g]),
     dependencies: new Map(Array.from(state.dependencies.entries()).map(([k, v]) => [k, [...v]])),
-    sharedContext: { ...state.sharedContext }
+    sharedContext: { ...state.sharedContext },
+    mailbox: [...state.mailbox],
+    taskArtifacts: new Map(Array.from(state.taskArtifacts.entries()).map(([k, v]) => [k, [...v]]))
   };
 }
 

@@ -35,6 +35,7 @@ export enum SwarmMessageType {
 
   // Reviewer
   REVIEW_DECISION = 'REVIEW_DECISION',
+  MAILBOX_NOTE = 'MAILBOX_NOTE',
 
   // System
   AGENT_BLOCKED = 'AGENT_BLOCKED',
@@ -286,6 +287,28 @@ export interface ReviewDecisionMessage {
 }
 
 /**
+ * Explicit mailbox note emitted by an agent for cross-agent handoff or artifact sharing.
+ */
+export interface MailboxNoteMessage {
+  /** Discriminator. */
+  readonly type: SwarmMessageType.MAILBOX_NOTE;
+  /** Agent originating the note. */
+  readonly fromAgent: AgentId;
+  /** Optional direct recipient. */
+  readonly toAgent?: AgentId;
+  /** Optional task association. */
+  readonly taskId?: TaskId;
+  /** Optional file references. */
+  readonly files?: readonly string[];
+  /** Subject line. */
+  readonly subject: string;
+  /** Message body. */
+  readonly body: string;
+  /** When the note was emitted (epoch ms). */
+  readonly timestamp: UnixTimestampMs;
+}
+
+/**
  * System -> coordinator: an agent is blocked and requires intervention.
  */
 export interface AgentBlockedMessage {
@@ -365,7 +388,7 @@ export type ScoutMessages =
 /**
  * All reviewer-originated messages.
  */
-export type ReviewerMessages = ReviewDecisionMessage;
+export type ReviewerMessages = ReviewDecisionMessage | MailboxNoteMessage;
 
 /**
  * All system-originated messages.

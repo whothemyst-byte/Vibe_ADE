@@ -6,3 +6,5 @@ dist/
 .env
 out/
 release/
+output/
+.firecrawl/

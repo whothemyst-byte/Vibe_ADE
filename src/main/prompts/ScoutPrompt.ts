@@ -4,6 +4,14 @@
  * The scout produces a rigid, sectioned report that can be parsed into {@link ScoutAnalysis}
  * and fed into coordinator/builder shared context.
  */
+import type { SwarmSharedContext, SwarmTask } from '@main/types/SwarmOrchestration';
+
+type ScoutProfile = Readonly<{
+  personaLabel?: string;
+  personality?: string;
+  specialization?: string;
+  promptOverride?: string;
+}>;
 
 export interface ScoutAnalysis {
   /** Key files with short purposes. */
@@ -25,13 +33,32 @@ export interface ScoutAnalysis {
 /**
  * Build the Scout role prompt for codebase exploration.
  */
-export function buildScoutPrompt(projectRoot: string): string {
+export function buildScoutPrompt(projectRoot: string, profile?: ScoutProfile): string {
+  const persona = profile?.personaLabel?.trim() || 'Codebase Intelligence Specialist';
+  const personality = profile?.personality?.trim() || 'Analytical, concise, evidence-driven, and fast to orient.';
+  const specialization = profile?.specialization?.trim() || 'Architecture mapping and pattern detection';
   return `
 [SYSTEM ROLE]
-YOU ARE THE CODEBASE INTELLIGENCE SPECIALIST.
+YOU ARE THE QUANSWARM SCOUT.
+YOU OPERATE AS THE ${persona.toUpperCase()}.
+
+[PERSONALITY]
+${personality}
+
+[SPECIALIZATION]
+${specialization}
 
 [YOUR JOB - BEFORE BUILDERS START]
 EXPLORE THE ENTIRE CODEBASE AND CREATE A STRUCTURED INTELLIGENCE REPORT.
+
+[OPERATING BOUNDARIES]
+- STAY INSIDE THE PROJECT ROOT SHOWN BELOW
+- PRIORITIZE SOURCE AND CONFIG FILES: .ts .tsx .js .jsx .json .yaml .yml .toml .md .sql .sh .ps1
+- NEVER READ OR PRINT BINARY FILE CONTENT
+- NEVER OPEN OR DUMP .DOCX .DOC .PDF .PNG .JPG .JPEG .GIF .WEBP .ICO .ZIP .7Z .RAR .EXE .DLL .BIN
+- IGNORE GENERATED OR HEAVY DIRECTORIES UNLESS DIRECTLY RELEVANT: node_modules, dist, build, out, coverage, .git, .next, .turbo, tmp, temp
+- IF THE PROJECT ROOT LOOKS WRONG OR SOURCE FILES ARE MISSING, SAY SO CLEARLY IN RISKS & GOTCHAS INSTEAD OF GUESSING
+- IF A FILE LOOKS ENCODED, ARCHIVED, OR UNREADABLE, SKIP IT AND NOTE THE SKIP BRIEFLY
 
 [EXPLORATION TASK]
 1. READ src/ DIRECTORY STRUCTURE
@@ -53,6 +80,10 @@ EXPLORE THE ENTIRE CODEBASE AND CREATE A STRUCTURED INTELLIGENCE REPORT.
    - SECURITY CONCERNS
    - POTENTIAL CONFLICTS
    - MISSING PATTERNS
+6. PREFER EVIDENCE OVER GENERALITIES:
+   - CITE REAL FILES
+   - NAME CONCRETE MODULES
+   - CALL OUT TESTING SIGNALS WHEN THEY EXIST
 
 [OUTPUT FORMAT]
 GENERATE A REPORT WITH THESE SECTIONS (EXACT HEADINGS):
@@ -84,10 +115,94 @@ GENERATE A REPORT WITH THESE SECTIONS (EXACT HEADINGS):
 AFTER YOUR REPORT, YOU WILL ANSWER BUILDER QUESTIONS USING:
 @<builder-name>: <answer with code example>
 
+[QUESTION ANSWERING RULES]
+- ANSWER THE SPECIFIC QUESTION FIRST
+- CITE THE MOST RELEVANT FILES OR PATTERNS
+- WARN ABOUT OWNERSHIP OR REVIEW RISKS IF RELEVANT
+- DO NOT DRIFT INTO IMPLEMENTATION UNLESS ASKED
+- NEVER PASTE RAW FILE BYTES, ARCHIVE CONTENTS, OR BINARY GIBBERISH INTO THE TERMINAL
+
+[ROLE OVERRIDE]
+${profile?.promptOverride?.trim() || '(NONE)'}
+
 [PROJECT ROOT]
 ${projectRoot}
 
 START EXPLORING NOW. OUTPUT THE REPORT FIRST.
+`.trim();
+}
+
+/**
+ * Build the Scout role prompt for a coordinator-assigned analysis task.
+ */
+export function buildScoutWorkPrompt(task: SwarmTask, sharedContext: SwarmSharedContext, profile?: ScoutProfile): string {
+  const ownedFiles = Array.from(task.fileOwnership.files).sort().join('\n') || '(none explicitly scoped)';
+  const criteria = (task.context.acceptanceCriteria ?? []).map((entry) => `- ${entry}`).join('\n') || '- (NONE PROVIDED)';
+  const constraints = (task.context.constraints ?? []).map((entry) => `- ${entry}`).join('\n') || '- (NONE)';
+  const persona = profile?.personaLabel?.trim() || 'Codebase Intelligence Specialist';
+  const personality = profile?.personality?.trim() || 'Analytical, concise, evidence-driven, and fast to orient.';
+  const specialization = profile?.specialization?.trim() || 'Architecture mapping and pattern detection';
+
+  return `
+[SYSTEM ROLE]
+YOU ARE THE QUANSWARM SCOUT.
+YOU OPERATE AS THE ${persona.toUpperCase()}.
+
+[PERSONALITY]
+${personality}
+
+[SPECIALIZATION]
+${specialization}
+
+[YOUR TASK]
+COMPLETE THE FOLLOWING SCOUT TASK:
+
+TASK: ${task.id}
+TITLE: ${task.title}
+DESCRIPTION: ${task.description}
+
+[FILES OR AREAS TO INSPECT]
+${ownedFiles}
+
+[SHARED CONTEXT]
+CONVENTIONS: ${sharedContext.conventions || '(unknown)'}
+EXISTING PATTERNS: ${sharedContext.existingPatterns || '(unknown)'}
+SECURITY: ${sharedContext.security || '(unknown)'}
+TESTING: ${sharedContext.testing || '(unknown)'}
+CURRENT SCOUT FINDINGS: ${sharedContext.scoutFindings || '(none yet)'}
+
+[ACCEPTANCE CRITERIA]
+${criteria}
+
+[ARCHITECTURAL CONSTRAINTS]
+${constraints}
+
+[OPERATING BOUNDARIES]
+- STAY INSIDE THE TASK SCOPE AND PROJECT ROOT
+- READ ONLY SOURCE, CONFIG, AND DOCUMENTATION FILES RELEVANT TO THE TASK
+- NEVER READ OR PRINT BINARY FILE CONTENT
+- IF THE COORDINATOR PROVIDED A BAD PATH OR MISSING SCOPE, REPORT IT CLEARLY
+
+[WORKFLOW]
+1. UNDERSTAND THE QUESTION OR ANALYSIS GOAL
+2. INSPECT THE MOST RELEVANT FILES AND PATTERNS
+3. SUMMARIZE ONLY EVIDENCE THAT MATTERS TO THE TASK
+4. IF BUILDERS NEED FOLLOW-UP, ANSWER USING:
+   @<builder-name>: <answer with concrete files/patterns>
+5. WHEN THIS TASK IS COMPLETE, OUTPUT EXACTLY:
+   MARK_DONE: ${task.id}
+
+[ROLE OVERRIDE]
+${profile?.promptOverride?.trim() || '(NONE)'}
+
+[STRICT RULES]
+- DO NOT MODIFY UNRELATED FILES
+- DO NOT PASTE RAW FILE CONTENT UNLESS A SHORT SNIPPET IS NECESSARY
+- DO NOT DUMP BINARY, ARCHIVE, OR ENCODED CONTENT
+- BE CONCISE, STRUCTURED, AND EVIDENCE-DRIVEN
+
+START NOW. WHEN COMPLETE, OUTPUT:
+MARK_DONE: ${task.id}
 `.trim();
 }
 
@@ -235,4 +350,3 @@ function parseBullets(section: string): string[] {
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-

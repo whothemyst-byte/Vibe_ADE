@@ -4,7 +4,7 @@ import { LAYOUT_PRESETS, getPresetById, type LayoutPresetId } from '@renderer/se
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import { useToastStore } from '@renderer/hooks/useToast';
-import { UiIcon } from './UiIcon';
+import { Icon, cn } from './ui';
 
 type LayoutSelectorPlacement = 'bottom-end' | 'right-start';
 
@@ -118,53 +118,63 @@ export function LayoutSelector({
   const menu = open ? createPortal(
     <div
       ref={menuRef}
-      className="layout-selector-menu"
       role="menu"
+      className="fixed z-[60] w-[220px] rounded border border-line bg-bg-panel shadow-premium p-0.5"
       style={menuPosition ? { top: `${menuPosition.top}px`, left: `${menuPosition.left}px` } : undefined}
     >
-      {LAYOUT_PRESETS.map((preset) => (
-        <button
-          key={preset.id}
-          className={
-            preset.id === activePresetId
-              ? 'layout-option active'
-              : maxPanes !== null && preset.slots > maxPanes
-                ? 'layout-option locked'
-                : 'layout-option'
-          }
-          onClick={() => {
-            if (maxPanes !== null && preset.slots > maxPanes) {
-              addToast('info', `Spark supports up to ${maxPanes} panes. Upgrade to unlock larger layouts.`);
-              return;
-            }
-            setLayoutPreset(preset.id);
-            setOpen(false);
-          }}
-        >
-          <span>{preset.label}</span>
-          <small>
-            {preset.slots} panes
-            {maxPanes !== null && preset.slots > maxPanes && (
-              <UiIcon name="lock" className="ui-icon ui-icon-sm lock-icon" />
+      <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+        Layout Presets
+      </div>
+      {LAYOUT_PRESETS.map((preset) => {
+        const locked = maxPanes !== null && preset.slots > maxPanes;
+        const active = preset.id === activePresetId;
+        return (
+          <button
+            key={preset.id}
+            className={cn(
+              'w-full flex items-center justify-between gap-2 px-2 py-1 rounded-sm text-left transition-colors',
+              active
+                ? 'bg-primary/15 text-primary'
+                : 'text-fg hover:bg-bg-panel-2',
+              locked && !active && 'opacity-60'
             )}
-          </small>
-        </button>
-      ))}
+            onClick={() => {
+              if (locked) {
+                addToast('info', `Spark supports up to ${maxPanes} panes. Upgrade to unlock larger layouts.`);
+                return;
+              }
+              setLayoutPreset(preset.id);
+              setOpen(false);
+            }}
+          >
+            <span className="text-xs font-medium">{preset.label}</span>
+            <span className="flex items-center gap-1 text-[10px] text-fg-muted">
+              {preset.slots} panes
+              {locked && <Icon name="lock" size="xs" className="text-warn" />}
+              {active && <Icon name="check" size="xs" className="text-primary" />}
+            </span>
+          </button>
+        );
+      })}
     </div>,
     document.body
   ) : null;
 
   return (
-    <div ref={rootRef} className={className ? `layout-selector ${className}` : 'layout-selector'}>
+    <div ref={rootRef} className={cn('relative', className)}>
       <button
         ref={buttonRef}
-        className="top-button icon-top-button"
+        className={cn(
+          'h-6 px-1.5 inline-flex items-center gap-1 rounded-sm text-[11px] font-medium transition-colors',
+          'text-fg-muted hover:text-fg hover:bg-bg-panel-2',
+          open && 'bg-bg-panel-2 text-fg'
+        )}
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         title={`Layout: ${activePreset.label}`}
         aria-label={`Layout: ${activePreset.label}`}
       >
-        <UiIcon name="layout" className="ui-icon" />
+        <Icon name="layout" size="md" />
         {showLabel && <span>Layouts</span>}
       </button>
       {menu}

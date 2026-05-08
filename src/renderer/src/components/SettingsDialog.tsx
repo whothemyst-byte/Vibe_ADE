@@ -5,31 +5,29 @@ import type { TaskItem, TaskStatus } from '@shared/types';
 import { useToastStore } from '@renderer/hooks/useToast';
 import {
   DEFAULT_SHORTCUTS,
+  DEFAULT_UI_PREFERENCES,
   loadEnvironmentSaveDirectory,
   loadShortcuts,
+  loadUiPreferences,
+  saveUiPreferences,
   saveEnvironmentSaveDirectory,
   saveShortcuts,
   toShortcutCombo,
   type ShortcutAction
 } from '@renderer/services/preferences';
-import { applyAppearanceMode, getStoredAppearanceMode, resolveEffectiveTheme, setStoredAppearanceMode, type AppearanceMode } from '@renderer/theme/appearance';
+import { applyAppearanceMode, applyUiPreferences, getStoredAppearanceMode, resolveEffectiveTheme, setStoredAppearanceMode, type AppearanceMode } from '@renderer/theme/appearance';
 import { THEME_DEFINITIONS, THEME_LABELS, THEME_ORDER } from '@renderer/theme/theme';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
-import { UiIcon, type UiIconName } from './UiIcon';
+import { Icon } from './ui';
 
 type SettingsTab = 'appearance' | 'shortcuts' | 'environments' | 'task-board' | 'account';
 
-const SETTINGS_TABS: Array<{
-  id: SettingsTab;
-  label: string;
-  description: string;
-  icon: UiIconName;
-}> = [
-  { id: 'appearance', label: 'Appearance', description: 'Theme and display', icon: 'palette' },
-  { id: 'shortcuts', label: 'Shortcuts', description: 'Keyboard bindings', icon: 'key' },
-  { id: 'environments', label: 'Environments', description: 'Local save/export', icon: 'layout' },
-  { id: 'task-board', label: 'Task Board', description: 'Task history', icon: 'board' },
-  { id: 'account', label: 'Account', description: 'Cloud and auth', icon: 'user' }
+const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'shortcuts', label: 'Shortcuts' },
+  { id: 'environments', label: 'Environments' },
+  { id: 'task-board', label: 'Task Board' },
+  { id: 'account', label: 'Account' }
 ];
 
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; description: string }> = [
@@ -97,10 +95,13 @@ const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   done: 'Done'
 };
 
+const ACCENT_SWATCHES = ['#3b82f6', '#2563eb', '#0ea5e9', '#7c3aed', '#a855f7', '#d946ef', '#ec4899', '#ef4444', '#fb923c', '#fbbf24', '#22c55e'];
+
 interface TaskHistoryItem {
   task: TaskItem;
   workspaceName: string;
 }
+
 
 export function SettingsDialog(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
@@ -115,6 +116,8 @@ export function SettingsDialog(): JSX.Element {
   const [syncPreview, setSyncPreview] = useState<CloudSyncPreview | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>(() => getStoredAppearanceMode());
+  const [uiPreferences, setUiPreferences] = useState(() => loadUiPreferences());
+  const [accentDraft, setAccentDraft] = useState(() => loadUiPreferences().accentColor);
   const [systemBase, setSystemBase] = useState<'light' | 'dark'>(() => resolveEffectiveTheme('system'));
   const [shortcuts, setShortcuts] = useState(loadShortcuts);
   const [capturingAction, setCapturingAction] = useState<ShortcutAction | null>(null);
@@ -207,6 +210,16 @@ export function SettingsDialog(): JSX.Element {
     return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
+  useEffect(() => {
+    applyUiPreferences(uiPreferences);
+    saveUiPreferences(uiPreferences);
+  }, [uiPreferences]);
+
+  useEffect(() => {
+    setAccentDraft(uiPreferences.accentColor);
+  }, [uiPreferences.accentColor]);
+
+
   const taskHistory = useMemo<TaskHistoryItem[]>(
     () =>
       appState.workspaces
@@ -247,7 +260,8 @@ export function SettingsDialog(): JSX.Element {
       const updated = await window.vibeAde.workspace.updateProfile({
         displayName: profileDraft.displayName,
         company: profileDraft.company,
-        role: profileDraft.role
+        role: profileDraft.role,
+        notifications: profileDraft.notifications
       });
       const nextProfile = {
         displayName: updated.displayName,
@@ -330,6 +344,19 @@ export function SettingsDialog(): JSX.Element {
     applyAppearanceMode(mode);
   };
 
+  const updateUiPreference = <K extends keyof typeof uiPreferences>(key: K, value: (typeof uiPreferences)[K]): void => {
+    setUiPreferences((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const commitAccentColor = (value: string): void => {
+    const normalized = value.trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+      setAccentDraft(uiPreferences.accentColor);
+      return;
+    }
+    updateUiPreference('accentColor', normalized.toLowerCase());
+  };
+
   const onShortcutKeyDown = (action: ShortcutAction, event: ReactKeyboardEvent<HTMLButtonElement>): void => {
     if (capturingAction !== action) {
       return;
@@ -345,7 +372,11 @@ export function SettingsDialog(): JSX.Element {
     setCapturingAction(null);
   };
 
-  const themeCards = THEME_ORDER.map((id) => {
+
+
+  const themeCards = THEME_ORDER
+    .filter((id): id is 'system' | 'dark' | 'light' => id === 'system' || id === 'dark' || id === 'light')
+    .map((id) => {
     const definition = id === 'system' ? null : THEME_DEFINITIONS[id];
     const base = id === 'system' ? systemBase : definition?.base ?? 'dark';
     return {
@@ -355,125 +386,162 @@ export function SettingsDialog(): JSX.Element {
       isSystem: id === 'system',
       tokens: id === 'system' ? THEME_DEFINITIONS[systemBase].tokens : THEME_DEFINITIONS[id].tokens
     };
-  });
+    });
 
   return (
-    <div className="settings-overlay" onClick={() => closeSettings()}>
-      <section className="settings-shell" onClick={(event) => event.stopPropagation()}>
-        <aside className="settings-sidebar">
-          <div className="settings-sidebar-title">
-            <UiIcon name="settings" className="ui-icon" />
-            <div>
-              <strong>Settings</strong>
-              <small>Configuration</small>
-            </div>
+    <div
+      className="settings-overlay"
+      onClick={() => closeSettings()}
+    >
+      <section
+        className="settings-shell"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="settings-head">
+          <div className="settings-head-title">
+            <strong>Settings</strong>
+            <span className="settings-plan-chip">{plan.label}</span>
           </div>
+          <button
+            type="button"
+            className="settings-close"
+            aria-label="Close settings"
+            onClick={() => closeSettings()}
+          >
+            <Icon name="close" size="md" />
+          </button>
+        </header>
 
-          <nav className="settings-nav">
-            {SETTINGS_TABS.map((tab) => (
+        <nav className="settings-tabs" role="tablist">
+          {SETTINGS_TABS.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
               <button
                 key={tab.id}
-                className={activeTab === tab.id ? 'active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={active ? 'settings-tab active' : 'settings-tab'}
                 onClick={() => {
                   setActiveTab(tab.id);
                   setSettingsTab(tab.id);
                 }}
               >
-                <span className="settings-nav-icon">
-                  <UiIcon name={tab.icon} className="ui-icon" />
-                </span>
-                <span className="settings-nav-text">
-                  <strong>{tab.label}</strong>
-                  <small>{tab.description}</small>
-                </span>
+                {tab.label}
               </button>
-            ))}
-          </nav>
-
-          <div className="settings-sidebar-status">
-            <small>Current Plan</small>
-            <strong>{plan.label} plan</strong>
-          </div>
-        </aside>
+            );
+          })}
+        </nav>
 
         <main className="settings-main">
 
           {activeTab === 'appearance' && (
-            <>
-              <header className="settings-main-header">
-                <h3>Appearance</h3>
-                <p>Personalize your workspace with one of the available themes.</p>
-              </header>
+            <div className="settings-tab-content">
 
-              <section className="settings-section-card">
-                <section className="theme-grid">
-                {themeCards.map((theme) => (
-                  <button
-                    key={theme.id}
-                    className={appearanceMode === theme.id ? 'theme-card active' : 'theme-card'}
-                    onClick={() => setAppearance(theme.id)}
-                  >
-                    <div className="theme-card-header">
-                      <div>
-                        <strong className="theme-card-title">{theme.label}</strong>
-                        {theme.isSystem && <small className="theme-card-meta">Matches OS</small>}
-                      </div>
-                      <span className="theme-card-chip">{theme.isSystem ? `Auto ${theme.base}` : theme.base}</span>
+              <section className="settings-section-card appearance-section">
+                <div className="appearance-block">
+                  <h4>Theme Color</h4>
+                  <p>Personalize your dashboard using your brand palette.</p>
+                  <div className="appearance-color-row">
+                    <div className="appearance-swatches">
+                      {ACCENT_SWATCHES.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={uiPreferences.accentColor.toLowerCase() === color.toLowerCase() ? 'appearance-swatch active' : 'appearance-swatch'}
+                          style={{ '--swatch': color } as CSSProperties}
+                          onClick={() => updateUiPreference('accentColor', color)}
+                          aria-label={`Accent ${color}`}
+                        />
+                      ))}
                     </div>
-                    <div
-                      className="theme-preview"
-                      style={
-                        {
-                          borderColor: theme.tokens.border,
-                          background: theme.tokens.bgPanel,
-                          '--preview-bg-header': theme.tokens.bgHeader,
-                          '--preview-bg-panel': theme.tokens.bgPanel,
-                          '--preview-bg-panel-2': theme.tokens.bgPanel2,
-                          '--preview-bg-elev': theme.tokens.bgElev,
-                          '--preview-text': theme.tokens.text,
-                          '--preview-text-muted': theme.tokens.textMuted,
-                          '--preview-accent': theme.tokens.accent,
-                          '--preview-border': theme.tokens.border,
-                          '--preview-border-strong': theme.tokens.borderStrong
-                        } as CSSProperties
-                      }
-                    >
-                      <div className="theme-mini-header">
-                        <span className="theme-mini-dot" />
-                        <span className="theme-mini-dot" />
-                        <span className="theme-mini-dot" />
-                      </div>
-                      <div className="theme-mini-body">
-                        <div className="theme-mini-sidebar">
-                          <div className="theme-mini-line strong" />
-                          <div className="theme-mini-line" />
-                          <div className="theme-mini-line" />
-                          <div className="theme-mini-line short" />
-                        </div>
-                        <div className="theme-mini-main">
-                          <div className="theme-mini-toolbar">
-                            <div className="theme-mini-pill" />
-                            <div className="theme-mini-pill" />
-                            <div className="theme-mini-pill accent" />
+                    <label className="appearance-custom-input">
+                      <span>Custom</span>
+                      <input
+                        value={accentDraft}
+                        onChange={(event) => setAccentDraft(event.target.value)}
+                        onBlur={() => commitAccentColor(accentDraft)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            commitAccentColor(accentDraft);
+                          }
+                        }}
+                        placeholder={DEFAULT_UI_PREFERENCES.accentColor}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="appearance-block">
+                  <h4>Interface Theme</h4>
+                  <p>Select or customize your UI theme.</p>
+                  <section className="theme-grid">
+                    {themeCards.map((theme) => (
+                      <button
+                        key={theme.id}
+                        className={appearanceMode === theme.id ? 'theme-card active' : 'theme-card'}
+                        onClick={() => setAppearance(theme.id)}
+                      >
+                        <div className="theme-card-header">
+                          <div>
+                            <strong className="theme-card-title">{theme.label}</strong>
+                            {theme.isSystem && <small className="theme-card-meta">Matches OS</small>}
                           </div>
-                          <div className="theme-mini-card" />
-                          <div className="theme-mini-code" />
+                          <span className="theme-card-chip">{theme.isSystem ? `Auto ${theme.base}` : theme.base}</span>
                         </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                        <div
+                          className="theme-preview"
+                          style={
+                            {
+                              borderColor: theme.tokens.border,
+                              background: theme.tokens.bgPanel,
+                              '--preview-bg-header': theme.tokens.bgHeader,
+                              '--preview-bg-panel': theme.tokens.bgPanel,
+                              '--preview-bg-panel-2': theme.tokens.bgPanel2,
+                              '--preview-bg-elev': theme.tokens.bgElev,
+                              '--preview-text': theme.tokens.text,
+                              '--preview-text-muted': theme.tokens.textMuted,
+                              '--preview-accent': theme.tokens.accent,
+                              '--preview-border': theme.tokens.border,
+                              '--preview-border-strong': theme.tokens.borderStrong
+                            } as CSSProperties
+                          }
+                        >
+                          <div className="theme-mini-header">
+                            <span className="theme-mini-dot" />
+                            <span className="theme-mini-dot" />
+                            <span className="theme-mini-dot" />
+                          </div>
+                          <div className="theme-mini-body">
+                            <div className="theme-mini-sidebar">
+                              <div className="theme-mini-line strong" />
+                              <div className="theme-mini-line" />
+                              <div className="theme-mini-line" />
+                              <div className="theme-mini-line short" />
+                            </div>
+                            <div className="theme-mini-main">
+                              <div className="theme-mini-toolbar">
+                                <div className="theme-mini-pill" />
+                                <div className="theme-mini-pill" />
+                                <div className="theme-mini-pill accent" />
+                              </div>
+                              <div className="theme-mini-card" />
+                              <div className="theme-mini-code" />
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </section>
+                </div>
+
                 </section>
-              </section>
-            </>
+            </div>
           )}
 
           {activeTab === 'shortcuts' && (
-            <>
-              <header className="settings-main-header">
-                <h3>Shortcuts</h3>
-                <p>Press a key combination to assign exactly one hotkey per action.</p>
-              </header>
+            <div className="settings-tab-content">
 
               <section className="settings-shortcuts-shell">
                 {SHORTCUT_GROUPS.map((group) => (
@@ -517,16 +585,13 @@ export function SettingsDialog(): JSX.Element {
                   </button>
                 </div>
               </section>
-            </>
+            </div>
           )}
 
           {activeTab === 'environments' && (
-            <>
-              <header className="settings-main-header">
-                <h3>Environments</h3>
-                <p>Control where File → Save exports your current environment layout.</p>
-              </header>
-
+            <div className="settings-tab-content">
+              
+              
               <section className="cloud-sync-section settings-section-card">
                 <h4>Environment Save Location</h4>
                 <p>
@@ -567,21 +632,16 @@ export function SettingsDialog(): JSX.Element {
                   </div>
                 )}
               </section>
-            </>
+            </div>
           )}
 
           {activeTab === 'task-board' && (
-            <>
-              <header className="settings-main-header">
-                <h3>Task Board</h3>
-                <p>History of tasks created across all workspaces.</p>
-              </header>
-
+            <div className="settings-tab-content">
               {taskBoardLocked && (
                 <section className="settings-locked-card">
                   <div className="settings-locked-content">
                     <div className="settings-locked-icon">
-                      <UiIcon name="lock" className="ui-icon ui-icon-lg lock-icon" />
+                      <Icon name="lock" size="lg" className="lock-icon" />
                     </div>
                     <div className="settings-locked-text">
                       <h4>Task Board is available on Flux and Forge</h4>
@@ -618,16 +678,11 @@ export function SettingsDialog(): JSX.Element {
                   ))
                 )}
               </section>
-            </>
+            </div>
           )}
 
           {activeTab === 'account' && (
-            <>
-              <header className="settings-main-header">
-                <h3>Account</h3>
-                <p>Cloud sync and account controls.</p>
-              </header>
-
+            <div className="settings-tab-content">
               <div className="account-section-shell">
                 <section className="account-profile-panel settings-section-card">
                   <div className="account-profile-header">
@@ -858,7 +913,7 @@ export function SettingsDialog(): JSX.Element {
                   </button>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </main>
       </section>

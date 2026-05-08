@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
-import { UiIcon } from './UiIcon';
+import { Icon } from './ui';
 import { SwarmAgentTerminalView } from './SwarmTerminalView';
 
 // --- Types ---
@@ -41,7 +41,26 @@ export interface SwarmTask {
     completedAt?: number;
     reviewedBy?: string;
     feedback?: string;
+    filesModified?: string[];
+    completionEvidence?: {
+      reportedFilesModified: string[];
+      observedFilesModified: string[];
+      ownershipViolations: string[];
+      evidenceNotes: string[];
+      updatedAt: number;
+    };
   };
+}
+
+export interface SwarmMailboxEntry {
+  id: string;
+  taskId?: string;
+  fromAgentId: string;
+  toAgentId?: string;
+  category: 'question' | 'answer' | 'review' | 'evidence' | 'system';
+  subject: string;
+  body: string;
+  createdAt: number;
 }
 
 export interface AgentState {
@@ -62,6 +81,7 @@ export interface SwarmState {
   createdAt: number;
   tasks: Map<string, SwarmTask> | Record<string, SwarmTask> | SwarmTask[];
   agents: Map<string, AgentState> | Record<string, AgentState> | AgentState[];
+  mailbox?: SwarmMailboxEntry[];
 }
 
 type TranscriptEventType =
@@ -69,9 +89,11 @@ type TranscriptEventType =
   | 'tasks-decomposed'
   | 'task-started'
   | 'task-completed'
+  | 'task-evidence'
   | 'review-started'
   | 'review-approved'
   | 'review-rejected'
+  | 'mailbox'
   | 'agent-ready'
   | 'agent-stopped'
   | 'agent-blocked'
@@ -495,6 +517,10 @@ export function SwarmBoard(props: SwarmBoardProps): JSX.Element {
   }, [stats, onSwarmComplete]);
 
   const selectedAgent = selectedAgentId ? finalAgents.get(selectedAgentId) : null;
+  const selectedTask = useMemo(() => {
+    if (!selectedAgent?.currentTask) return null;
+    return normalizedTasks.get(selectedAgent.currentTask) ?? null;
+  }, [selectedAgent, normalizedTasks]);
   const ownedFiles = useMemo(() => {
     if (!selectedAgent) return [];
     // Scan tasks for files owned by this agent
@@ -506,6 +532,10 @@ export function SwarmBoard(props: SwarmBoardProps): JSX.Element {
     }
     return files;
   }, [selectedAgent, normalizedTasks]);
+  const selectedMailbox = useMemo(() => {
+    if (!selectedTask?.id || !swarmState?.mailbox) return [];
+    return swarmState.mailbox.filter((entry) => entry.taskId === selectedTask.id).slice(-6).reverse();
+  }, [selectedTask, swarmState]);
 
   // -- Pan/Zoom State --
   // Initial center: Canvas is 4000x4000, content at 2000x2000. 
@@ -557,7 +587,7 @@ export function SwarmBoard(props: SwarmBoardProps): JSX.Element {
               className="btn-header"
               onClick={() => setViewMode(m => m === 'dashboard' ? 'terminals' : 'dashboard')}
             >
-              <UiIcon name={viewMode === 'dashboard' ? 'layout' : 'board'} className="ui-icon-sm" />
+              <Icon name={viewMode === 'dashboard' ? 'layout' : 'board'} size="sm" />
               {viewMode === 'dashboard' ? 'Terminals' : 'Dashboard'}
             </button>
 
@@ -565,7 +595,7 @@ export function SwarmBoard(props: SwarmBoardProps): JSX.Element {
               className="btn-header danger"
               onClick={() => void closeSwarmSession(swarmId)}
             >
-              <UiIcon name="stop" className="ui-icon-sm" />
+              <Icon name="stop" size="sm" />
               Stop
             </button>
           </div>
@@ -598,13 +628,13 @@ export function SwarmBoard(props: SwarmBoardProps): JSX.Element {
 
               <div className="zoom-controls">
                 <button className="zoom-btn" onClick={() => setTransform(t => ({...t, scale: Math.min(2, t.scale + 0.1)}))} title="Zoom In">
-                  <UiIcon name="plus" className="ui-icon-sm" />
+                  <Icon name="plus" size="sm" />
                 </button>
                 <button className="zoom-btn" onClick={() => setTransform(t => ({...t, scale: Math.max(0.5, t.scale - 0.1)}))} title="Zoom Out">
-                  <UiIcon name="minus" className="ui-icon-sm" />
+                  <Icon name="minus" size="sm" />
                 </button>
                 <button className="zoom-btn" onClick={() => setTransform({ x: -1500, y: -1600, scale: 1 })} title="Reset View">
-                  <UiIcon name="refresh" className="ui-icon-sm" />
+                  <Icon name="refresh" size="sm" />
                 </button>
               </div>
             </div>
@@ -645,7 +675,7 @@ export function SwarmBoard(props: SwarmBoardProps): JSX.Element {
                       onClick={() => setSelectedAgentId(null)} 
                       style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: 4 }}
                     >
-                      <UiIcon name="close" className="ui-icon-sm" />
+                      <Icon name="close" size="sm" />
                     </button>
                   </div>
                   
@@ -666,6 +696,32 @@ export function SwarmBoard(props: SwarmBoardProps): JSX.Element {
                         <div style={{ padding: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 8, fontSize: 13, lineHeight: 1.4 }}>
                           {selectedAgent.currentTask}
                         </div>
+                        {selectedTask?.tracking.completionEvidence && (
+                          <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 11, padding: '4px 8px', borderRadius: 999, background: 'rgba(56,189,248,0.15)', color: '#7dd3fc' }}>
+                                observed {selectedTask.tracking.completionEvidence.observedFilesModified.length}
+                              </span>
+                              <span style={{ fontSize: 11, padding: '4px 8px', borderRadius: 999, background: selectedTask.tracking.completionEvidence.ownershipViolations.length > 0 ? 'rgba(248,113,113,0.18)' : 'rgba(74,222,128,0.16)', color: selectedTask.tracking.completionEvidence.ownershipViolations.length > 0 ? '#fca5a5' : '#86efac' }}>
+                                violations {selectedTask.tracking.completionEvidence.ownershipViolations.length}
+                              </span>
+                              <span style={{ fontSize: 11, padding: '4px 8px', borderRadius: 999, background: 'rgba(250,204,21,0.16)', color: '#fde68a' }}>
+                                mailbox {selectedMailbox.length}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, opacity: 0.8 }}>
+                              Reported: {(selectedTask.tracking.completionEvidence.reportedFilesModified || []).join(', ') || '(none)'}
+                            </div>
+                            <div style={{ fontSize: 12, opacity: 0.8 }}>
+                              Observed: {(selectedTask.tracking.completionEvidence.observedFilesModified || []).join(', ') || '(none)'}
+                            </div>
+                            {selectedTask.tracking.completionEvidence.ownershipViolations.length > 0 && (
+                              <div style={{ fontSize: 12, color: '#fca5a5' }}>
+                                Ownership warnings: {selectedTask.tracking.completionEvidence.ownershipViolations.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -681,6 +737,23 @@ export function SwarmBoard(props: SwarmBoardProps): JSX.Element {
                         </ul>
                       )}
                     </div>
+
+                    {selectedMailbox.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.5, marginBottom: 8 }}>TASK MAILBOX</div>
+                        <div style={{ display: 'grid', gap: 8 }}>
+                          {selectedMailbox.map((entry) => (
+                            <div key={entry.id} style={{ padding: 10, background: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
+                              <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
+                                {`${entry.fromAgentId} -> ${entry.toAgentId || 'all'} · ${entry.category}`}
+                              </div>
+                              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{entry.subject}</div>
+                              <div style={{ fontSize: 12, opacity: 0.85 }}>{entry.body}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}

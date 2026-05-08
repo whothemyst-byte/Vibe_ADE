@@ -103,45 +103,51 @@ export function SwarmAgentTerminalView(props: { swarmId: string }): JSX.Element 
   }, [selectedAgentId, selected?.lines.length]);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 12, minHeight: 520 }}>
-      <aside style={{ border: '1px solid rgba(0,0,0,0.10)', borderRadius: 12, padding: 10, overflow: 'auto' }}>
-        <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>AGENTS</div>
+    <div className="grid grid-cols-[260px_1fr] gap-3 min-h-[520px]">
+      <aside className="premium-card overflow-auto p-3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-fg-muted mb-2 px-1">
+          Agents
+        </div>
         {agents.length === 0 ? (
-          <div style={{ fontSize: 13, opacity: 0.8 }}>Waiting for agent output…</div>
+          <div className="text-xs text-fg-muted px-1">Waiting for agent output…</div>
         ) : (
-          <div style={{ display: 'grid', gap: 6 }}>
-            {agents.map((a) => (
-              <button
-                key={a.agentId}
-                onClick={() => setSelectedAgentId(a.agentId)}
-                style={{
-                  textAlign: 'left',
-                  padding: '8px 10px',
-                  borderRadius: 10,
-                  border: '1px solid rgba(0,0,0,0.10)',
-                  background: a.agentId === selectedAgentId ? 'rgba(59,130,246,0.10)' : 'transparent'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                  <code>{a.agentId}</code>
-                  <span style={{ fontSize: 12, opacity: 0.75 }}>{a.role}</span>
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.6 }}>{a.lineCount} lines</div>
-              </button>
-            ))}
+          <div className="grid gap-1.5">
+            {agents.map((a) => {
+              const active = a.agentId === selectedAgentId;
+              return (
+                <button
+                  key={a.agentId}
+                  onClick={() => setSelectedAgentId(a.agentId)}
+                  className={
+                    active
+                      ? 'text-left px-2.5 py-2 rounded-lg border border-primary/40 bg-primary/10 transition-colors'
+                      : 'text-left px-2.5 py-2 rounded-lg border border-line bg-bg-panel-2/40 hover:border-line-strong hover:bg-bg-panel-2 transition-colors'
+                  }
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="font-mono text-[11px] text-fg truncate">{a.agentId}</code>
+                    <span className="text-[10px] uppercase tracking-wider text-fg-muted">{a.role}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-fg-muted">{a.lineCount} lines</div>
+                </button>
+              );
+            })}
           </div>
         )}
       </aside>
 
-      <section style={{ border: '1px solid rgba(0,0,0,0.10)', borderRadius: 12, padding: 10, display: 'grid', gridTemplateRows: 'auto 1fr' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <div style={{ fontSize: 12, opacity: 0.75 }}>TERMINAL OUTPUT</div>
+      <section className="premium-card p-3 grid grid-rows-[auto_1fr]">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-fg-muted">
+            Terminal Output
+          </div>
           <button
             onClick={() => {
               shouldStickToBottomRef.current = true;
               const host = scrollRef.current;
               if (host) host.scrollTop = host.scrollHeight;
             }}
+            className="h-7 px-2.5 text-[11px] font-medium rounded-md bg-bg-panel-2 text-fg-muted hover:text-fg hover:bg-bg-elev border border-line transition-colors"
           >
             Stick to bottom
           </button>
@@ -154,21 +160,12 @@ export function SwarmAgentTerminalView(props: { swarmId: string }): JSX.Element 
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 12;
             shouldStickToBottomRef.current = atBottom;
           }}
-          style={{
-            overflow: 'auto',
-            background: 'rgba(0,0,0,0.04)',
-            borderRadius: 10,
-            padding: 10,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace',
-            fontSize: 12,
-            lineHeight: 1.45,
-            whiteSpace: 'pre-wrap'
-          }}
+          className="overflow-auto bg-bg-page/60 border border-line rounded-lg p-3 font-mono text-[11px] leading-[1.45] whitespace-pre-wrap text-fg"
         >
           {!selectedAgentId ? (
-            <div style={{ opacity: 0.75 }}>Select an agent to view output.</div>
+            <div className="text-fg-muted">Select an agent to view output.</div>
           ) : !selected ? (
-            <div style={{ opacity: 0.75 }}>No output yet.</div>
+            <div className="text-fg-muted">No output yet.</div>
           ) : (
             selected.lines.join('\n')
           )}

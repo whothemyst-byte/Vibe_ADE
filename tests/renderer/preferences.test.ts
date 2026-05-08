@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isShortcutCaptureTarget, saveShortcuts, toShortcutCombo } from '../../src/renderer/src/services/preferences';
+import {
+  DEFAULT_SWARM_PROMPT_PREFERENCES,
+  isShortcutCaptureTarget,
+  loadSwarmPromptPreferences,
+  saveShortcuts,
+  saveSwarmPromptPreferences,
+  toShortcutCombo
+} from '../../src/renderer/src/services/preferences';
 
 describe('preferences shortcuts', () => {
   afterEach(() => {
@@ -75,5 +82,52 @@ describe('preferences shortcuts', () => {
     expect(setItem).toHaveBeenCalledTimes(1);
     expect(dispatchEvent).toHaveBeenCalledTimes(1);
     expect(dispatchEvent.mock.calls[0]?.[0]).toBeInstanceOf(Event);
+  });
+});
+
+describe('swarm prompt preferences', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('loads stored swarm prompt preferences with sane fallbacks', () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn(() =>
+          JSON.stringify({
+            coordinator: { personaLabel: 'Ops Lead', personality: 'Direct', specialization: '', promptOverride: '' },
+            reviewer: { reviewStrictness: 'critical' }
+          })
+        )
+      }
+    });
+
+    const preferences = loadSwarmPromptPreferences();
+    expect(preferences.coordinator.personaLabel).toBe('Ops Lead');
+    expect(preferences.coordinator.personality).toBe('Direct');
+    expect(preferences.coordinator.specialization).toBe(DEFAULT_SWARM_PROMPT_PREFERENCES.coordinator.specialization);
+    expect(preferences.reviewer.reviewStrictness).toBe('critical');
+    expect(preferences.builder.personaLabel).toBe(DEFAULT_SWARM_PROMPT_PREFERENCES.builder.personaLabel);
+  });
+
+  it('persists swarm prompt preferences to local storage', () => {
+    const setItem = vi.fn();
+    vi.stubGlobal('window', {
+      localStorage: {
+        setItem
+      }
+    });
+
+    saveSwarmPromptPreferences({
+      ...DEFAULT_SWARM_PROMPT_PREFERENCES,
+      builder: {
+        ...DEFAULT_SWARM_PROMPT_PREFERENCES.builder,
+        personaLabel: 'Implementation Lead'
+      }
+    });
+
+    expect(setItem).toHaveBeenCalledTimes(1);
+    expect(setItem.mock.calls[0]?.[0]).toBe('vibe-ade-swarm-prompt-preferences');
+    expect(setItem.mock.calls[0]?.[1]).toContain('Implementation Lead');
   });
 });

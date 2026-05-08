@@ -1,17 +1,24 @@
 import { useMemo, useState } from 'react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import { defaultSwarmSpecialization, loadSwarmPromptPreferences } from '@renderer/services/preferences';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
-import { UiIcon } from './UiIcon';
+import { Icon } from './ui';
 
 // --- Types ---
 type CliProvider = 'claude' | 'codex' | 'gemini';
 type AgentRole = 'coordinator' | 'builder' | 'scout' | 'reviewer';
+type SwarmReviewStrictness = 'balanced' | 'strict' | 'critical';
 type SwarmPresetId = 'squad' | 'team' | 'platoon' | 'battalion' | 'legion';
 
 interface AgentConfig {
   id: string;
   role: AgentRole;
   provider: CliProvider;
+  personaLabel: string;
+  personality: string;
+  specialization: string;
+  promptOverride: string;
+  reviewStrictness?: SwarmReviewStrictness;
 }
 
 // --- Helpers ---
@@ -35,16 +42,43 @@ const SWARM_PRESETS: Array<{
   { id: 'legion', label: 'Legion', count: 50, builders: 26, reviewers: 10, scouts: 13 }
 ];
 
+function defaultPersonaLabel(role: AgentRole): string {
+  if (role === 'coordinator') return 'Delivery Lead';
+  if (role === 'builder') return 'Senior Builder';
+  if (role === 'scout') return 'Intel Scout';
+  return 'Quality Gate';
+}
+
+function defaultPersonality(role: AgentRole): string {
+  if (role === 'coordinator') return 'Calm, decisive, low-chatter, and ruthless about scope control.';
+  if (role === 'builder') return 'Pragmatic, methodical, detail-conscious, and biased toward shipping correct code.';
+  if (role === 'scout') return 'Analytical, evidence-driven, concise, and fast to orient in unfamiliar code.';
+  return 'Exacting, skeptical, concise, and constructive under pressure.';
+}
+
+function createAgentConfig(id: string, role: AgentRole, provider: CliProvider): AgentConfig {
+  return {
+    id,
+    role,
+    provider,
+    personaLabel: defaultPersonaLabel(role),
+    personality: defaultPersonality(role),
+    specialization: defaultSwarmSpecialization(role, provider),
+    promptOverride: '',
+    reviewStrictness: role === 'reviewer' ? 'strict' : undefined
+  };
+}
+
 function buildAgentsForPreset(preset: (typeof SWARM_PRESETS)[number]): AgentConfig[] {
-  const agents: AgentConfig[] = [{ id: 'coordinator-1', role: 'coordinator', provider: 'codex' }];
+  const agents: AgentConfig[] = [createAgentConfig('coordinator-1', 'coordinator', 'codex')];
   for (let index = 0; index < preset.builders; index += 1) {
-    agents.push({ id: `builder-${index + 1}`, role: 'builder', provider: 'codex' });
+    agents.push(createAgentConfig(`builder-${index + 1}`, 'builder', 'codex'));
   }
   for (let index = 0; index < preset.reviewers; index += 1) {
-    agents.push({ id: `reviewer-${index + 1}`, role: 'reviewer', provider: 'claude' });
+    agents.push(createAgentConfig(`reviewer-${index + 1}`, 'reviewer', 'claude'));
   }
   for (let index = 0; index < preset.scouts; index += 1) {
-    agents.push({ id: `scout-${index + 1}`, role: 'scout', provider: 'gemini' });
+    agents.push(createAgentConfig(`scout-${index + 1}`, 'scout', 'gemini'));
   }
   return agents;
 }
@@ -628,7 +662,7 @@ function RosterSection({
             disabled={agents.length === 0}
             title="Remove last"
           >
-            <UiIcon name="minus" className="ui-icon-sm" />
+            <Icon name="minus" size="sm" />
           </button>
           <button 
             className="swarm-action-btn" 
@@ -636,7 +670,7 @@ function RosterSection({
             disabled={agents.length >= max}
             title="Add new"
           >
-            <UiIcon name="plus" className="ui-icon-sm" />
+            <Icon name="plus" size="sm" />
           </button>
         </div>
       </div>
@@ -649,7 +683,7 @@ function RosterSection({
       {agents.map(agent => (
         <div key={agent.id} className="swarm-agent-row">
           <div className="swarm-agent-id">
-            <UiIcon name="user" className="ui-icon-sm" />
+            <Icon name="user" size="sm" />
             {agent.id}
           </div>
           <select 
@@ -682,7 +716,7 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
   const [step, setStep] = useState<1 | 2>(1);
   const [swarmName, setSwarmName] = useState('');
   const [goal, setGoal] = useState('');
-  const [codebaseRoot, setCodebaseRoot] = useState(activeWorkspace?.rootDir ?? 'C:\\');
+  const [codebaseRoot, setCodebaseRoot] = useState(activeWorkspace?.rootDir ?? '');
   const [selectedPreset, setSelectedPreset] = useState<SwarmPresetId>('squad');
   
   // -- Agent State --
@@ -720,7 +754,8 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
         safeId = `${role}-${counter}`;
       }
       
-      return [...prev, { id: safeId, role, provider: 'codex' }];
+      const defaultProvider: CliProvider = role === 'reviewer' ? 'claude' : role === 'scout' ? 'gemini' : 'codex';
+      return [...prev, createAgentConfig(safeId, role, defaultProvider)];
     });
   };
 
@@ -746,7 +781,18 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
   };
 
   const handleUpdateProvider = (id: string, provider: CliProvider) => {
-    setAgents(prev => prev.map(a => a.id === id ? { ...a, provider } : a));
+    setAgents(prev => prev.map((agent) => {
+      if (agent.id !== id) {
+        return agent;
+      }
+      return {
+        ...agent,
+        provider,
+        specialization: agent.specialization === defaultSwarmSpecialization(agent.role, agent.provider)
+          ? defaultSwarmSpecialization(agent.role, provider)
+          : agent.specialization
+      };
+    }));
   };
 
   const applyPreset = (presetId: SwarmPresetId) => {
@@ -799,11 +845,17 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
       }
 
       const swarmId = defaultSwarmId();
+      const promptPreferences = loadSwarmPromptPreferences();
       // Map local config to API shape
       const agentList = agents.map(a => ({
         agentId: a.id,
         role: a.role,
-        cliProvider: a.provider
+        cliProvider: a.provider,
+        personaLabel: promptPreferences[a.role].personaLabel.trim() || defaultPersonaLabel(a.role),
+        personality: promptPreferences[a.role].personality.trim() || defaultPersonality(a.role),
+        specialization: promptPreferences[a.role].specialization.trim() || defaultSwarmSpecialization(a.role, a.provider),
+        promptOverride: promptPreferences[a.role].promptOverride.trim() || undefined,
+        reviewStrictness: a.role === 'reviewer' ? (promptPreferences.reviewer.reviewStrictness ?? 'strict') : undefined
       }));
 
       const result = await window.vibeAde.swarm.create({
@@ -817,9 +869,7 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
         throw new Error(result.error);
       }
 
-      if (normalizedSub !== appState.subscription) {
-        await window.vibeAde.workspace.updateSubscription(normalizedSub);
-      }
+      await window.vibeAde.billing.recordUsage('swarm', 1);
       const nextSub = {
         ...normalizedSub,
         usage: {
@@ -827,11 +877,16 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
           swarmsStarted: normalizedSub.usage.swarmsStarted + 1
         }
       };
-      await window.vibeAde.workspace.updateSubscription(nextSub);
-      void window.vibeAde.billing.recordUsage('swarm', 1);
-      useWorkspaceStore.setState((state) => ({
-        appState: { ...state.appState, subscription: nextSub }
-      }));
+      try {
+        if (normalizedSub !== appState.subscription) {
+          await window.vibeAde.workspace.updateSubscription(normalizedSub);
+        }
+        await window.vibeAde.workspace.updateSubscription(nextSub);
+      } finally {
+        useWorkspaceStore.setState((state) => ({
+          appState: { ...state.appState, subscription: nextSub }
+        }));
+      }
       openSwarmSession({ swarmId, name: swarmName.trim() });
       close();
     } catch (e) {
@@ -950,7 +1005,7 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
                 </div>
                 <div className="swarm-agent-row locked">
                   <div className="swarm-agent-id" style={{ color: 'var(--accent)' }}>
-                    <UiIcon name="bolt" className="ui-icon-sm" />
+                    <Icon name="bolt" size="sm" />
                     {coordinator?.id || 'coordinator-1'}
                   </div>
                   <select
@@ -995,6 +1050,13 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
                   max={3}
                 />
               </div>
+
+              <section className="swarm-wizard-section">
+                <label>Prompt Tuning</label>
+                <p className="swarm-stage-note">
+                  Prompt tuning now lives in Settings. Open <strong>Settings → Swarm</strong> to tune persona labels, personalities, specializations, and system overrides for each agent role.
+                </p>
+              </section>
             </div>
           )}
         </div>
@@ -1002,7 +1064,7 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
         <footer className="swarm-wizard-footer">
           {error ? (
             <div style={{ color: 'var(--danger)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <UiIcon name="close" className="ui-icon-sm" />
+              <Icon name="close" size="sm" />
               {error}
             </div>
           ) : (
@@ -1048,8 +1110,13 @@ export function SwarmDashboardDialog(props: { embedded?: boolean; onRequestClose
   }
 
   return (
-    <div className="swarm-wizard-overlay" onClick={() => close()}>
-      {content}
+    <div
+      className="swarm-wizard-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      onClick={() => close()}
+    >
+      <div onClick={(event) => event.stopPropagation()}>
+        {content}
+      </div>
     </div>
   );
 }

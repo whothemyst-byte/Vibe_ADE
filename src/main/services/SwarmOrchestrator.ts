@@ -1,4 +1,7 @@
 import { EventEmitter } from 'node:events';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { FileOwnershipManager } from '@main/services/FileOwnershipManager';
 import {
   AgentRole,
@@ -6,8 +9,12 @@ import {
   SwarmTaskPriority,
   SwarmTaskStatus,
   type AgentState,
+  type FilePath,
+  type SwarmMailboxEntry,
   type SwarmSharedContext,
   type SwarmState,
+  type SwarmTaskArtifact,
+  type SwarmTaskEvidence,
   type SwarmTask,
   type TaskId,
   type UnixTimestampMs
@@ -15,10 +22,12 @@ import {
 import { ReviewDecision } from '@main/types/SwarmMessages';
 
 type CoordinatorContextPatch = Readonly<{
-  conventions: string;
-  patterns: string;
-  security: string;
-  testing: string;
+  conventions?: string;
+  patterns?: string;
+  security?: string;
+  testing?: string;
+  scoutFindings?: string;
+  scoutUpdatedAt?: UnixTimestampMs;
 }>;
 
 type BlockerInput = Readonly<{
@@ -43,12 +52,22 @@ type SwarmOrchestratorEvents = {
   'tasks-created': { swarmId: string; tasks: readonly SwarmTask[]; timestamp: UnixTimestampMs };
   'task-assigned': { swarmId: string; taskId: TaskId; agentId: string; timestamp: UnixTimestampMs };
   'task-completed': { swarmId: string; taskId: TaskId; agentId: string; summary: string; timestamp: UnixTimestampMs };
+  'task-evidence-updated': { swarmId: string; taskId: TaskId; evidence: SwarmTaskEvidence; timestamp: UnixTimestampMs };
+  'mailbox-message-posted': { swarmId: string; entry: SwarmMailboxEntry; timestamp: UnixTimestampMs };
+  'task-artifact-added': { swarmId: string; taskId: TaskId; artifact: SwarmTaskArtifact; timestamp: UnixTimestampMs };
   'task-approved': { swarmId: string; taskId: TaskId; feedback: string; timestamp: UnixTimestampMs };
   'task-rejected': { swarmId: string; taskId: TaskId; feedback: string; timestamp: UnixTimestampMs };
   'agent-blocked': { swarmId: string; agentId: string; taskId: TaskId; reason: string; suggestedFix?: string; timestamp: UnixTimestampMs };
   'blocker-escalated': { swarmId: string; agentId: string; taskId: TaskId; reason: string; suggestedFix?: string; timestamp: UnixTimestampMs };
   'swarm-complete': { swarmId: string; timestamp: UnixTimestampMs };
 };
+
+type FileSnapshot = Readonly<{
+  exists: boolean;
+  hash?: string;
+  size?: number;
+  mtimeMs?: number;
+}>;
 
 /**
  * Central coordinator hub for QuanSwarm orchestration.
@@ -78,6 +97,8 @@ export class SwarmOrchestrator {
   private fileOwnershipManager: FileOwnershipManager;
   private taskTimers: Map<string, NodeJS.Timeout> = new Map();
   private eventEmitter: EventEmitter;
+  private readonly swarmRoots: Map<string, string> = new Map();
+  private readonly taskFileBaselines: Map<string, Map<string, FileSnapshot>> = new Map();
 
   /**
    * Debug history of state transitions for each swarm.
@@ -115,14 +136,16 @@ export class SwarmOrchestrator {
   /**
    * Create a new swarm session with an overall goal and initial codebase structure snapshot.
    */
-  public createSwarm(swarmId: string, overallGoal: string, codebaseStructure: string): SwarmState {
+  public createSwarm(swarmId: string, overallGoal: string, codebaseStructure: string, codebaseRoot?: string): SwarmState {
     const now = Date.now();
     const sharedContext: SwarmSharedContext = {
       codebaseStructure,
       conventions: '',
       existingPatterns: '',
       security: '',
-      testing: ''
+      testing: '',
+      scoutFindings: '',
+      scoutUpdatedAt: undefined
     };
 
     const state: SwarmState = {
@@ -134,13 +157,34 @@ export class SwarmOrchestrator {
       agents: new Map(),
       parallelGroups: [],
       dependencies: new Map(),
-      sharedContext
+      sharedContext,
+      mailbox: [],
+      taskArtifacts: new Map()
     };
 
     this.swarms.set(swarmId, state);
     this.swarmHistory.set(swarmId, [state]);
+    if (codebaseRoot) {
+      this.swarmRoots.set(swarmId, codebaseRoot);
+    }
     console.log(`[${new Date(now).toISOString()}] [SWARM CREATED] ${swarmId} with goal: ${overallGoal}`);
     return state;
+  }
+
+  public removeSwarm(swarmId: string): void {
+    const swarm = this.swarms.get(swarmId);
+    if (!swarm) {
+      return;
+    }
+
+    for (const taskId of swarm.tasks.keys()) {
+      this.stopTaskTimer(taskId);
+    }
+
+    this.swarms.delete(swarmId);
+    this.swarmHistory.delete(swarmId);
+    this.swarmRoots.delete(swarmId);
+    this.taskFileBaselines.delete(swarmId);
   }
 
   /**
@@ -153,13 +197,93 @@ export class SwarmOrchestrator {
       ...current,
       sharedContext: {
         ...current.sharedContext,
-        conventions: context.conventions,
-        existingPatterns: context.patterns,
-        security: context.security,
-        testing: context.testing
+        conventions: context.conventions ?? current.sharedContext.conventions,
+        existingPatterns: context.patterns ?? current.sharedContext.existingPatterns,
+        security: context.security ?? current.sharedContext.security,
+        testing: context.testing ?? current.sharedContext.testing,
+        scoutFindings: context.scoutFindings ?? current.sharedContext.scoutFindings,
+        scoutUpdatedAt: context.scoutUpdatedAt ?? current.sharedContext.scoutUpdatedAt
       }
     };
     this.setSwarmState(swarmId, next, `addCoordinatorContext @ ${now}`);
+  }
+
+  /**
+   * Append a collaboration message to the swarm mailbox.
+   */
+  public postMailboxMessage(
+    swarmId: string,
+    input: Omit<SwarmMailboxEntry, 'id' | 'createdAt'> & Partial<Pick<SwarmMailboxEntry, 'id' | 'createdAt'>>
+  ): SwarmMailboxEntry {
+    const now = input.createdAt ?? Date.now();
+    const current = this.getSwarmOrThrow(swarmId);
+    const entry: SwarmMailboxEntry = {
+      ...input,
+      id: input.id ?? `mail-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: now
+    };
+    const next: SwarmState = {
+      ...current,
+      mailbox: [...current.mailbox, entry].slice(-500)
+    };
+    this.setSwarmState(swarmId, next, `postMailboxMessage(${entry.id}) @ ${now}`);
+    this.emit('mailbox-message-posted', { swarmId, entry, timestamp: now });
+    return entry;
+  }
+
+  public postMailboxEntry(
+    swarmId: string,
+    input: Omit<SwarmMailboxEntry, 'id' | 'createdAt'> & Partial<Pick<SwarmMailboxEntry, 'id' | 'createdAt'>>
+  ): SwarmMailboxEntry {
+    return this.postMailboxMessage(swarmId, input);
+  }
+
+  /**
+   * Add a task-scoped artifact for later review and UI inspection.
+   */
+  public addTaskArtifact(
+    swarmId: string,
+    taskId: TaskId,
+    input: Omit<SwarmTaskArtifact, 'id' | 'taskId' | 'createdAt'> & Partial<Pick<SwarmTaskArtifact, 'id' | 'createdAt'>>
+  ): SwarmTaskArtifact {
+    const now = input.createdAt ?? Date.now();
+    const current = this.getSwarmOrThrow(swarmId);
+    const existing = current.taskArtifacts.get(taskId) ?? [];
+    const artifact: SwarmTaskArtifact = {
+      ...input,
+      id: input.id ?? `artifact-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      taskId,
+      createdAt: now
+    };
+    const nextArtifacts = new Map(current.taskArtifacts);
+    nextArtifacts.set(taskId, [...existing, artifact].slice(-100));
+    const next: SwarmState = {
+      ...current,
+      taskArtifacts: nextArtifacts
+    };
+    this.setSwarmState(swarmId, next, `addTaskArtifact(${taskId}) @ ${now}`);
+    this.emit('task-artifact-added', { swarmId, taskId, artifact, timestamp: now });
+    return artifact;
+  }
+
+  /**
+   * Update the captured completion evidence for a task.
+   */
+  public updateTaskEvidence(swarmId: string, taskId: TaskId, evidence: SwarmTaskEvidence): void {
+    const now = Date.now();
+    const swarm = this.getSwarmOrThrow(swarmId);
+    const task = this.getTaskOrThrow(swarm, taskId);
+    const nextTasks = new Map(swarm.tasks);
+    nextTasks.set(taskId, {
+      ...task,
+      tracking: {
+        ...task.tracking,
+        filesModified: evidence.observedFilesModified,
+        completionEvidence: evidence
+      }
+    });
+    this.setSwarmState(swarmId, { ...swarm, tasks: nextTasks }, `updateTaskEvidence(${taskId}) @ ${now}`);
+    this.emit('task-evidence-updated', { swarmId, taskId, evidence, timestamp: now });
   }
 
   /**
@@ -445,10 +569,65 @@ export class SwarmOrchestrator {
     console.log(`[${new Date(now).toISOString()}] [TASK ASSIGNED] ${taskId}  ${agentId}`);
   }
 
+  public releaseTaskAssignment(swarmId: string, taskId: TaskId, agentId: string, reason?: string): void {
+    const now = Date.now();
+    const swarm = this.getSwarmOrThrow(swarmId);
+    const task = this.getTaskOrThrow(swarm, taskId);
+
+    if (task.tracking.assignedAgent !== agentId) {
+      throw new Error(`Task ${taskId} is assigned to "${task.tracking.assignedAgent}", not "${agentId}".`);
+    }
+
+    this.stopTaskTimer(taskId);
+    this.fileOwnershipManager.releaseOwnership(task);
+
+    const reservedTask: SwarmTask = {
+      ...task,
+      status: SwarmTaskStatus.QUEUED,
+      fileOwnership: {
+        ...task.fileOwnership,
+        ownedBy: this.reservedOwnerForTask(swarmId, task.id)
+      },
+      tracking: {
+        ...task.tracking,
+        assignedAgent: undefined,
+        assignedAt: undefined,
+        feedback: reason ?? task.tracking.feedback
+      }
+    };
+
+    this.fileOwnershipManager.assignOwnership(reservedTask, reservedTask.fileOwnership.ownedBy);
+
+    const nextTasks = new Map<string, SwarmTask>(swarm.tasks);
+    nextTasks.set(taskId, reservedTask);
+
+    const nextAgents = new Map<string, AgentState>(swarm.agents);
+    const existingAgent = nextAgents.get(agentId);
+    if (existingAgent) {
+      nextAgents.set(agentId, {
+        ...existingAgent,
+        status: AgentRuntimeStatus.IDLE,
+        currentTask: undefined,
+        lastActivity: now,
+        lastMessage: reason ?? existingAgent.lastMessage,
+        blockReason: undefined
+      });
+    }
+
+    this.setSwarmState(swarmId, { ...swarm, tasks: nextTasks, agents: nextAgents }, `releaseTaskAssignment(${taskId}, ${agentId}) @ ${now}`);
+  }
+
   /**
    * Mark a task as completed by a builder; moves it into REVIEWING for reviewer action.
    */
-  public taskCompleted(swarmId: string, taskId: string, agentId: string, summary: string): void {
+  public taskCompleted(
+    swarmId: string,
+    taskId: string,
+    agentId: string,
+    summary: string,
+    filesModified: readonly string[] = [],
+    completionEvidence?: SwarmTaskEvidence
+  ): void {
     const now = Date.now();
     const swarm = this.getSwarmOrThrow(swarmId);
     const task = this.getTaskOrThrow(swarm, taskId);
@@ -468,12 +647,19 @@ export class SwarmOrchestrator {
     const updated: SwarmTask = {
       ...task,
       status: shouldReview ? SwarmTaskStatus.REVIEWING : SwarmTaskStatus.DONE,
-      tracking: {
-        ...task.tracking,
-        completedAt: now,
-        feedback: shouldReview ? task.tracking.feedback : summary
-      }
-    };
+        tracking: {
+          ...task.tracking,
+          completedAt: now,
+          feedback: shouldReview ? task.tracking.feedback : summary,
+          filesModified:
+            (completionEvidence?.observedFilesModified.length ?? 0) > 0
+              ? [...(completionEvidence?.observedFilesModified ?? [])]
+              : filesModified.length > 0
+                ? [...filesModified]
+                : task.tracking.filesModified,
+          completionEvidence: completionEvidence ?? task.tracking.completionEvidence
+        }
+      };
 
     const nextTasks = new Map<string, SwarmTask>(swarm.tasks);
     nextTasks.set(taskId, updated);

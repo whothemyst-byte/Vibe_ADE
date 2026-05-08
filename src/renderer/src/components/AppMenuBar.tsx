@@ -6,6 +6,7 @@ import { applyAppearanceMode, getStoredAppearanceMode, setStoredAppearanceMode, 
 import { THEME_LABELS, THEME_ORDER } from '@renderer/theme/theme';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import { useToastStore } from '@renderer/hooks/useToast';
+import { Icon, cn } from './ui';
 
 type MenuId = 'file' | 'edit' | 'view' | 'terminal' | 'tasks' | 'swarm' | 'account' | 'help';
 
@@ -40,25 +41,29 @@ export function AppMenuBar(): JSX.Element {
   const requestTerminalFind = useWorkspaceStore((s) => s.requestTerminalFind);
   const exportTasks = useWorkspaceStore((s) => s.exportTasks);
   const archiveCompletedTasks = useWorkspaceStore((s) => s.archiveCompletedTasks);
+  const toggleSidebarCollapsed = useWorkspaceStore((s) => s.toggleSidebarCollapsed);
+  const sidebarCollapsed = useWorkspaceStore((s) => s.ui.sidebarCollapsed);
   const updateStatus = useWorkspaceStore((s) => s.ui.updateStatus);
   const workspaces = useWorkspaceStore((s) => s.appState.workspaces);
   const activeWorkspaceId = useWorkspaceStore((s) => s.appState.activeWorkspaceId);
   const subscriptionState = useWorkspaceStore((s) => s.appState.subscription);
   const addToast = useToastStore((s) => s.addToast);
 
-  const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
-
-  const closeMenus = useCallback(() => setOpenMenu(null), []);
+  const [mainMenuOpen, setMainMenuOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<MenuId | null>(null);
+  const closeMenus = useCallback(() => {
+    setMainMenuOpen(false);
+    setActiveSubmenu(null);
+  }, []);
 
   useEffect(() => {
-    if (!openMenu) {
+    if (!mainMenuOpen) {
       return;
     }
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setOpenMenu(null);
-        return;
+        closeMenus();
       }
     };
     const onMouseDown = (event: MouseEvent): void => {
@@ -66,7 +71,7 @@ export function AppMenuBar(): JSX.Element {
       if (target?.closest('.app-menu-bar')) {
         return;
       }
-      setOpenMenu(null);
+      closeMenus();
     };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('mousedown', onMouseDown);
@@ -74,7 +79,7 @@ export function AppMenuBar(): JSX.Element {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('mousedown', onMouseDown);
     };
-  }, [openMenu]);
+  }, [mainMenuOpen, closeMenus]);
 
   const systemAction = (action: Parameters<typeof window.vibeAde.system.performMenuAction>[0]): (() => void) => {
     return () => {
@@ -385,21 +390,30 @@ export function AppMenuBar(): JSX.Element {
 
   const renderMenuItem = (item: MenuItem, key: string): JSX.Element => {
     if (item.separator) {
-      return <div key={key} className="app-menu-separator" />;
+      return <div key={key} className="my-1 h-px bg-line" />;
     }
 
     if (item.children && item.children.length > 0) {
-      const disabledClass = item.disabled ? ' disabled' : '';
       return (
         <div
           key={key}
-          className={`app-menu-item app-menu-submenu-trigger${disabledClass}`}
+          className={cn(
+            'group/sub relative flex items-center justify-between gap-3 px-2 py-1 text-[11px] rounded-sm cursor-default',
+            'text-fg hover:bg-bg-panel-2',
+            item.disabled && 'opacity-40 pointer-events-none'
+          )}
           role="menuitem"
           aria-disabled={item.disabled}
         >
           <span>{item.label}</span>
-          <span className="app-menu-submenu-caret">›</span>
-          <div className="app-menu-submenu" role="menu">
+          <Icon name="chevron_right" size="xs" className="text-fg-muted" />
+          <div
+            className={cn(
+              'invisible opacity-0 group-hover/sub:visible group-hover/sub:opacity-100 transition-opacity',
+              'absolute left-full top-0 ml-0.5 min-w-[200px] rounded border border-line bg-bg-panel shadow-premium p-0.5 z-50'
+            )}
+            role="menu"
+          >
             {item.children.map((child, index) => renderMenuItem(child, `${key}-${index}`))}
           </div>
         </div>
@@ -409,9 +423,12 @@ export function AppMenuBar(): JSX.Element {
     return (
       <button
         key={key}
-        className="app-menu-item"
         role="menuitem"
         disabled={item.disabled}
+        className={cn(
+          'w-full flex items-center justify-between gap-4 px-2 py-1 text-[11px] rounded-sm text-left transition-colors',
+          'text-fg hover:bg-bg-panel-2 disabled:opacity-40 disabled:cursor-not-allowed'
+        )}
         onClick={() => {
           if (!item.disabled) {
             item.action?.();
@@ -419,41 +436,129 @@ export function AppMenuBar(): JSX.Element {
           closeMenus();
         }}
       >
-        <span>{item.label}</span>
-        {item.shortcut && <span className="app-menu-shortcut">{item.shortcut}</span>}
+        <span className="truncate">{item.label}</span>
+        {item.shortcut && (
+          <span className="font-mono text-[10px] text-fg-muted tracking-wider">{item.shortcut}</span>
+        )}
       </button>
     );
   };
 
+  const currentIndex = activeWorkspaceId
+    ? recentWorkspaces.findIndex((w) => w.id === activeWorkspaceId)
+    : -1;
+  const canGoBack = currentIndex > 0;
+  const canGoForward = currentIndex >= 0 && currentIndex < recentWorkspaces.length - 1;
+  const goBack = (): void => {
+    if (!canGoBack) return;
+    const target = recentWorkspaces[currentIndex - 1];
+    if (target) void setActiveWorkspace(target.id);
+  };
+  const goForward = (): void => {
+    if (!canGoForward) return;
+    const target = recentWorkspaces[currentIndex + 1];
+    if (target) void setActiveWorkspace(target.id);
+  };
+
+  const openSearch = (): void => {
+    openEnvironmentOverlay();
+  };
+
+  const IconBtn = ({
+    icon,
+    title,
+    onClick,
+    disabled,
+    active
+  }: {
+    icon: string;
+    title: string;
+    onClick: () => void;
+    disabled?: boolean;
+    active?: boolean;
+  }): JSX.Element => (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'h-7 w-7 grid place-items-center rounded-sm transition-colors',
+        active
+          ? 'text-fg bg-bg-panel-2'
+          : 'text-fg-muted hover:text-fg hover:bg-bg-panel-2',
+        'disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent'
+      )}
+    >
+      <Icon name={icon} size="sm" />
+    </button>
+  );
+
   return (
-    <div className="app-menu-bar app-drag-region">
-      {menus.map((menu) => (
-        <div key={menu.id} className="app-menu-group">
-          <button
-            className={openMenu === menu.id ? 'app-menu-button active' : 'app-menu-button'}
-            onClick={(event) => {
-              event.stopPropagation();
-              setOpenMenu((current) => (current === menu.id ? null : menu.id));
+    <div className="app-menu-bar app-drag-region relative flex items-center h-8 px-1.5 gap-0.5 bg-bg-header border-b border-line">
+      <div className="flex items-center gap-0.5 no-drag">
+        <div className="relative">
+          <IconBtn
+            icon="menu"
+            title="Menu"
+            active={mainMenuOpen}
+            onClick={() => {
+              setMainMenuOpen((v) => !v);
+              setActiveSubmenu(null);
             }}
-            onMouseEnter={() => {
-              if (openMenu) {
-                setOpenMenu(menu.id);
-              }
-            }}
-          >
-            {menu.label}
-          </button>
-          {openMenu === menu.id && (
-            <div className="app-menu-popover" role="menu">
-              {menu.items.map((item, index) => renderMenuItem(item, `${menu.id}-${index}`))}
+          />
+          {mainMenuOpen && (
+            <div
+              className="absolute left-0 top-full mt-1 min-w-[240px] rounded border border-line bg-bg-panel shadow-premium p-0.5 z-50"
+              role="menu"
+            >
+              {menus.map((menu, idx) => (
+                <div
+                  key={menu.id}
+                  className="relative"
+                  onMouseEnter={() => setActiveSubmenu(menu.id)}
+                >
+                  <button
+                    type="button"
+                    className={cn(
+                      'w-full flex items-center justify-between gap-4 px-2 py-1 text-[11px] rounded-sm text-left transition-colors',
+                      activeSubmenu === menu.id ? 'bg-bg-panel-2 text-fg' : 'text-fg hover:bg-bg-panel-2'
+                    )}
+                    onClick={() => setActiveSubmenu((current) => (current === menu.id ? null : menu.id))}
+                  >
+                    <span>{menu.label}</span>
+                    <Icon name="chevron_right" size="xs" className="text-fg-muted" />
+                  </button>
+                  {activeSubmenu === menu.id && (
+                    <div
+                      className="absolute left-full top-0 ml-0.5 min-w-[220px] rounded border border-line bg-bg-panel shadow-premium p-0.5 z-50"
+                      role="menu"
+                    >
+                      {menu.items.map((item, index) => renderMenuItem(item, `${menu.id}-${index}`))}
+                    </div>
+                  )}
+                  {idx < menus.length - 1 && <div className="my-0.5 h-px bg-line/50" />}
+                </div>
+              ))}
             </div>
           )}
         </div>
-      ))}
-      <div className="app-menu-actions">
+        <IconBtn
+          icon={sidebarCollapsed ? 'menu_open' : 'dock_to_left'}
+          title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          onClick={toggleSidebarCollapsed}
+          active={!sidebarCollapsed}
+        />
+        <IconBtn icon="search" title="Open workspace..." onClick={openSearch} />
+        <IconBtn icon="arrow_back" title="Previous workspace" onClick={goBack} disabled={!canGoBack} />
+        <IconBtn icon="arrow_forward" title="Next workspace" onClick={goForward} disabled={!canGoForward} />
+      </div>
+
+      <div className="ml-auto flex items-center gap-0.5 no-drag">
         {updateStatus.state === 'error' && (
           <button
-            className="app-update-button error"
+            className="h-6 px-2 text-[10px] font-medium rounded-sm bg-danger/15 text-danger hover:bg-danger/25 border border-danger/30 transition-colors"
             onClick={() => void window.vibeAde.update.check()}
             title={updateStatus.error ?? 'Update failed'}
           >
@@ -462,7 +567,7 @@ export function AppMenuBar(): JSX.Element {
         )}
         {(updateStatus.state === 'available' || updateStatus.state === 'downloaded' || updateStatus.state === 'downloading') && (
           <button
-            className="app-update-button"
+            className="h-6 px-2 text-[10px] font-medium rounded-sm bg-primary/15 text-primary hover:bg-primary/25 border border-primary/30 transition-colors disabled:opacity-60"
             onClick={() => {
               if (updateStatus.state === 'downloaded') {
                 void window.vibeAde.update.install();
