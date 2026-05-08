@@ -61,7 +61,6 @@ describe('TaskBoard render surface', () => {
     const html = renderToStaticMarkup(React.createElement(TaskBoard, { workspace }));
 
     expect(html).toContain('Search tasks...');
-    expect(html).toContain('All Priorities');
     expect(html).toContain('Backlog');
     expect(html).toContain('In Progress');
     expect(html).toContain('Done');

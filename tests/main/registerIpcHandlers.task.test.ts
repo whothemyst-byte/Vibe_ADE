@@ -73,6 +73,7 @@ describe('registerIpcHandlers task handlers', () => {
       terminalManager: {
         onData: vi.fn(() => () => {}),
         onExit: vi.fn(() => () => {}),
+        onCommandCompleted: vi.fn(() => () => {}),
         startSession: vi.fn(),
         stopSession: vi.fn(),
         sendInput: vi.fn(),
@@ -163,6 +164,7 @@ describe('registerIpcHandlers task handlers', () => {
       terminalManager: {
         onData: vi.fn(() => () => {}),
         onExit: vi.fn(() => () => {}),
+        onCommandCompleted: vi.fn(() => () => {}),
         startSession: vi.fn(),
         stopSession: vi.fn(),
         sendInput: vi.fn(),

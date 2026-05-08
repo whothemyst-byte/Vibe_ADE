@@ -31,6 +31,7 @@ describe('registerIpcHandlers', () => {
     const terminalManager = {
       onData: vi.fn(() => () => {}),
       onExit: vi.fn(() => () => {}),
+      onCommandCompleted: vi.fn(() => () => {}),
       startSession: vi.fn(),
       stopSession: vi.fn(),
       sendInput: vi.fn(),
@@ -130,6 +131,7 @@ describe('registerIpcHandlers', () => {
       terminalManager: {
         onData: vi.fn(() => () => {}),
         onExit: vi.fn(() => () => {}),
+        onCommandCompleted: vi.fn(() => () => {}),
         startSession: vi.fn(),
         stopSession: vi.fn(),
         sendInput: vi.fn(),
