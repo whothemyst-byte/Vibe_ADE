@@ -5,6 +5,7 @@ import { useIpcEvents } from '@renderer/hooks/useIpcEvents';
 import { AppMenuBar } from './components/AppMenuBar';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { PaneLayout } from './components/PaneLayout';
+import { CanvasLayout } from './components/CanvasLayout';
 import { TaskBoard } from './components/TaskBoard';
 import { StartPage } from './components/StartPage';
 import { SettingsDialog } from './components/SettingsDialog';
@@ -395,6 +396,12 @@ export function App(): JSX.Element {
                 <section className="task-board-workspace-view">
                   <TaskBoard workspace={activeWorkspace} />
                 </section>
+              ) : activeWorkspace.mode === 'canvas' ? (
+                <div className="workspace-layout">
+                  <section className="workspace-main">
+                    <CanvasLayout />
+                  </section>
+                </div>
               ) : (
                 <div className="workspace-layout">
                   <section className="workspace-main">
