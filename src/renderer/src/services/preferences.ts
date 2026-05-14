@@ -67,7 +67,7 @@ const WORKSPACE_MODELS_KEY = 'vibe-ade-workspace-models';
 const WORKSPACE_MODELS_CHANGED_EVENT = 'vibe-ade:workspace-models-changed';
 
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
-  accentColor: '#3b82f6',
+  accentColor: '#D79A3D',
   fontStyle: 'modern',
   language: 'en'
 };
