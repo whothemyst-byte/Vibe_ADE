@@ -9,6 +9,7 @@ import type {
   UpdateStatus,
   WorkspaceRunEvent,
   WorkspaceId,
+  WorkspaceMode,
   WorkspaceState,
   WorkspaceTemplate
 } from './types';
@@ -142,6 +143,7 @@ export interface WorkspaceCreationInput {
   layoutPresetId?: string;
   templateId?: string;
   selectedModelId?: string;
+  mode?: WorkspaceMode;
 }
 
 // ---- QuanSwarm IPC shapes (serializable) ----

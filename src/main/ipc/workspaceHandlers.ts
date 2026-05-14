@@ -28,7 +28,7 @@ export function registerWorkspaceHandlers({ workspaceManager, templateRunner, bi
 
   ipcMain.handle('workspace:create', async (
     _event,
-    input: { name: string; rootDir: string; layoutPresetId?: string; templateId?: string; selectedModelId?: string }
+    input: { name: string; rootDir: string; layoutPresetId?: string; templateId?: string; selectedModelId?: string; mode?: import('@shared/types').WorkspaceMode }
   ) => {
     assertNonEmptyString(input?.name, 'workspace name');
     assertExistingPath(input?.rootDir, 'workspace rootDir', 'dir');
@@ -36,7 +36,8 @@ export function registerWorkspaceHandlers({ workspaceManager, templateRunner, bi
       name: input.name,
       rootDir: input.rootDir,
       layoutPresetId: input.layoutPresetId ?? input.templateId,
-      selectedModelId: input.selectedModelId
+      selectedModelId: input.selectedModelId,
+      mode: input.mode ?? 'space'
     });
 
     if (input.templateId) {
