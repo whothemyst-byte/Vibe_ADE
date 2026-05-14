@@ -104,6 +104,13 @@ export interface WorkspaceTemplate {
   commands: string[];
 }
 
+export type WorkspaceMode = 'space' | 'swarm' | 'canvas';
+
+export interface CanvasState {
+  transform: { x: number; y: number; scale: number };
+  cards: Record<PaneId, { x: number; y: number; w: number; h: number }>;
+}
+
 export interface WorkspaceState {
   id: WorkspaceId;
   name: string;
@@ -115,6 +122,8 @@ export interface WorkspaceState {
   activePaneId: PaneId;
   commandBlocks: Record<PaneId, CommandBlock[]>;
   tasks: TaskItem[];
+  mode: WorkspaceMode;
+  canvas?: CanvasState;
   createdAt: string;
   updatedAt: string;
 }

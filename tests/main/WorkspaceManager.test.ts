@@ -23,6 +23,7 @@ function makeWorkspace(id: string): WorkspaceState {
     activePaneId: `pane-${id}`,
     commandBlocks: { [`pane-${id}`]: [] },
     tasks: [],
+    mode: 'space',
     createdAt: now,
     updatedAt: now
   };

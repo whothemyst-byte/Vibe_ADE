@@ -123,7 +123,9 @@ function normalizeWorkspace(workspace: WorkspaceState): WorkspaceState {
     paneTypes: normalizedPaneTypes,
     paneShells: normalizedPaneShells,
     browserPanes: normalizedBrowserPanes,
-    tasks: normalizeTaskOrder((workspace.tasks ?? []).map(normalizeTask))
+    tasks: normalizeTaskOrder((workspace.tasks ?? []).map(normalizeTask)),
+    mode: rest.mode ?? 'space',
+    canvas: rest.canvas
   };
 }
 
@@ -328,7 +330,7 @@ export class WorkspaceManager {
     return DEFAULT_TEMPLATES;
   }
 
-  async create(input: { name: string; rootDir: string; layoutPresetId?: string }): Promise<WorkspaceState> {
+  async create(input: { name: string; rootDir: string; layoutPresetId?: string; mode?: import('@shared/types').WorkspaceMode }): Promise<WorkspaceState> {
     await this.ensureWorkspaceCapacity();
     const now = new Date().toISOString();
     const layout = createWorkspaceLayout(input.layoutPresetId);
@@ -351,6 +353,7 @@ export class WorkspaceManager {
       activePaneId: firstPaneId,
       commandBlocks,
       tasks: [],
+      mode: input.mode ?? 'space',
       createdAt: now,
       updatedAt: now
     };
