@@ -1,0 +1,303 @@
+/* ======================================================================
+   QUANSYND DESIGN SYSTEM — Colors & Type
+   Brand foundation: warm, earthy bronze + gold against deep ink and
+   cream paper. Geometric rounded type echoes the QuanSynd logomark.
+   ====================================================================== */
+
+/* ---------- Webfonts ----------
+   Display: Sora — geometric, friendly, slightly futuristic. Mirrors the
+   rounded terminals and balanced proportions of the QuanSynd logo.
+   Text:    Manrope — clean, geometric humanist sans for body copy.
+   Mono:    JetBrains Mono — code, benchmarks, technical chrome.
+*/
+/* Webfonts loaded via @fontsource/sora, @fontsource/manrope, @fontsource/jetbrains-mono in main.tsx */
+
+:root {
+    /* ===== BRAND CORE ===== */
+    --qs-bronze-900: #3D2708;
+    --qs-bronze-800: #533510;
+    --qs-bronze-700: #674212;
+    --qs-bronze-600: #7A4F10; /* PRIMARY — sampled from logo */
+    --qs-bronze-500: #8E5E1A;
+    --qs-bronze-400: #A47628;
+    --qs-bronze-300: #BE9248;
+
+    --qs-gold-700:   #A87826;
+    --qs-gold-600:   #C28A30;
+    --qs-gold-500:   #D79A3D; /* ACCENT — sampled from dark-bg logo */
+    --qs-gold-400:   #E2B265;
+    --qs-gold-300:   #ECCB94;
+    --qs-gold-200:   #F4DFBE;
+    --qs-gold-100:   #FAEFDA;
+
+    /* ===== INK (deep neutrals — warm-tinted blacks) ===== */
+    --qs-ink-1000: #0B0905;
+    --qs-ink-900:  #14110B;
+    --qs-ink-800:  #1F1A11;
+    --qs-ink-700:  #2A2418;
+    --qs-ink-600:  #3A3324;
+    --qs-ink-500:  #524A39;
+
+    /* ===== STONE (warm greys) ===== */
+    --qs-stone-700: #6B6353;
+    --qs-stone-600: #847B6A;
+    --qs-stone-500: #9D9484;
+    --qs-stone-400: #B8B0A0;
+    --qs-stone-300: #D2CCBE;
+    --qs-stone-200: #E5E0D4;
+    --qs-stone-100: #EFEAE0;
+
+    /* ===== PAPER (warm whites — main surfaces) ===== */
+    --qs-paper:     #FFFFFF;
+    --qs-cream-50:  #FAF6EE; /* DEFAULT canvas */
+    --qs-cream-100: #F4EDE0;
+    --qs-cream-200: #ECE2CD;
+
+    /* ===== SEMANTIC ===== */
+    --qs-success: #2F7D52;
+    --qs-success-bg: #E3F1E9;
+    --qs-warning: #B5781E;
+    --qs-warning-bg: #FBEACB;
+    --qs-danger:  #B53D2C;
+    --qs-danger-bg:  #F7DDD7;
+    --qs-info:    #2A5C8A;
+    --qs-info-bg:    #DEEBF6;
+
+    /* ===== SEMANTIC ROLE TOKENS ===== */
+    --qs-bg:        var(--qs-cream-50);
+    --qs-bg-elev:   var(--qs-paper);
+    --qs-bg-sunken: var(--qs-cream-100);
+    --qs-bg-inverse: var(--qs-ink-900);
+
+    --qs-fg-1:      var(--qs-ink-900); /* primary text */
+    --qs-fg-2:      var(--qs-ink-700); /* secondary text */
+    --qs-fg-3:      var(--qs-stone-700); /* tertiary / meta */
+    --qs-fg-4:      var(--qs-stone-500); /* placeholder / disabled */
+    --qs-fg-inverse: var(--qs-cream-50);
+    --qs-fg-brand:  var(--qs-bronze-600);
+    --qs-fg-accent: var(--qs-gold-500);
+
+    --qs-border-1:  var(--qs-stone-200); /* subtle */
+    --qs-border-2:  var(--qs-stone-300); /* standard */
+    --qs-border-3:  var(--qs-ink-700);   /* strong */
+    --qs-border-brand: var(--qs-bronze-600);
+
+    --qs-focus-ring: color-mix(in oklch, var(--qs-bronze-600) 35%, transparent);
+
+    /* ===== TYPOGRAPHY FAMILIES ===== */
+    --qs-font-display: "Sora", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --qs-font-text:    "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --qs-font-mono:    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+    /* ===== TYPE SCALE (modular, 1.2 minor third) ===== */
+    --qs-text-xs:    12px;
+    --qs-text-sm:    13px;
+    --qs-text-base:  15px;
+    --qs-text-md:    17px;
+    --qs-text-lg:    20px;
+    --qs-text-xl:    24px;
+    --qs-text-2xl:   30px;
+    --qs-text-3xl:   38px;
+    --qs-text-4xl:   48px;
+    --qs-text-5xl:   64px;
+    --qs-text-6xl:   84px;
+    --qs-text-7xl:   112px;
+
+    --qs-leading-tight: 1.05;
+    --qs-leading-snug:  1.2;
+    --qs-leading-normal: 1.5;
+    --qs-leading-loose: 1.7;
+
+    --qs-track-tight: -0.025em;
+    --qs-track-snug:  -0.015em;
+    --qs-track-normal: 0;
+    --qs-track-wide:  0.04em;
+    --qs-track-caps:  0.12em;
+
+    /* ===== SPACING (4px base) ===== */
+    --qs-space-0: 0;
+    --qs-space-1: 4px;
+    --qs-space-2: 8px;
+    --qs-space-3: 12px;
+    --qs-space-4: 16px;
+    --qs-space-5: 20px;
+    --qs-space-6: 24px;
+    --qs-space-8: 32px;
+    --qs-space-10: 40px;
+    --qs-space-12: 48px;
+    --qs-space-16: 64px;
+    --qs-space-20: 80px;
+    --qs-space-24: 96px;
+    --qs-space-32: 128px;
+
+    /* ===== RADII ===== */
+    --qs-r-xs: 4px;
+    --qs-r-sm: 8px;
+    --qs-r-md: 12px;
+    --qs-r-lg: 18px;
+    --qs-r-xl: 24px;
+    --qs-r-2xl: 32px;
+    --qs-r-pill: 999px;
+
+    /* ===== SHADOWS — warm-tinted, subtle ===== */
+    --qs-shadow-xs: 0 1px 1px rgba(20, 17, 11, 0.04);
+    --qs-shadow-sm: 0 1px 2px rgba(20, 17, 11, 0.06), 0 1px 3px rgba(20, 17, 11, 0.04);
+    --qs-shadow-md: 0 4px 12px -2px rgba(20, 17, 11, 0.08), 0 2px 4px rgba(20, 17, 11, 0.04);
+    --qs-shadow-lg: 0 12px 32px -8px rgba(20, 17, 11, 0.14), 0 4px 8px rgba(20, 17, 11, 0.05);
+    --qs-shadow-xl: 0 24px 64px -16px rgba(20, 17, 11, 0.22), 0 8px 16px rgba(20, 17, 11, 0.06);
+    --qs-shadow-glow: 0 0 0 1px rgba(122, 79, 16, 0.12), 0 8px 24px -4px rgba(122, 79, 16, 0.18);
+
+    /* Inner / pressed */
+    --qs-shadow-inset: inset 0 1px 2px rgba(20, 17, 11, 0.08);
+
+    /* ===== MOTION ===== */
+    --qs-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --qs-ease-spring:   cubic-bezier(0.32, 1.4, 0.4, 1);
+    --qs-ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+    --qs-dur-fast:    120ms;
+    --qs-dur-base:    220ms;
+    --qs-dur-slow:    420ms;
+}
+
+/* ===== DARK THEME =====
+   Inverts surfaces but keeps the warm temperature. Gold becomes the
+   primary brand accent (matches logo-dark variant). */
+[data-theme="dark"] {
+    --qs-bg:        var(--qs-ink-900);
+    --qs-bg-elev:   var(--qs-ink-800);
+    --qs-bg-sunken: var(--qs-ink-1000);
+    --qs-bg-inverse: var(--qs-cream-50);
+
+    --qs-fg-1:      var(--qs-cream-50);
+    --qs-fg-2:      var(--qs-stone-300);
+    --qs-fg-3:      var(--qs-stone-500);
+    --qs-fg-4:      var(--qs-stone-700);
+    --qs-fg-inverse: var(--qs-ink-900);
+    --qs-fg-brand:  var(--qs-gold-500);
+    --qs-fg-accent: var(--qs-gold-400);
+
+    --qs-border-1:  var(--qs-ink-700);
+    --qs-border-2:  var(--qs-ink-600);
+    --qs-border-3:  var(--qs-stone-700);
+    --qs-border-brand: var(--qs-gold-500);
+
+    --qs-focus-ring: color-mix(in oklch, var(--qs-gold-500) 45%, transparent);
+}
+
+/* ======================================================================
+   SEMANTIC TYPE STYLES — apply directly via class.
+   ====================================================================== */
+
+.qs-display-1 {
+    font-family: var(--qs-font-display);
+    font-weight: 700;
+    font-size: var(--qs-text-7xl);
+    line-height: var(--qs-leading-tight);
+    letter-spacing: var(--qs-track-tight);
+    color: var(--qs-fg-1);
+}
+.qs-display-2 {
+    font-family: var(--qs-font-display);
+    font-weight: 700;
+    font-size: var(--qs-text-6xl);
+    line-height: var(--qs-leading-tight);
+    letter-spacing: var(--qs-track-tight);
+    color: var(--qs-fg-1);
+}
+.qs-h1 {
+    font-family: var(--qs-font-display);
+    font-weight: 600;
+    font-size: var(--qs-text-5xl);
+    line-height: 1.08;
+    letter-spacing: var(--qs-track-tight);
+    color: var(--qs-fg-1);
+}
+.qs-h2 {
+    font-family: var(--qs-font-display);
+    font-weight: 600;
+    font-size: var(--qs-text-4xl);
+    line-height: 1.12;
+    letter-spacing: var(--qs-track-snug);
+    color: var(--qs-fg-1);
+}
+.qs-h3 {
+    font-family: var(--qs-font-display);
+    font-weight: 600;
+    font-size: var(--qs-text-3xl);
+    line-height: 1.18;
+    letter-spacing: var(--qs-track-snug);
+    color: var(--qs-fg-1);
+}
+.qs-h4 {
+    font-family: var(--qs-font-display);
+    font-weight: 600;
+    font-size: var(--qs-text-2xl);
+    line-height: 1.25;
+    letter-spacing: var(--qs-track-snug);
+    color: var(--qs-fg-1);
+}
+.qs-h5 {
+    font-family: var(--qs-font-display);
+    font-weight: 600;
+    font-size: var(--qs-text-xl);
+    line-height: 1.3;
+    color: var(--qs-fg-1);
+}
+.qs-h6 {
+    font-family: var(--qs-font-text);
+    font-weight: 700;
+    font-size: var(--qs-text-md);
+    line-height: 1.4;
+    color: var(--qs-fg-1);
+}
+
+.qs-lead {
+    font-family: var(--qs-font-text);
+    font-weight: 400;
+    font-size: var(--qs-text-lg);
+    line-height: var(--qs-leading-loose);
+    color: var(--qs-fg-2);
+    text-wrap: pretty;
+}
+.qs-body {
+    font-family: var(--qs-font-text);
+    font-weight: 400;
+    font-size: var(--qs-text-base);
+    line-height: var(--qs-leading-normal);
+    color: var(--qs-fg-1);
+    text-wrap: pretty;
+}
+.qs-body-sm {
+    font-family: var(--qs-font-text);
+    font-weight: 400;
+    font-size: var(--qs-text-sm);
+    line-height: 1.55;
+    color: var(--qs-fg-2);
+}
+.qs-meta {
+    font-family: var(--qs-font-text);
+    font-weight: 500;
+    font-size: var(--qs-text-xs);
+    line-height: 1.4;
+    color: var(--qs-fg-3);
+}
+.qs-eyebrow {
+    font-family: var(--qs-font-text);
+    font-weight: 600;
+    font-size: var(--qs-text-xs);
+    line-height: 1;
+    letter-spacing: var(--qs-track-caps);
+    text-transform: uppercase;
+    color: var(--qs-fg-brand);
+}
+.qs-code, code, pre {
+    font-family: var(--qs-font-mono);
+    font-size: 0.92em;
+}
+.qs-code {
+    background: var(--qs-cream-100);
+    color: var(--qs-bronze-700);
+    padding: 0.12em 0.4em;
+    border-radius: var(--qs-r-xs);
+    font-weight: 500;
+}
