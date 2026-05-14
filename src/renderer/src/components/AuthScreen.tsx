@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import type { AuthSession } from '@shared/ipc';
-import { Button, Input, Label, Icon, BrandMark, cn } from './ui';
+import { Button, Input, Label, cn } from './ui';
 
 interface AuthScreenProps {
   onAuthenticated: (session: AuthSession) => void;
@@ -74,38 +75,43 @@ export function AuthScreen({ onAuthenticated, authAvailable = true }: AuthScreen
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-3 bg-bg-page">
+    <div className="min-h-screen w-full grid place-items-center bg-bg p-3">
       <section
-        className="w-full max-w-[320px]"
+        className="w-[420px] max-w-full"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="bg-bg-panel border border-line rounded shadow-premium overflow-hidden">
-          <header className="px-3 h-7 border-b border-line bg-bg-panel-2 flex items-center gap-2">
-            <BrandMark size={14} />
-            <h2 className="text-xs font-medium text-fg">
-              {mode === 'login' ? 'Sign in to Vibe-ADE' : 'Create Vibe-ADE account'}
-            </h2>
-          </header>
-
-          <div className="p-3 space-y-2.5">
-            <div className="flex p-0.5 bg-bg-panel-2 border border-line rounded">
-              {(['login', 'signup'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  disabled={submitting || isCooldownActive || !authAvailable}
-                  className={cn(
-                    'flex-1 h-6 text-[11px] font-medium rounded-sm transition-colors',
-                    mode === m ? 'bg-bg-elev text-fg' : 'text-fg-muted hover:text-fg',
-                    (submitting || isCooldownActive || !authAvailable) && 'opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  {m === 'login' ? 'Sign In' : 'Create Account'}
-                </button>
-              ))}
+        <div className="bg-bg-elev border border-line rounded-lg shadow-qs-lg p-8">
+          <div className="flex flex-col items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-md bg-gradient-to-br from-qs-gold-500 to-qs-bronze-400 grid place-items-center text-qs-ink-900 font-display font-bold text-xl">
+              QS
             </div>
+            <h1 className="font-display text-2xl text-fg">Welcome to Vibe-ADE</h1>
+            <p className="text-sm text-fg-muted text-center">
+              {mode === 'login'
+                ? 'Sign in to sync workspaces across machines.'
+                : 'Create an account to get started.'}
+            </p>
+          </div>
 
+          <div className="flex p-0.5 bg-bg-sunken border border-line rounded-md mb-4">
+            {(['login', 'signup'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                disabled={submitting || isCooldownActive || !authAvailable}
+                className={cn(
+                  'flex-1 h-8 text-xs font-medium rounded-sm transition-colors',
+                  mode === m ? 'bg-bg-elev text-fg shadow-qs-xs' : 'text-fg-muted hover:text-fg',
+                  (submitting || isCooldownActive || !authAvailable) && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {m === 'login' ? 'Sign In' : 'Create Account'}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-3">
             <div>
               <Label htmlFor="auth-email">Email</Label>
               <Input
@@ -116,7 +122,7 @@ export function AuthScreen({ onAuthenticated, authAvailable = true }: AuthScreen
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@company.com"
                 disabled={submitting || !authAvailable}
-                leftIcon={<Icon name="mail_outline" size="xs" />}
+                leftIcon={<Mail className="w-4 h-4" />}
               />
             </div>
 
@@ -130,7 +136,7 @@ export function AuthScreen({ onAuthenticated, authAvailable = true }: AuthScreen
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder={mode === 'login' ? 'Enter password' : 'Create password'}
                 disabled={submitting || !authAvailable}
-                leftIcon={<Icon name="lock_outline" size="xs" />}
+                leftIcon={<Lock className="w-4 h-4" />}
                 rightIcon={
                   <button
                     type="button"
@@ -139,7 +145,7 @@ export function AuthScreen({ onAuthenticated, authAvailable = true }: AuthScreen
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="h-6 w-6 rounded-sm grid place-items-center text-fg-muted hover:text-fg transition-colors"
                   >
-                    <Icon name={showPassword ? 'visibility_off' : 'visibility'} size="xs" />
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 }
                 onKeyDown={(event) => {
@@ -152,26 +158,26 @@ export function AuthScreen({ onAuthenticated, authAvailable = true }: AuthScreen
             </div>
 
             {!authAvailable && (
-              <div className="rounded-sm border border-warn/30 bg-warn/10 px-2 py-1.5 text-[11px] text-warn">
+              <div className="rounded-sm border border-qs-warning/30 bg-qs-warning/10 px-3 py-2 text-xs text-qs-warning">
                 Authentication service is not configured. Please contact support.
               </div>
             )}
             {isCooldownActive && (
-              <div className="rounded-sm border border-warn/30 bg-warn/10 px-2 py-1.5 text-[11px] text-warn">
+              <div className="rounded-sm border border-qs-warning/30 bg-qs-warning/10 px-3 py-2 text-xs text-qs-warning">
                 Rate limit active. Try again in {cooldownSecondsRemaining}s.
               </div>
             )}
             {error && (
-              <div className="rounded-sm border border-danger/30 bg-danger/10 px-2 py-1.5 flex items-start gap-1.5">
-                <Icon name="error_outline" size="xs" className="text-danger mt-0.5" />
-                <div className="text-[11px] text-fg-muted leading-snug">{error}</div>
+              <div className="rounded-sm border border-qs-danger/30 bg-qs-danger/10 px-3 py-2 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-qs-danger mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-fg-muted leading-snug">{error}</div>
               </div>
             )}
 
             <Button
               variant="primary"
               size="md"
-              className="w-full"
+              className="w-full bg-fg-accent text-qs-ink-900 hover:bg-qs-gold-400"
               loading={submitting}
               disabled={submitting || isCooldownActive || !authAvailable}
               onClick={() => void submit()}
