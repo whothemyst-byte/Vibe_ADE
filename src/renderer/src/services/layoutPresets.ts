@@ -70,6 +70,56 @@ export function getPresetIdForPaneCount(count: number): LayoutPresetId {
   return '16-pane-grid';
 }
 
+// ---- buildGridPreset (v0.5 card-grid layout) ---------------------------------
+//
+// Produces a split-tree LayoutNode for a cols x rows grid of panes. Rows wrap
+// in a vertical split; within each row, panes are joined by a horizontal split.
+
+import type { LayoutNode, PaneId } from '@shared/types';
+
+let _gridNodeSeq = 0;
+const nid = (prefix: string): string => `${prefix}-${++_gridNodeSeq}`;
+
+export function buildGridPreset(cols: number, rows: number, paneIds: PaneId[]): LayoutNode {
+  if (paneIds.length !== cols * rows) {
+    throw new Error(`buildGridPreset: need ${cols * rows} paneIds, got ${paneIds.length}`);
+  }
+  const rowNodes: LayoutNode[] = [];
+  for (let r = 0; r < rows; r += 1) {
+    const rowPanes = paneIds.slice(r * cols, (r + 1) * cols).map<LayoutNode>((pid) => ({
+      id: nid('p'),
+      type: 'pane',
+      paneId: pid
+    }));
+    rowNodes.push(
+      rowPanes.length === 1
+        ? rowPanes[0]
+        : {
+            id: nid('h'),
+            type: 'split',
+            direction: 'horizontal',
+            sizes: Array(cols).fill(100 / cols),
+            children: rowPanes
+          }
+    );
+  }
+  if (rowNodes.length === 1) return rowNodes[0];
+  return {
+    id: nid('v'),
+    type: 'split',
+    direction: 'vertical',
+    sizes: Array(rows).fill(100 / rows),
+    children: rowNodes
+  };
+}
+
+export const GRID_PRESETS = [
+  { id: 'grid-2x1', label: '2×1', cols: 2, rows: 1 },
+  { id: 'grid-2x2', label: '2×2', cols: 2, rows: 2 },
+  { id: 'grid-3x2', label: '3×2', cols: 3, rows: 2 },
+  { id: 'grid-4x2', label: '4×2', cols: 4, rows: 2 }
+] as const;
+
 export function getPresetSlots(presetId: LayoutPresetId): PaneSlot[] {
   if (presetId === '3-pane-left-large') {
     return [
