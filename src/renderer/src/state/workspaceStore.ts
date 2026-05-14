@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { normalizeSubscriptionState } from '@shared/subscription';
+import { createCanvasSlice } from './slices/canvasSlice';
 import { createPaneSlice } from './slices/paneSlice';
 import { createSwarmSlice } from './slices/swarmSlice';
 import { createTaskSlice } from './slices/taskSlice';
@@ -46,7 +47,8 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   ...createPaneSlice(set, get),
   ...createTaskSlice(set, get),
   ...createUiSlice(set, get),
-  ...createSwarmSlice(set, get)
+  ...createSwarmSlice(set, get),
+  ...createCanvasSlice(set, get, undefined as never)
 }));
 
 export type { UiState, WorkspaceStoreState } from './storeTypes';

@@ -115,6 +115,9 @@ export interface WorkspaceStoreState {
   openSwarmSession: (input: { swarmId: string; name: string }) => void;
   closeSwarmSession: (swarmId: string) => Promise<void>;
   setActiveSwarmSession: (swarmId: string) => void;
+  setCanvasTransform: (wsId: import('@shared/types').WorkspaceId, transform: import('@shared/types').CanvasState['transform']) => void;
+  setCanvasCard: (wsId: import('@shared/types').WorkspaceId, paneId: PaneId, rect: { x: number; y: number; w: number; h: number }) => void;
+  removeCanvasCard: (wsId: import('@shared/types').WorkspaceId, paneId: PaneId) => void;
 }
 
 export type StoreSet = StoreApi<WorkspaceStoreState>['setState'];
