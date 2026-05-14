@@ -1,7 +1,9 @@
+import { PlusCircle, Users, FolderOpen, Lock, ChevronRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import { useToastStore } from '@renderer/hooks/useToast';
-import { Icon, cn } from './ui';
+import { cn } from './ui';
 
 export function StartPage(): JSX.Element {
   const appState = useWorkspaceStore((s) => s.appState);
@@ -17,39 +19,40 @@ export function StartPage(): JSX.Element {
   const workspaceCount = appState.workspaces.length;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-3 bg-bg-page">
-      <section className="w-full max-w-sm">
-        <div className="bg-bg-panel border border-line rounded shadow-premium overflow-hidden">
-          <header className="px-3 h-7 border-b border-line bg-bg-panel-2 flex items-center">
-            <h2 className="text-xs font-medium text-fg">Get Started</h2>
-          </header>
-          <div className="p-1">
-            <StartActionRow
-              icon="add_circle"
-              title="New Workspace"
-              subtitle={`${workspaceCount} environment${workspaceCount === 1 ? '' : 's'}`}
-              onClick={() => openCreateFlow('workspace')}
-            />
-            <StartActionRow
-              icon="hub"
-              title="New Swarm"
-              subtitle="Coordinated agent session"
-              locked={swarmLocked}
-              onClick={() => {
-                if (swarmLocked) {
-                  addToast('info', 'QuanSwarm is available on Flux and Forge plans.');
-                  return;
-                }
-                openSwarmDashboard();
-              }}
-            />
-            <StartActionRow
-              icon="folder_open"
-              title="Open Environment"
-              subtitle="Restore saved workspace"
-              onClick={() => openEnvironmentOverlay()}
-            />
-          </div>
+    <div className="min-h-screen w-full grid place-items-center bg-bg p-8">
+      <section className="w-full max-w-xl">
+        <header className="mb-6">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-fg-accent mb-2">
+            QuanSynd · Vibe-ADE
+          </p>
+          <h1 className="font-display text-3xl font-semibold text-fg">Get started</h1>
+        </header>
+        <div className="space-y-3">
+          <StartActionRow
+            Icon={PlusCircle}
+            title="New Workspace"
+            subtitle={`${workspaceCount} environment${workspaceCount === 1 ? '' : 's'}`}
+            onClick={() => openCreateFlow('workspace')}
+          />
+          <StartActionRow
+            Icon={Users}
+            title="New Swarm"
+            subtitle="Coordinated agent session"
+            locked={swarmLocked}
+            onClick={() => {
+              if (swarmLocked) {
+                addToast('info', 'QuanSwarm is available on Flux and Forge plans.');
+                return;
+              }
+              openSwarmDashboard();
+            }}
+          />
+          <StartActionRow
+            Icon={FolderOpen}
+            title="Open Environment"
+            subtitle="Restore saved workspace"
+            onClick={() => openEnvironmentOverlay()}
+          />
         </div>
       </section>
     </div>
@@ -57,31 +60,31 @@ export function StartPage(): JSX.Element {
 }
 
 interface StartActionRowProps {
-  icon: string;
+  Icon: LucideIcon;
   title: string;
   subtitle: string;
   locked?: boolean;
   onClick: () => void;
 }
 
-function StartActionRow({ icon, title, subtitle, locked, onClick }: StartActionRowProps): JSX.Element {
+function StartActionRow({ Icon, title, subtitle, locked, onClick }: StartActionRowProps): JSX.Element {
   return (
     <button
       onClick={onClick}
       className={cn(
-        'group w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-left transition-colors',
-        'hover:bg-bg-panel-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary'
+        'group w-full flex items-center gap-4 px-4 py-4 rounded-md text-left bg-bg-elev border border-line',
+        'hover:border-line-strong focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-fg-accent transition-colors'
       )}
     >
-      <span className="h-6 w-6 rounded-sm grid place-items-center text-primary bg-primary/10 shrink-0">
-        <Icon name={icon} size="sm" />
+      <span className="h-10 w-10 rounded-md grid place-items-center text-fg-accent bg-fg-accent/10 shrink-0">
+        <Icon className="w-5 h-5" />
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-medium text-fg truncate">{title}</div>
-        <div className="text-[10px] text-fg-muted truncate">{subtitle}</div>
+        <div className="font-display font-semibold text-fg truncate">{title}</div>
+        <div className="text-sm text-fg-muted truncate">{subtitle}</div>
       </div>
-      {locked && <Icon name="lock" size="xs" className="text-warn shrink-0" />}
-      <Icon name="chevron_right" size="xs" className="text-fg-muted shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+      {locked && <Lock className="w-4 h-4 text-qs-warning shrink-0" />}
+      <ChevronRight className="w-4 h-4 text-fg-muted shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
     </button>
   );
 }
