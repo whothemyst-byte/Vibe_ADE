@@ -1,3 +1,5 @@
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -162,11 +164,14 @@ body,
   margin: 0;
 }
 
+html, body {
+  background: var(--qs-bg);
+  color: var(--qs-fg-1);
+  font-family: var(--qs-font-text);
+}
+
 body {
   overflow: hidden;
-  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-  background: radial-gradient(circle at 20% -20%, var(--body-overlay), transparent 35%), var(--bg-page);
-  color: var(--text);
   font-size: 13px;
 }
 
