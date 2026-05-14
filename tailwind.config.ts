@@ -52,7 +52,12 @@ export default {
           DEFAULT: 'var(--qs-bg)',
           elev: 'var(--qs-bg-elev)',
           sunken: 'var(--qs-bg-sunken)',
-          inverse: 'var(--qs-bg-inverse)'
+          inverse: 'var(--qs-bg-inverse)',
+          // Legacy aliases retained during the v0.5 cutover so un-restyled surfaces stay readable
+          page: 'var(--qs-bg)',
+          panel: 'var(--qs-bg-elev)',
+          'panel-2': 'var(--qs-bg-sunken)',
+          header: 'var(--qs-bg)'
         },
         fg: {
           DEFAULT: 'var(--qs-fg-1)',
@@ -101,7 +106,12 @@ export default {
         'qs-lg': 'var(--qs-shadow-lg)',
         'qs-xl': 'var(--qs-shadow-xl)',
         'qs-glow': 'var(--qs-shadow-glow)',
-        'qs-inset': 'var(--qs-shadow-inset)'
+        'qs-inset': 'var(--qs-shadow-inset)',
+        // Legacy shadow alias for un-restyled surfaces during the v0.5 cutover
+        premium: 'var(--qs-shadow-md)',
+        card: 'var(--qs-shadow-xs)',
+        glow: 'var(--qs-shadow-glow)',
+        'glow-lg': 'var(--qs-shadow-lg)'
       },
       keyframes: {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } }
