@@ -44,7 +44,7 @@ export interface WorkspaceStoreState {
   loading: boolean;
   ui: UiState;
   initialize: () => Promise<void>;
-  createWorkspace: (input: { name: string; rootDir: string; layoutPresetId?: string; templateId?: string }) => Promise<void>;
+  createWorkspace: (input: { name: string; rootDir: string; layoutPresetId?: string; templateId?: string; mode?: import('@shared/types').WorkspaceMode }) => Promise<void>;
   cloneWorkspace: (workspaceId: string, newName: string) => Promise<void>;
   renameWorkspace: (workspaceId: string, name: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;

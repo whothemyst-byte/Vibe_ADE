@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { PlusCircle, Users, FolderOpen, Lock, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { WorkspaceMode } from '@shared/types';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
 import { useToastStore } from '@renderer/hooks/useToast';
 import { cn } from './ui';
+import { WorkspaceModeCard } from './WorkspaceModeCard';
 
 export function StartPage(): JSX.Element {
+  const [selectedMode, setSelectedMode] = useState<WorkspaceMode>('space');
   const appState = useWorkspaceStore((s) => s.appState);
   const openCreateFlow = useWorkspaceStore((s) => s.openCreateFlow);
   const openEnvironmentOverlay = useWorkspaceStore((s) => s.openEnvironmentOverlay);
@@ -19,20 +23,42 @@ export function StartPage(): JSX.Element {
   const workspaceCount = appState.workspaces.length;
 
   return (
-    <div className="min-h-screen w-full grid place-items-center bg-bg p-8">
-      <section className="w-full max-w-xl">
-        <header className="mb-6">
+    <div className="min-h-screen w-full grid place-items-center bg-bg p-8 overflow-auto">
+      <section className="w-full max-w-4xl">
+        <header className="mb-8">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-fg-accent mb-2">
             QuanSynd · Vibe-ADE
           </p>
-          <h1 className="font-display text-3xl font-semibold text-fg">Get started</h1>
+          <h1 className="font-display text-3xl font-semibold text-fg mb-2">What are you building today?</h1>
+          <p className="text-fg-muted">Pick a workspace mode — you can always switch by creating a new one.</p>
         </header>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          {(['space', 'swarm', 'canvas'] as WorkspaceMode[]).map((m) => (
+            <WorkspaceModeCard
+              key={m}
+              mode={m}
+              selected={selectedMode === m}
+              onClick={() => {
+                setSelectedMode(m);
+                if (m === 'swarm' && swarmLocked) {
+                  addToast('info', 'QuanSwarm is available on Flux and Forge plans.');
+                  return;
+                }
+                window.localStorage.setItem('vibeAde.pendingWorkspaceMode', m);
+                openCreateFlow('workspace');
+              }}
+            />
+          ))}
+        </div>
         <div className="space-y-3">
           <StartActionRow
             Icon={PlusCircle}
             title="New Workspace"
             subtitle={`${workspaceCount} environment${workspaceCount === 1 ? '' : 's'}`}
-            onClick={() => openCreateFlow('workspace')}
+            onClick={() => {
+              window.localStorage.setItem('vibeAde.pendingWorkspaceMode', selectedMode);
+              openCreateFlow('workspace');
+            }}
           />
           <StartActionRow
             Icon={Users}

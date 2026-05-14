@@ -65,7 +65,18 @@ export function CreateWorkspaceForm(props: { onCancel: () => void; onCreated: ()
     setSubmitting(true);
     try {
       await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-      await createWorkspace({ name: name.trim(), rootDir: rootDir.trim(), layoutPresetId: selectedLayout });
+      const pendingMode = window.localStorage.getItem('vibeAde.pendingWorkspaceMode') as
+        | 'space'
+        | 'swarm'
+        | 'canvas'
+        | null;
+      window.localStorage.removeItem('vibeAde.pendingWorkspaceMode');
+      await createWorkspace({
+        name: name.trim(),
+        rootDir: rootDir.trim(),
+        layoutPresetId: selectedLayout,
+        mode: pendingMode ?? 'space'
+      });
       setLayoutPreset(selectedLayout);
       props.onCreated();
     } finally {
