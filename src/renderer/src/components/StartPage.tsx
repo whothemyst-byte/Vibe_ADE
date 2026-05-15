@@ -22,10 +22,11 @@ export function StartPage(): JSX.Element {
       openCreateFlow('swarm');
       return;
     }
-    window.localStorage.setItem('vibeAde.pendingWorkspaceMode', mode);
     if (mode === 'canvas') {
+      window.localStorage.removeItem('vibeAde.pendingWorkspaceMode');
       openCreateFlow('canvas');
     } else {
+      window.localStorage.setItem('vibeAde.pendingWorkspaceMode', mode);
       openCreateFlow('workspace');
     }
   };
