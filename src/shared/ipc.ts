@@ -14,6 +14,11 @@ import type {
   WorkspaceTemplate
 } from './types';
 
+export interface FileOwnershipSnapshot {
+  byFile: Record<string, string>;
+  byTask: Record<string, string[]>;
+}
+
 export interface TerminalDataEvent {
   paneId: PaneId;
   data: string;
@@ -345,6 +350,9 @@ export interface VibeAdeApi {
     events: (swarmId: string, count?: number) => Promise<unknown[]>;
     agentOutput: (swarmId: string, maxLines?: number) => Promise<unknown[]>;
     stop: (swarmId: string) => Promise<{ success: true } | { success: false; error: string }>;
+  };
+  fileOwnership: {
+    list: () => Promise<FileOwnershipSnapshot>;
   };
   onSwarmUpdate: (listener: (event: SwarmUpdateEvent) => void) => () => void;
   onSwarmAgentStatus: (listener: (event: SwarmAgentStatusEvent) => void) => () => void;

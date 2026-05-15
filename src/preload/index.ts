@@ -81,6 +81,9 @@ const api: VibeAdeApi = {
     agentOutput: (swarmId, maxLines) => ipcRenderer.invoke('swarm:agentOutput', swarmId, maxLines),
     stop: (swarmId) => ipcRenderer.invoke('swarm:stop', swarmId)
   },
+  fileOwnership: {
+    list: () => ipcRenderer.invoke('fileOwnership:list')
+  },
   onTerminalData: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
     ipcRenderer.on('terminal:data', handler);
