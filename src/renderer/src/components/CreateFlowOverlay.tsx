@@ -31,7 +31,7 @@ export function CreateFlowOverlay(): JSX.Element {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
       onClick={() => closeCreateFlow()}
     >
-      {ui.createFlowMode === 'choose' && (
+      {ui.createFlowMode === null && (
         <section
           className="w-full max-w-sm bg-bg-panel border border-line rounded shadow-premium overflow-hidden"
           onClick={(event) => event.stopPropagation()}

@@ -147,7 +147,7 @@ export function WorkspaceTabs(): JSX.Element {
           className="ml-0.5 h-6 w-6 rounded-sm grid place-items-center text-fg-muted hover:text-primary hover:bg-primary/10 transition-colors"
           onClick={(event) => {
             event.stopPropagation();
-            openCreateFlow('choose');
+            openCreateFlow('workspace');
           }}
           title="New..."
           aria-label="New workspace"

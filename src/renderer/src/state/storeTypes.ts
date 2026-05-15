@@ -20,7 +20,7 @@ export interface UiState {
   startPageMode: 'home' | 'open';
   openEnvironmentOpen: boolean;
   createFlowOpen: boolean;
-  createFlowMode: 'choose' | 'workspace' | 'swarm';
+  createFlowMode: 'workspace' | 'swarm' | 'canvas' | null;
   settingsOpen: boolean;
   settingsTab: 'appearance' | 'shortcuts' | 'environments' | 'task-board' | 'account';
   sidebarCollapsed: boolean;

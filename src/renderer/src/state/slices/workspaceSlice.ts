@@ -100,7 +100,7 @@ export function createWorkspaceSlice(set: StoreSet, get: StoreGet): WorkspaceSli
             startPageOpen: false,
             startPageMode: 'home',
             createFlowOpen: false,
-            createFlowMode: 'choose',
+            createFlowMode: null,
             activeView: 'workspace',
             layoutPresetByWorkspace: {
               ...state.ui.layoutPresetByWorkspace,

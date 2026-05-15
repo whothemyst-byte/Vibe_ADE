@@ -16,7 +16,7 @@ const initialUi: UiState = {
   startPageMode: 'home',
   openEnvironmentOpen: false,
   createFlowOpen: false,
-  createFlowMode: 'choose',
+  createFlowMode: null,
   settingsOpen: false,
   settingsTab: 'appearance',
   sidebarCollapsed: false,

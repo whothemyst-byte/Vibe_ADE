@@ -37,7 +37,7 @@ export function createUiSlice(set: StoreSet, get: StoreGet): UiSlice {
         }
       }));
     },
-    openCreateFlow: (mode = 'choose') => {
+    openCreateFlow: (mode = 'workspace') => {
       set((state) => ({
         ui: {
           ...state.ui,
@@ -59,7 +59,7 @@ export function createUiSlice(set: StoreSet, get: StoreGet): UiSlice {
           ui: {
             ...state.ui,
             createFlowOpen: false,
-            createFlowMode: 'choose',
+            createFlowMode: null,
             ...(shouldGoHome ? { startPageOpen: true, startPageMode: 'home' } : {})
           }
         };
@@ -72,7 +72,7 @@ export function createUiSlice(set: StoreSet, get: StoreGet): UiSlice {
           openEnvironmentOpen: true,
           startPageOpen: state.appState.workspaces.length === 0 ? state.ui.startPageOpen : false,
           createFlowOpen: false,
-          createFlowMode: 'choose'
+          createFlowMode: null
         }
       }));
     },
