@@ -10,6 +10,10 @@ export interface CanvasSlice {
     rect: { x: number; y: number; w: number; h: number }
   ) => void;
   removeCanvasCard: (wsId: WorkspaceId, paneId: PaneId) => void;
+  setCanvasOptions: (
+    wsId: WorkspaceId,
+    options: { snapToGrid?: boolean; background?: 'dots' | 'grid' | 'blank' }
+  ) => void;
 }
 
 const DEFAULT_TRANSFORM: CanvasState['transform'] = { x: 0, y: 0, scale: 1 };
@@ -51,6 +55,24 @@ export const createCanvasSlice: StateCreator<WorkspaceStoreState, [], [], Canvas
           if (w.id !== wsId || !w.canvas) return w;
           const { [paneId]: _drop, ...rest } = w.canvas.cards;
           return { ...w, canvas: { ...w.canvas, cards: rest } };
+        })
+      }
+    })),
+  setCanvasOptions: (wsId, options) =>
+    set((state) => ({
+      appState: {
+        ...state.appState,
+        workspaces: state.appState.workspaces.map((w) => {
+          if (w.id !== wsId) return w;
+          const canvas = w.canvas ?? { transform: DEFAULT_TRANSFORM, cards: {} };
+          return {
+            ...w,
+            canvas: {
+              ...canvas,
+              ...(options.snapToGrid !== undefined ? { snapToGrid: options.snapToGrid } : {}),
+              ...(options.background !== undefined ? { background: options.background } : {})
+            }
+          };
         })
       }
     }))

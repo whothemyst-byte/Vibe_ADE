@@ -118,6 +118,10 @@ export interface WorkspaceStoreState {
   setCanvasTransform: (wsId: import('@shared/types').WorkspaceId, transform: import('@shared/types').CanvasState['transform']) => void;
   setCanvasCard: (wsId: import('@shared/types').WorkspaceId, paneId: PaneId, rect: { x: number; y: number; w: number; h: number }) => void;
   removeCanvasCard: (wsId: import('@shared/types').WorkspaceId, paneId: PaneId) => void;
+  setCanvasOptions: (
+    wsId: import('@shared/types').WorkspaceId,
+    options: { snapToGrid?: boolean; background?: 'dots' | 'grid' | 'blank' }
+  ) => void;
 }
 
 export type StoreSet = StoreApi<WorkspaceStoreState>['setState'];
