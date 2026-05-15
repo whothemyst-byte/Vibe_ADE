@@ -33,7 +33,7 @@ nsis:
   artifactName: ${productName}-${version}-setup-${arch}.${ext}
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
-  oneClick: true
+  oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   shortcutName: Vibe-ADE

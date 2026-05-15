@@ -48,7 +48,7 @@ export class UpdateManager {
   }
 
   installUpdate(): void {
-    autoUpdater.quitAndInstall(true, true);
+    autoUpdater.quitAndInstall(false, true);
   }
 
   private configure(): void {
