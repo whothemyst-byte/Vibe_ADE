@@ -91,7 +91,7 @@ export function CreateWorkspaceForm(props: { onCancel: () => void; onCreated: ()
     >
       <header className="px-3 h-7 border-b border-line bg-bg-panel-2 flex items-center gap-2">
         <Icon name="add_circle" size="sm" className="text-primary" />
-        <h2 className="text-xs font-medium text-fg">New Workspace</h2>
+        <h2 className="text-xs font-medium text-fg">New Environment</h2>
       </header>
 
       <div className="p-3 space-y-2.5">
