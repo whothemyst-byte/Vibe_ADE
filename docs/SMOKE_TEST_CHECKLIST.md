@@ -102,6 +102,40 @@ This checklist validates the critical auth/session/cloud sync path before releas
 - No fatal renderer/main process crash.
 - No raw internal error strings shown to end users for auth and cloud sync paths.
 
+## v0.5.0 — UI Redesign
+
+### Visual
+- [ ] App launches with ink-900 background, cream text, Sora display + Manrope body.
+- [ ] All hex literals replaced with QuanSynd tokens (no random `#FFFFFF` text/borders).
+
+### Workspace modes
+- [ ] Start hero shows three cards: Space, Swarm, Canvas.
+- [ ] Creating a workspace from each card persists the correct `mode`.
+- [ ] Existing pre-v0.5 workspaces load with `mode: 'space'` (migration).
+
+### Card-grid layout
+- [ ] Layout selector offers 2x1, 2x2, 3x2, 4x2 presets.
+- [ ] Applying a preset spawns the right number of terminals.
+- [ ] Grid persists across workspace reopen.
+
+### Canvas mode
+- [ ] Canvas-mode workspace shows pan/zoom plane.
+- [ ] Terminals can be dragged and resized.
+- [ ] Alt-drag pans; Ctrl-wheel zooms (range 0.25-2.0).
+- [ ] Transform + card positions persist across reload.
+
+### Mindmap
+- [ ] "Memory" entry in left rail.
+- [ ] Task <-> Agent <-> File nodes render with correct edges.
+- [ ] Updates when tasks reassigned or files claimed.
+
+### Regression
+- [ ] Sign in / sign out works.
+- [ ] Cloud sync round-trips.
+- [ ] Swarm session creates and streams transcripts.
+- [ ] Browser pane loads URLs.
+- [ ] Settings tabs all functional.
+
 ## Run Log
 
 - 2026-03-19: Executed manually. All sections PASS (1-8).
