@@ -26,14 +26,22 @@ let finalizingQuit = false;
 
 const isDev = !app.isPackaged;
 if (isDev) {
+  app.setName('Vibe-ADE Dev');
+  app.setAppUserModelId('com.vibeade.desktop.dev');
   app.setPath('userData', path.join(app.getPath('appData'), 'Vibe-ADE-dev'));
+} else {
+  app.setAppUserModelId('com.vibeade.desktop');
+}
+
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
 function loadEnvFile(filePath: string): void {
   if (!fs.existsSync(filePath)) {
     return;
   }
-  const raw = fs.readFileSync(filePath, 'utf8');
+  const raw = stripBom(fs.readFileSync(filePath, 'utf8'));
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) {
@@ -62,7 +70,7 @@ function loadAppConfig(filePath: string): void {
     return;
   }
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
+    const raw = stripBom(fs.readFileSync(filePath, 'utf8'));
     const parsed = JSON.parse(raw) as { SUPABASE_URL?: string; SUPABASE_ANON_KEY?: string };
     if (parsed.SUPABASE_URL && !process.env.SUPABASE_URL) {
       process.env.SUPABASE_URL = parsed.SUPABASE_URL;
