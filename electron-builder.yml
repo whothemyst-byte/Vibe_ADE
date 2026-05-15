@@ -19,7 +19,7 @@ npmRebuild: true
 win:
   icon: build/icon.ico
   signAndEditExecutable: false
-  verifyUpdateCodeSignature: true
+  verifyUpdateCodeSignature: false
   target:
     - target: nsis
       arch:
@@ -33,9 +33,11 @@ nsis:
   artifactName: ${productName}-${version}-setup-${arch}.${ext}
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
-  oneClick: false
+  oneClick: true
   perMachine: false
   allowToChangeInstallationDirectory: true
+  shortcutName: Vibe-ADE
+  deleteAppDataOnUninstall: false
 portable:
   artifactName: ${productName}-${version}-portable-${arch}.${ext}
 publish:
