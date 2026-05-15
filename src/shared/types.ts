@@ -109,6 +109,8 @@ export type WorkspaceMode = 'space' | 'swarm' | 'canvas';
 export interface CanvasState {
   transform: { x: number; y: number; scale: number };
   cards: Record<PaneId, { x: number; y: number; w: number; h: number }>;
+  snapToGrid?: boolean;
+  background?: 'dots' | 'grid' | 'blank';
 }
 
 export interface WorkspaceState {
