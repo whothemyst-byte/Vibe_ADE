@@ -13,12 +13,31 @@ function patchFile(filePath) {
   }
 
   const original = fs.readFileSync(filePath, 'utf8');
-  if (!original.includes("'SpectreMitigation': 'Spectre'")) {
+  let patched = original;
+  let changed = false;
+
+  if (patched.includes("'SpectreMitigation': 'Spectre'")) {
+    patched = patched.replace(/\s*'SpectreMitigation': 'Spectre',?\r?\n/g, '\n');
+    changed = true;
+  }
+
+  // Windows: CWD is not searched for executables; .bat files need .\ prefix.
+  const batPatches = [
+    [/cd shared && GetCommitHash\.bat/g, 'cd shared && .\\\\GetCommitHash.bat'],
+    [/cd shared && UpdateGenVersion\.bat/g, 'cd shared && .\\\\UpdateGenVersion.bat'],
+  ];
+  for (const [from, to] of batPatches) {
+    if (from.test(patched)) {
+      patched = patched.replace(from, to);
+      changed = true;
+    }
+  }
+
+  if (!changed) {
     console.log(`[patch-node-pty-spectre] already patched: ${path.basename(filePath)}`);
     return;
   }
 
-  const patched = original.replace(/\s*'SpectreMitigation': 'Spectre',?\r?\n/g, '\n');
   fs.writeFileSync(filePath, patched, 'utf8');
   console.log(`[patch-node-pty-spectre] patched: ${path.basename(filePath)}`);
 }
