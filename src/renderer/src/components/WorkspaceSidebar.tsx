@@ -21,7 +21,7 @@ interface RenameState {
 
 const SIDEBAR_STORAGE_KEY = 'vibeAde.sidebarCollapsed';
 
-type ViewMode = 'code' | 'tasks';
+type ViewMode = 'code' | 'tasks' | 'mindmap';
 
 export function WorkspaceSidebar(): JSX.Element {
   const workspaces = useWorkspaceStore((s) => s.appState.workspaces);
@@ -50,7 +50,8 @@ export function WorkspaceSidebar(): JSX.Element {
     [workspaces]
   );
 
-  const currentMode: ViewMode = activeView === 'task-board' ? 'tasks' : 'code';
+  const currentMode: ViewMode =
+    activeView === 'task-board' ? 'tasks' : activeView === 'mindmap' ? 'mindmap' : 'code';
   const swarmActiveId = activeView === 'swarm' ? activeSwarmId : null;
 
   useEffect(() => {
@@ -97,7 +98,7 @@ export function WorkspaceSidebar(): JSX.Element {
     }
     toggleTaskBoard(false);
     useWorkspaceStore.setState((state) => ({
-      ui: { ...state.ui, activeView: 'workspace' }
+      ui: { ...state.ui, activeView: mode === 'mindmap' ? 'mindmap' : 'workspace' }
     }));
   };
 
@@ -119,6 +120,7 @@ export function WorkspaceSidebar(): JSX.Element {
       >
         <FlatIcon icon="code" title="Workspace" active={currentMode === 'code'} onClick={() => switchMode('code')} />
         <FlatIcon icon="checklist" title="TaskBoard" active={currentMode === 'tasks'} onClick={() => switchMode('tasks')} />
+        <FlatIcon icon="hub" title="Memory" active={currentMode === 'mindmap'} onClick={() => switchMode('mindmap')} />
         <div className="flex-1" />
         <FlatIcon
           icon={themeEffective === 'dark' ? 'light_mode' : 'dark_mode'}
@@ -147,6 +149,12 @@ export function WorkspaceSidebar(): JSX.Element {
           label="TaskBoard"
           active={currentMode === 'tasks'}
           onClick={() => switchMode('tasks')}
+        />
+        <ViewSwitch
+          icon="hub"
+          label="Memory"
+          active={currentMode === 'mindmap'}
+          onClick={() => switchMode('mindmap')}
         />
       </div>
 

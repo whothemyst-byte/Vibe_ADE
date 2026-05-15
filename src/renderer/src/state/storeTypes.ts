@@ -15,7 +15,7 @@ import type { LayoutPresetId } from '@renderer/services/layoutPresets';
 
 export interface UiState {
   taskBoardTabOpen: boolean;
-  activeView: 'workspace' | 'task-board' | 'swarm';
+  activeView: 'workspace' | 'task-board' | 'swarm' | 'mindmap';
   startPageOpen: boolean;
   startPageMode: 'home' | 'open';
   openEnvironmentOpen: boolean;

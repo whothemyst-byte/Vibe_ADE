@@ -6,6 +6,7 @@ import { AppMenuBar } from './components/AppMenuBar';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { PaneLayout } from './components/PaneLayout';
 import { CanvasLayout } from './components/CanvasLayout';
+import { MindmapView } from './components/MindmapView';
 import { TaskBoard } from './components/TaskBoard';
 import { StartPage } from './components/StartPage';
 import { SettingsDialog } from './components/SettingsDialog';
@@ -350,6 +351,7 @@ export function App(): JSX.Element {
 
   const showTaskBoardView = taskBoardTabOpen && activeView === 'task-board';
   const showSwarmView = activeView === 'swarm' && Boolean(activeSwarmId);
+  const showMindmapView = activeView === 'mindmap';
 
   if (showStartSurface) {
     return (
@@ -391,6 +393,10 @@ export function App(): JSX.Element {
           <main className="workspace-shell">
             {showSwarmView ? (
               <SwarmSessionView swarmId={activeSwarmId!} />
+            ) : showMindmapView ? (
+              <section className="task-board-workspace-view">
+                <MindmapView />
+              </section>
             ) : activeWorkspace ? (
               showTaskBoardView ? (
                 <section className="task-board-workspace-view">
