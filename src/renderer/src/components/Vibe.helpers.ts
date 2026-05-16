@@ -38,10 +38,10 @@ export function loadVibePosition(): VibePosition | null {
       return null;
     }
     const parsed = JSON.parse(raw) as Partial<VibePosition>;
-    if (typeof parsed.x !== 'number' || typeof parsed.y !== 'number') {
+    if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) {
       return null;
     }
-    return { x: parsed.x, y: parsed.y };
+    return { x: parsed.x as number, y: parsed.y as number };
   } catch {
     return null;
   }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   VIBE_SIZE,
   VIBE_MARGIN,
+  VIBE_DEFAULT_GUTTER,
   clampPosition,
   defaultVibePosition,
   loadVibePosition,
@@ -37,10 +38,10 @@ describe('Vibe helpers — clampPosition', () => {
 });
 
 describe('Vibe helpers — defaultVibePosition', () => {
-  it('places the Vibe in the bottom-right with a 24px gutter', () => {
+  it('places the Vibe in the bottom-right with the default gutter', () => {
     expect(defaultVibePosition(1200, 800)).toEqual({
-      x: 1200 - VIBE_SIZE - 24,
-      y: 800 - VIBE_SIZE - 24
+      x: 1200 - VIBE_SIZE - VIBE_DEFAULT_GUTTER,
+      y: 800 - VIBE_SIZE - VIBE_DEFAULT_GUTTER
     });
   });
 });
@@ -70,6 +71,13 @@ describe('Vibe helpers — loadVibePosition / saveVibePosition', () => {
   it('returns null when the stored value is missing x or y', () => {
     vi.stubGlobal('window', {
       localStorage: { getItem: () => JSON.stringify({ x: 100 }) }
+    });
+    expect(loadVibePosition()).toBeNull();
+  });
+
+  it('returns null when a stored coordinate is non-finite (Infinity / NaN)', () => {
+    vi.stubGlobal('window', {
+      localStorage: { getItem: () => '{"x":1e999,"y":0}' }
     });
     expect(loadVibePosition()).toBeNull();
   });
