@@ -63,7 +63,7 @@ const SHORTCUTS_KEY = 'vibe-ade-shortcuts';
 const SHORTCUTS_CHANGED_EVENT = 'vibe-ade:shortcuts-changed';
 const ENVIRONMENT_SAVE_DIR_KEY = 'vibe-ade-environment-save-dir';
 const UI_PREFERENCES_KEY = 'vibe-ade-ui-preferences';
-const UI_PREFERENCES_CHANGED_EVENT = 'vibe-ade:ui-preferences-changed';
+export const UI_PREFERENCES_CHANGED_EVENT = 'vibe-ade:ui-preferences-changed';
 const SWARM_PROMPT_PREFERENCES_KEY = 'vibe-ade-swarm-prompt-preferences';
 const WORKSPACE_MODELS_KEY = 'vibe-ade-workspace-models';
 const WORKSPACE_MODELS_CHANGED_EVENT = 'vibe-ade:workspace-models-changed';
@@ -255,8 +255,6 @@ export function saveUiPreferences(preferences: UiPreferences): void {
   window.localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(preferences));
   window.dispatchEvent(new Event(UI_PREFERENCES_CHANGED_EVENT));
 }
-
-export { UI_PREFERENCES_CHANGED_EVENT };
 
 export function loadSwarmPromptPreferences(): SwarmPromptPreferences {
   try {
