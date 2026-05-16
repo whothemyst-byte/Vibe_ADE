@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_SWARM_PROMPT_PREFERENCES,
+  DEFAULT_UI_PREFERENCES,
   isShortcutCaptureTarget,
   loadSwarmPromptPreferences,
+  loadUiPreferences,
   saveShortcuts,
   saveSwarmPromptPreferences,
+  saveUiPreferences,
   toShortcutCombo
 } from '../../src/renderer/src/services/preferences';
 
@@ -129,5 +132,52 @@ describe('swarm prompt preferences', () => {
     expect(setItem).toHaveBeenCalledTimes(1);
     expect(setItem.mock.calls[0]?.[0]).toBe('vibe-ade-swarm-prompt-preferences');
     expect(setItem.mock.calls[0]?.[1]).toContain('Implementation Lead');
+  });
+});
+
+describe('preferences ui — vibeEnabled', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('defaults vibeEnabled to true', () => {
+    expect(DEFAULT_UI_PREFERENCES.vibeEnabled).toBe(true);
+  });
+
+  it('returns vibeEnabled=true when no stored prefs exist', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => null } });
+    expect(loadUiPreferences().vibeEnabled).toBe(true);
+  });
+
+  it('returns vibeEnabled=false when stored prefs disable it', () => {
+    vi.stubGlobal('window', {
+      localStorage: { getItem: () => JSON.stringify({ vibeEnabled: false }) }
+    });
+    expect(loadUiPreferences().vibeEnabled).toBe(false);
+  });
+
+  it('coerces a non-boolean vibeEnabled back to the default', () => {
+    vi.stubGlobal('window', {
+      localStorage: { getItem: () => JSON.stringify({ vibeEnabled: 'nope' }) }
+    });
+    expect(loadUiPreferences().vibeEnabled).toBe(true);
+  });
+
+  it('dispatches vibe-ade:ui-preferences-changed after saving', () => {
+    const setItem = vi.fn();
+    const dispatchEvent = vi.fn();
+    vi.stubGlobal('window', { localStorage: { setItem }, dispatchEvent });
+
+    saveUiPreferences({
+      accentColor: '#D79A3D',
+      fontStyle: 'modern',
+      language: 'en',
+      vibeEnabled: false
+    });
+
+    expect(setItem).toHaveBeenCalledTimes(1);
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    const event = dispatchEvent.mock.calls[0][0] as Event;
+    expect(event.type).toBe('vibe-ade:ui-preferences-changed');
   });
 });

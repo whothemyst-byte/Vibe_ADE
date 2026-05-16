@@ -46,6 +46,7 @@ export interface UiPreferences {
   accentColor: string;
   fontStyle: UiFontStyle;
   language: UiLanguage;
+  vibeEnabled: boolean;
 }
 
 export interface SwarmRolePromptPreferences {
@@ -62,6 +63,7 @@ const SHORTCUTS_KEY = 'vibe-ade-shortcuts';
 const SHORTCUTS_CHANGED_EVENT = 'vibe-ade:shortcuts-changed';
 const ENVIRONMENT_SAVE_DIR_KEY = 'vibe-ade-environment-save-dir';
 const UI_PREFERENCES_KEY = 'vibe-ade-ui-preferences';
+const UI_PREFERENCES_CHANGED_EVENT = 'vibe-ade:ui-preferences-changed';
 const SWARM_PROMPT_PREFERENCES_KEY = 'vibe-ade-swarm-prompt-preferences';
 const WORKSPACE_MODELS_KEY = 'vibe-ade-workspace-models';
 const WORKSPACE_MODELS_CHANGED_EVENT = 'vibe-ade:workspace-models-changed';
@@ -69,7 +71,8 @@ const WORKSPACE_MODELS_CHANGED_EVENT = 'vibe-ade:workspace-models-changed';
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   accentColor: '#D79A3D',
   fontStyle: 'modern',
-  language: 'en'
+  language: 'en',
+  vibeEnabled: true
 };
 
 export function defaultSwarmPersonaLabel(role: SwarmAgentRole): string {
@@ -240,7 +243,8 @@ export function loadUiPreferences(): UiPreferences {
     return {
       accentColor: typeof parsed.accentColor === 'string' && parsed.accentColor.trim() ? parsed.accentColor.trim() : DEFAULT_UI_PREFERENCES.accentColor,
       fontStyle: parsed.fontStyle === 'balanced' || parsed.fontStyle === 'mono' ? parsed.fontStyle : DEFAULT_UI_PREFERENCES.fontStyle,
-      language: parsed.language === 'system' ? 'system' : 'en'
+      language: parsed.language === 'system' ? 'system' : 'en',
+      vibeEnabled: typeof parsed.vibeEnabled === 'boolean' ? parsed.vibeEnabled : DEFAULT_UI_PREFERENCES.vibeEnabled
     };
   } catch {
     return DEFAULT_UI_PREFERENCES;
@@ -249,7 +253,10 @@ export function loadUiPreferences(): UiPreferences {
 
 export function saveUiPreferences(preferences: UiPreferences): void {
   window.localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(preferences));
+  window.dispatchEvent(new Event(UI_PREFERENCES_CHANGED_EVENT));
 }
+
+export { UI_PREFERENCES_CHANGED_EVENT };
 
 export function loadSwarmPromptPreferences(): SwarmPromptPreferences {
   try {
