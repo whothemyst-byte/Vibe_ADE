@@ -539,13 +539,13 @@ export function SettingsDialog(): JSX.Element {
                 <div className="appearance-block">
                   <h4>Companion</h4>
                   <p>A small floating sprite that lives in the corner of your workspace. Drag it anywhere — its position is remembered.</p>
-                  <label className="appearance-custom-input">
-                    <span>Show Vibe</span>
+                  <label className="appearance-toggle-row">
                     <input
                       type="checkbox"
                       checked={uiPreferences.vibeEnabled}
                       onChange={(event) => updateUiPreference('vibeEnabled', event.target.checked)}
                     />
+                    <span>Show Vibe</span>
                   </label>
                 </div>
 

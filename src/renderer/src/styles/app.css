@@ -4312,6 +4312,27 @@ html[data-theme='light'] .task-due.upcoming {
   font-variant-numeric: tabular-nums;
 }
 
+.appearance-toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.appearance-toggle-row span {
+  font-size: 14px;
+}
+
+.appearance-toggle-row input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .appearance-section .theme-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
