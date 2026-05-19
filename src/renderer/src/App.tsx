@@ -18,6 +18,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { CreateFlowOverlay } from './components/CreateFlowOverlay';
 import { OpenEnvironmentOverlay } from './components/OpenEnvironmentOverlay';
 import { Icon } from './components/ui';
+import { Vibe } from './components/Vibe';
 import { applyAppearanceMode, applyUiPreferences, getStoredAppearanceMode } from './theme/appearance';
 import { isShortcutCaptureTarget, isTypingTarget, loadShortcuts, loadUiPreferences, toShortcutCombo, type ShortcutAction } from './services/preferences';
 import { SUBSCRIPTION_PLANS, normalizeSubscriptionState } from '@shared/subscription';
@@ -482,6 +483,7 @@ export function App(): JSX.Element {
         )}
       </div>
       <ToastContainer />
+      <Vibe />
     </ErrorBoundary>
   );
 }
