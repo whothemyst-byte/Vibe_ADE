@@ -100,30 +100,48 @@ describe('Vibe helpers — loadVibePosition / saveVibePosition', () => {
 });
 
 describe('Vibe helpers — computeDialogAnchor', () => {
+  const VIEWPORT_W = 1200;
+  const VIEWPORT_H = 800;
+  const TOP_THRESHOLD = VIBE_DIALOG_MAX_HEIGHT + VIBE_DIALOG_GAP;
+  const SIDE_THRESHOLD = VIBE_DIALOG_WIDTH + VIBE_DIALOG_GAP;
+
   it('prefers top when there is room above Boo', () => {
-    const result = computeDialogAnchor({ x: 1100, y: 700 }, 1200, 800);
+    const result = computeDialogAnchor(
+      { x: VIEWPORT_W - VIBE_SIZE - VIBE_MARGIN, y: TOP_THRESHOLD },
+      VIEWPORT_W,
+      VIEWPORT_H
+    );
     expect(result.side).toBe('top');
   });
 
   it('falls back to left when top is too tight but left has room', () => {
-    const result = computeDialogAnchor({ x: 1100, y: 24 }, 1200, 800);
+    const result = computeDialogAnchor(
+      { x: SIDE_THRESHOLD, y: TOP_THRESHOLD - 1 },
+      VIEWPORT_W,
+      VIEWPORT_H
+    );
     expect(result.side).toBe('left');
   });
 
   it('falls back to right when only the right side has room', () => {
-    const result = computeDialogAnchor({ x: 24, y: 24 }, 1200, 800);
+    const result = computeDialogAnchor(
+      { x: SIDE_THRESHOLD - 1, y: TOP_THRESHOLD - 1 },
+      VIEWPORT_W,
+      VIEWPORT_H
+    );
     expect(result.side).toBe('right');
   });
 
   it('falls back to bottom when no other side has room', () => {
-    const result = computeDialogAnchor({ x: 8, y: 8 }, 200, 800);
+    // Tiny viewport: every side below its threshold.
+    const result = computeDialogAnchor({ x: VIBE_MARGIN, y: VIBE_MARGIN }, 200, VIEWPORT_H);
     expect(result.side).toBe('bottom');
   });
 
   it('returns Boo center coordinates as the anchor point', () => {
-    const result = computeDialogAnchor({ x: 100, y: 200 }, 1200, 800);
-    expect(result.x).toBe(100 + 80 / 2);
-    expect(result.y).toBe(200 + 80 / 2);
+    const result = computeDialogAnchor({ x: 100, y: 200 }, VIEWPORT_W, VIEWPORT_H);
+    expect(result.x).toBe(100 + VIBE_SIZE / 2);
+    expect(result.y).toBe(200 + VIBE_SIZE / 2);
   });
 });
 
