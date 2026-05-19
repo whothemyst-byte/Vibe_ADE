@@ -1,0 +1,81 @@
+/* Floating mascot container */
+.vibe-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 80px;
+  height: 80px;
+  pointer-events: none; /* Rnd inner element re-enables */
+  z-index: 9000;
+}
+
+.vibe-wrapper .vibe-grip {
+  pointer-events: auto;
+  cursor: grab;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+}
+
+.vibe-wrapper .vibe-grip:active {
+  cursor: grabbing;
+}
+
+.vibe-wrapper svg {
+  width: 80px;
+  height: 80px;
+  color: var(--accent);
+  display: block;
+}
+
+/* Animations */
+.vibe-breathe {
+  transform-origin: 50% 62%;
+  animation: vibe-breathe 3s ease-in-out infinite;
+}
+
+@keyframes vibe-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+.vibe-float {
+  animation: vibe-float 4.2s ease-in-out infinite;
+}
+
+@keyframes vibe-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+.vibe-sway {
+  transform-origin: 40px 18px;
+  animation: vibe-sway 4.5s ease-in-out infinite;
+}
+
+@keyframes vibe-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(4deg); }
+}
+
+.vibe-blink {
+  transform-origin: center;
+  animation: vibe-blink 5.2s ease-in-out infinite;
+}
+
+@keyframes vibe-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vibe-breathe,
+  .vibe-float,
+  .vibe-sway,
+  .vibe-blink {
+    animation: none;
+  }
+}
