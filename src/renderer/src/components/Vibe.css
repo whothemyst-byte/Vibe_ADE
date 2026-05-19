@@ -1,16 +1,17 @@
-/* Floating mascot container */
+/* Floating mascot container.
+   `position: fixed` is set via the <Rnd style={...}> prop because react-rnd
+   overrides element CSS with an inline style that would otherwise force
+   `position: absolute`. z-index sits above normal UI chrome but below modal
+   overlays (settings: 200, auth: 220, error boundary: 230, toasts: 240). */
 .vibe-wrapper {
-  position: fixed;
   top: 0;
   left: 0;
   width: 80px;
   height: 80px;
-  pointer-events: none; /* Rnd inner element re-enables */
-  z-index: 9000;
+  z-index: 195;
 }
 
 .vibe-wrapper .vibe-grip {
-  pointer-events: auto;
   cursor: grab;
   width: 80px;
   height: 80px;

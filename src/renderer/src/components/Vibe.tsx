@@ -65,6 +65,7 @@ export function Vibe(): JSX.Element | null {
   return (
     <Rnd
       className="vibe-wrapper"
+      style={{ position: 'fixed' }}
       bounds="window"
       enableResizing={false}
       size={{ width: VIBE_SIZE, height: VIBE_SIZE }}
