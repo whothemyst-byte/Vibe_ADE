@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import {
   loadUiPreferences,
-  UI_PREFERENCES_CHANGED_EVENT
+  UI_PREFERENCES_CHANGED_EVENT,
+  UI_PREFERENCES_KEY
 } from '@renderer/services/preferences';
 import {
   clampPosition,
@@ -36,14 +37,21 @@ export function Vibe(): JSX.Element | null {
   const [enabled, setEnabled] = useState<boolean>(() => readEnabled());
   const [position, setPosition] = useState<VibePosition>(() => readInitialPosition());
 
-  // Re-read enabled flag when settings change (same window or other window).
+  // Re-read enabled flag when settings change. UI_PREFERENCES_CHANGED_EVENT
+  // covers same-window updates; the storage event covers updates from other
+  // windows (guarded by key so unrelated writes don't trigger needless reads).
   useEffect(() => {
     const sync = (): void => setEnabled(readEnabled());
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key === UI_PREFERENCES_KEY) {
+        sync();
+      }
+    };
     window.addEventListener(UI_PREFERENCES_CHANGED_EVENT, sync);
-    window.addEventListener('storage', sync);
+    window.addEventListener('storage', onStorage);
     return () => {
       window.removeEventListener(UI_PREFERENCES_CHANGED_EVENT, sync);
-      window.removeEventListener('storage', sync);
+      window.removeEventListener('storage', onStorage);
     };
   }, []);
 

@@ -3,6 +3,7 @@ import {
   VIBE_SIZE,
   VIBE_MARGIN,
   VIBE_DEFAULT_GUTTER,
+  VIBE_POSITION_STORAGE_KEY,
   clampPosition,
   defaultVibePosition,
   loadVibePosition,
@@ -87,7 +88,7 @@ describe('Vibe helpers — loadVibePosition / saveVibePosition', () => {
     vi.stubGlobal('window', { localStorage: { setItem } });
     saveVibePosition({ x: 42, y: 99 });
     expect(setItem).toHaveBeenCalledWith(
-      'vibe-ade:vibe-position',
+      VIBE_POSITION_STORAGE_KEY,
       JSON.stringify({ x: 42, y: 99 })
     );
   });
