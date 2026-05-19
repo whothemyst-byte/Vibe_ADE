@@ -7,7 +7,12 @@ import {
   clampPosition,
   defaultVibePosition,
   loadVibePosition,
-  saveVibePosition
+  saveVibePosition,
+  computeDialogAnchor,
+  isClick,
+  VIBE_DIALOG_MAX_HEIGHT,
+  VIBE_DIALOG_WIDTH,
+  VIBE_DIALOG_GAP
 } from '../../src/renderer/src/components/Vibe.helpers';
 
 describe('Vibe helpers — clampPosition', () => {
@@ -91,5 +96,55 @@ describe('Vibe helpers — loadVibePosition / saveVibePosition', () => {
       VIBE_POSITION_STORAGE_KEY,
       JSON.stringify({ x: 42, y: 99 })
     );
+  });
+});
+
+describe('Vibe helpers — computeDialogAnchor', () => {
+  it('prefers top when there is room above Boo', () => {
+    const result = computeDialogAnchor({ x: 1100, y: 700 }, 1200, 800);
+    expect(result.side).toBe('top');
+  });
+
+  it('falls back to left when top is too tight but left has room', () => {
+    const result = computeDialogAnchor({ x: 1100, y: 24 }, 1200, 800);
+    expect(result.side).toBe('left');
+  });
+
+  it('falls back to right when only the right side has room', () => {
+    const result = computeDialogAnchor({ x: 24, y: 24 }, 1200, 800);
+    expect(result.side).toBe('right');
+  });
+
+  it('falls back to bottom when no other side has room', () => {
+    const result = computeDialogAnchor({ x: 8, y: 8 }, 200, 800);
+    expect(result.side).toBe('bottom');
+  });
+
+  it('returns Boo center coordinates as the anchor point', () => {
+    const result = computeDialogAnchor({ x: 100, y: 200 }, 1200, 800);
+    expect(result.x).toBe(100 + 80 / 2);
+    expect(result.y).toBe(200 + 80 / 2);
+  });
+});
+
+describe('Vibe helpers — isClick', () => {
+  it('returns true when start and end are identical', () => {
+    expect(isClick({ x: 10, y: 10 }, { x: 10, y: 10 })).toBe(true);
+  });
+
+  it('returns true when Manhattan distance is below the default threshold', () => {
+    expect(isClick({ x: 10, y: 10 }, { x: 12, y: 11 })).toBe(true);
+  });
+
+  it('returns false when Manhattan distance equals the default threshold', () => {
+    expect(isClick({ x: 10, y: 10 }, { x: 12, y: 12 })).toBe(false);
+  });
+
+  it('returns false when Manhattan distance exceeds the default threshold', () => {
+    expect(isClick({ x: 10, y: 10 }, { x: 100, y: 100 })).toBe(false);
+  });
+
+  it('honors a custom threshold', () => {
+    expect(isClick({ x: 10, y: 10 }, { x: 18, y: 10 }, 10)).toBe(true);
   });
 });

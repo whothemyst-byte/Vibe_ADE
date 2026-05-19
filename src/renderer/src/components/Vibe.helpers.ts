@@ -53,3 +53,47 @@ export function saveVibePosition(pos: VibePosition): void {
     JSON.stringify({ x: pos.x, y: pos.y })
   );
 }
+
+export const VIBE_DIALOG_WIDTH = 280;
+export const VIBE_DIALOG_MAX_HEIGHT = 360;
+export const VIBE_DIALOG_GAP = 12;
+
+export type DialogSide = 'top' | 'bottom' | 'left' | 'right';
+
+export interface DialogAnchor {
+  side: DialogSide;
+  x: number;
+  y: number;
+}
+
+export function computeDialogAnchor(
+  vibePosition: VibePosition,
+  viewportWidth: number,
+  viewportHeight: number
+): DialogAnchor {
+  const x = vibePosition.x + VIBE_SIZE / 2;
+  const y = vibePosition.y + VIBE_SIZE / 2;
+  const spaceTop = vibePosition.y;
+  const spaceLeft = vibePosition.x;
+  const spaceRight = viewportWidth - (vibePosition.x + VIBE_SIZE);
+  let side: DialogSide;
+  if (spaceTop >= VIBE_DIALOG_MAX_HEIGHT + VIBE_DIALOG_GAP) {
+    side = 'top';
+  } else if (spaceLeft >= VIBE_DIALOG_WIDTH + VIBE_DIALOG_GAP) {
+    side = 'left';
+  } else if (spaceRight >= VIBE_DIALOG_WIDTH + VIBE_DIALOG_GAP) {
+    side = 'right';
+  } else {
+    side = 'bottom';
+  }
+  void viewportHeight; // bottom fallback doesn't need it; keeps signature symmetric with clampPosition
+  return { side, x, y };
+}
+
+export function isClick(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  threshold = 4
+): boolean {
+  return Math.abs(end.x - start.x) + Math.abs(end.y - start.y) < threshold;
+}
