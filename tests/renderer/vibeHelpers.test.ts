@@ -14,7 +14,9 @@ import {
   VIBE_DIALOG_MAX_HEIGHT,
   VIBE_DIALOG_WIDTH,
   VIBE_DIALOG_GAP,
-  VIBE_DIALOG_SIDE_TAIL_INSET
+  VIBE_DIALOG_SIDE_TAIL_INSET,
+  VIBE_DIALOG_TAIL_SIZE,
+  VIBE_DIALOG_TAIL_MIN
 } from '../../src/renderer/src/components/Vibe.helpers';
 
 describe('Vibe helpers — clampPosition', () => {
@@ -184,6 +186,62 @@ describe('Vibe helpers — computeDialogStyle', () => {
     const result = computeDialogStyle('right', 24, 400, W, H);
     expect(result.left).toBe(24 + GAP);
     expect(result.top).toBe(400 - VIBE_DIALOG_SIDE_TAIL_INSET);
+  });
+});
+
+describe('Vibe helpers — computeDialogStyle tail alignment', () => {
+  const W = 1280;
+  const H = 800;
+  const tailHalf = VIBE_DIALOG_TAIL_SIZE / 2;
+
+  it('top: tail offset aligns with Boo when the dialog is centered on Boo', () => {
+    const anchorX = 640;
+    const result = computeDialogStyle('top', anchorX, 500, W, H);
+    const dialogLeft = anchorX - VIBE_DIALOG_WIDTH / 2;
+    expect(result.tailX).toBe(anchorX - dialogLeft - tailHalf);
+  });
+
+  it('top: tail still points at Boo when the dialog is clamped to the right edge', () => {
+    const anchorX = W - 40;
+    const result = computeDialogStyle('top', anchorX, 500, W, H);
+    const clampedLeft = W - VIBE_DIALOG_WIDTH - 8; // VIBE_MARGIN = 8
+    expect(result.left).toBe(clampedLeft);
+    expect(result.tailX).toBe(anchorX - clampedLeft - tailHalf);
+  });
+
+  it('top: tail clamps to the dialog bounds when Boo is past the dialog edge', () => {
+    // Boo so close to the right that anchorX - dialogLeft exceeds dialog width
+    const result = computeDialogStyle('top', W - 4, 500, W, H);
+    const maxTailX = VIBE_DIALOG_WIDTH - VIBE_DIALOG_TAIL_MIN - VIBE_DIALOG_TAIL_SIZE;
+    expect(result.tailX).toBe(maxTailX);
+  });
+
+  it('top: tail clamps to the minimum when Boo is past the dialog left edge', () => {
+    const result = computeDialogStyle('top', 4, 500, W, H);
+    expect(result.tailX).toBe(VIBE_DIALOG_TAIL_MIN);
+  });
+
+  it('left: tail offset aligns with Boo when the dialog is not clamped', () => {
+    const anchorY = 300;
+    const result = computeDialogStyle('left', 1100, anchorY, W, H);
+    const dialogTop = anchorY - VIBE_DIALOG_SIDE_TAIL_INSET;
+    expect(result.tailY).toBe(anchorY - dialogTop - tailHalf);
+  });
+
+  it('left: tail still points at Boo when the dialog is clamped to the top edge', () => {
+    // anchorY = 50 forces dialog top to clamp at VIBE_MARGIN, but the tail's
+    // raw offset (36) is still inside the clamp window, so it tracks Boo.
+    const anchorY = 50;
+    const result = computeDialogStyle('left', 1100, anchorY, W, H);
+    expect(result.top).toBe(8); // VIBE_MARGIN
+    expect(result.tailY).toBe(anchorY - 8 - tailHalf);
+  });
+
+  it('top/bottom sides do not set tailY; left/right sides do not set tailX', () => {
+    expect(computeDialogStyle('top', 640, 500, W, H).tailY).toBeUndefined();
+    expect(computeDialogStyle('bottom', 640, 200, W, H).tailY).toBeUndefined();
+    expect(computeDialogStyle('left', 1100, 400, W, H).tailX).toBeUndefined();
+    expect(computeDialogStyle('right', 24, 400, W, H).tailX).toBeUndefined();
   });
 });
 

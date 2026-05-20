@@ -98,20 +98,34 @@ export function isClick(
   return Math.abs(end.x - start.x) + Math.abs(end.y - start.y) < threshold;
 }
 
-// Distance (px) from the side-anchored dialog's top edge to the tail. Keep in
-// sync with .vibe-dialog--{left,right} .vibe-dialog__tail's `top` value in CSS.
+// Default distance (px) from the side-anchored dialog's top edge to the tail
+// when no anchorY-derived offset applies. The CSS fallback in
+// .vibe-dialog--{left,right} .vibe-dialog__tail uses the same value.
 export const VIBE_DIALOG_SIDE_TAIL_INSET = 80;
+
+// Tail dimensions and the minimum distance the tail center keeps from the
+// dialog's rounded corners, so it never visually clips through them.
+export const VIBE_DIALOG_TAIL_SIZE = 12;
+export const VIBE_DIALOG_TAIL_MIN = 16;
 
 export interface DialogStyle {
   top?: number;
   bottom?: number;
   left?: number;
   right?: number;
+  // Offset (px) from the dialog's left edge to the tail's left edge.
+  // Set for top/bottom sides. Undefined otherwise.
+  tailX?: number;
+  // Offset (px) from the dialog's top edge to the tail's top edge.
+  // Set for left/right sides. Undefined otherwise.
+  tailY?: number;
 }
 
 // Pure positioning math. Returns the CSS offsets for the dialog given Boo's
 // chosen side, Boo's center, and the current viewport. Clamps so the dialog
-// stays fully inside the viewport (minus VIBE_MARGIN on every edge).
+// stays fully inside the viewport (minus VIBE_MARGIN on every edge), and
+// computes the tail offset so it points at Boo even when the dialog is
+// clamped against an edge.
 export function computeDialogStyle(
   side: DialogSide,
   anchorX: number,
@@ -121,32 +135,51 @@ export function computeDialogStyle(
 ): DialogStyle {
   const half = VIBE_DIALOG_WIDTH / 2;
   const gap = VIBE_SIZE / 2 + VIBE_DIALOG_GAP;
+  const tailHalf = VIBE_DIALOG_TAIL_SIZE / 2;
+  const tailMaxX = VIBE_DIALOG_WIDTH - VIBE_DIALOG_TAIL_MIN - VIBE_DIALOG_TAIL_SIZE;
+  const tailMaxY = VIBE_DIALOG_MAX_HEIGHT - VIBE_DIALOG_TAIL_MIN - VIBE_DIALOG_TAIL_SIZE;
 
   const clampLeft = (left: number): number =>
     Math.max(VIBE_MARGIN, Math.min(left, viewportWidth - VIBE_DIALOG_WIDTH - VIBE_MARGIN));
   const clampTop = (top: number): number =>
     Math.max(VIBE_MARGIN, Math.min(top, viewportHeight - VIBE_DIALOG_MAX_HEIGHT - VIBE_MARGIN));
+  const clampTailX = (raw: number): number =>
+    Math.max(VIBE_DIALOG_TAIL_MIN, Math.min(raw, tailMaxX));
+  const clampTailY = (raw: number): number =>
+    Math.max(VIBE_DIALOG_TAIL_MIN, Math.min(raw, tailMaxY));
 
   switch (side) {
-    case 'top':
+    case 'top': {
+      const left = clampLeft(anchorX - half);
       return {
-        left: clampLeft(anchorX - half),
-        bottom: viewportHeight - anchorY + gap
+        left,
+        bottom: viewportHeight - anchorY + gap,
+        tailX: clampTailX(anchorX - left - tailHalf)
       };
-    case 'bottom':
+    }
+    case 'bottom': {
+      const left = clampLeft(anchorX - half);
       return {
-        left: clampLeft(anchorX - half),
-        top: clampTop(anchorY + gap)
+        left,
+        top: clampTop(anchorY + gap),
+        tailX: clampTailX(anchorX - left - tailHalf)
       };
-    case 'left':
+    }
+    case 'left': {
+      const top = clampTop(anchorY - VIBE_DIALOG_SIDE_TAIL_INSET);
       return {
         right: viewportWidth - anchorX + gap,
-        top: clampTop(anchorY - VIBE_DIALOG_SIDE_TAIL_INSET)
+        top,
+        tailY: clampTailY(anchorY - top - tailHalf)
       };
-    case 'right':
+    }
+    case 'right': {
+      const top = clampTop(anchorY - VIBE_DIALOG_SIDE_TAIL_INSET);
       return {
         left: anchorX + gap,
-        top: clampTop(anchorY - VIBE_DIALOG_SIDE_TAIL_INSET)
+        top,
+        tailY: clampTailY(anchorY - top - tailHalf)
       };
+    }
   }
 }

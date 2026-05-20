@@ -20,13 +20,23 @@ export interface VibeDialogProps {
 
 export function VibeDialog(props: VibeDialogProps): JSX.Element {
   const { side, anchorX, anchorY, state, caption, tasks, onDone, onBacklog, onOpenBoard } = props;
-  const style = computeDialogStyle(
+  const computed = computeDialogStyle(
     side,
     anchorX,
     anchorY,
     window.innerWidth,
     window.innerHeight
-  ) as CSSProperties;
+  );
+  // Tail offsets are exposed as CSS custom properties so the tail CSS rules
+  // can use var(--vibe-tail-x|y) while keeping a centered fallback.
+  const style = {
+    top: computed.top,
+    bottom: computed.bottom,
+    left: computed.left,
+    right: computed.right,
+    ...(computed.tailX !== undefined && { ['--vibe-tail-x' as string]: `${computed.tailX}px` }),
+    ...(computed.tailY !== undefined && { ['--vibe-tail-y' as string]: `${computed.tailY}px` })
+  } as CSSProperties;
   return (
     <div
       className={`vibe-dialog vibe-dialog--${side}`}

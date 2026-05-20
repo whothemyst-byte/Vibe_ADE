@@ -205,10 +205,13 @@
   transform: rotate(45deg);
 }
 
-.vibe-dialog--top .vibe-dialog__tail    { bottom: -7px; left: calc(50% - 6px); border-top: none;    border-left: none; }
-.vibe-dialog--bottom .vibe-dialog__tail { top:    -7px; left: calc(50% - 6px); border-bottom: none; border-right: none; }
-.vibe-dialog--left .vibe-dialog__tail   { right:  -7px; top: 80px;            border-top: none;    border-right: none; }
-.vibe-dialog--right .vibe-dialog__tail  { left:   -7px; top: 80px;            border-bottom: none; border-left: none; }
+/* Tail position along the dialog edge is driven by --vibe-tail-x / --vibe-tail-y,
+   set inline by VibeDialog so the tail points at Boo even when the dialog has
+   been clamped against a viewport edge. Fallbacks center the tail. */
+.vibe-dialog--top .vibe-dialog__tail    { bottom: -7px; left: var(--vibe-tail-x, calc(50% - 6px)); border-top: none;    border-left: none; }
+.vibe-dialog--bottom .vibe-dialog__tail { top:    -7px; left: var(--vibe-tail-x, calc(50% - 6px)); border-bottom: none; border-right: none; }
+.vibe-dialog--left .vibe-dialog__tail   { right:  -7px; top: var(--vibe-tail-y, 80px);            border-top: none;    border-right: none; }
+.vibe-dialog--right .vibe-dialog__tail  { left:   -7px; top: var(--vibe-tail-y, 80px);            border-bottom: none; border-left: none; }
 
 /* Lean toward the dialog while open */
 .vibe-lean {
