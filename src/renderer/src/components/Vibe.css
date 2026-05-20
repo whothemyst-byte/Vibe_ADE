@@ -80,3 +80,121 @@
     animation: none;
   }
 }
+
+/* Speech-bubble dialog */
+.vibe-dialog {
+  position: fixed;
+  z-index: 199;
+  width: 280px;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.vibe-dialog__caption {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.vibe-dialog__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.vibe-dialog__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-panel-2) 60%, transparent);
+}
+
+.vibe-dialog__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vibe-dialog__dot--low    { background: var(--text-muted); }
+.vibe-dialog__dot--medium { background: var(--accent); }
+.vibe-dialog__dot--high   { background: #ff7a59; }
+
+.vibe-dialog__title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.vibe-dialog__btn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.vibe-dialog__btn:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--accent);
+}
+
+.vibe-dialog__board-btn {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.vibe-dialog__board-btn:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.vibe-dialog__tail {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.vibe-dialog--top .vibe-dialog__tail    { bottom: -7px; left: calc(50% - 6px); border-top: none;    border-left: none; }
+.vibe-dialog--bottom .vibe-dialog__tail { top:    -7px; left: calc(50% - 6px); border-bottom: none; border-right: none; }
+.vibe-dialog--left .vibe-dialog__tail   { right:  -7px; top: 80px;            border-top: none;    border-right: none; }
+.vibe-dialog--right .vibe-dialog__tail  { left:   -7px; top: 80px;            border-bottom: none; border-left: none; }
