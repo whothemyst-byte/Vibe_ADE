@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Rnd } from 'react-rnd';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
 import type { TaskId } from '@shared/types';
@@ -11,7 +11,6 @@ import {
   clampPosition,
   computeDialogAnchor,
   defaultVibePosition,
-  isClick,
   loadVibePosition,
   saveVibePosition,
   VIBE_SIZE,
@@ -46,7 +45,6 @@ export function Vibe(): JSX.Element | null {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [anchor, setAnchor] = useState<DialogAnchor | null>(null);
   const [celebrateUntil, setCelebrateUntil] = useState<number | null>(null);
-  const grabStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const activeWorkspaceId = useWorkspaceStore((s) => s.appState.activeWorkspaceId);
   const tasks = useWorkspaceStore((s) =>
@@ -133,27 +131,18 @@ export function Vibe(): JSX.Element | null {
     setDialogOpen(true);
   };
 
-  const handleMouseDown = (event: ReactMouseEvent<HTMLDivElement>): void => {
-    // Only left-clicks count as a potential click-to-open. Middle/right buttons
-    // are ignored so they neither open the dialog nor block context menus.
-    if (event.button !== 0) {
-      return;
-    }
-    grabStartRef.current = { x: event.clientX, y: event.clientY };
-  };
-
-  const handleMouseUp = (event: ReactMouseEvent<HTMLDivElement>): void => {
-    const start = grabStartRef.current;
-    grabStartRef.current = null;
-    if (!start) {
-      return;
-    }
-    if (isClick(start, { x: event.clientX, y: event.clientY })) {
-      if (dialogOpen) {
-        setDialogOpen(false);
-      } else {
-        openDialog();
-      }
+  // Right-click is the trigger. Left-click can't open the dialog reliably
+  // because react-rnd fires onDragStart on every mousedown (before mouseup),
+  // which kills any click-vs-drag detection wired to mouseup. Right-clicks
+  // are ignored by react-draggable (it only handles button === 0), so they
+  // never trigger a fake drag. We preventDefault to suppress the OS context
+  // menu so the dialog is the only visible response.
+  const handleContextMenu = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    if (dialogOpen) {
+      setDialogOpen(false);
+    } else {
+      openDialog();
     }
   };
 
@@ -200,7 +189,6 @@ export function Vibe(): JSX.Element | null {
         size={{ width: VIBE_SIZE, height: VIBE_SIZE }}
         position={position}
         onDragStart={() => {
-          grabStartRef.current = null;
           if (dialogOpen) {
             setDialogOpen(false);
           }
@@ -217,10 +205,9 @@ export function Vibe(): JSX.Element | null {
       >
         <div
           className="vibe-grip"
-          aria-label="Vibe — your floating companion"
+          aria-label="Vibe — your floating companion (right-click to view tasks)"
           role="img"
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
+          onContextMenu={handleContextMenu}
         >
           <svg viewBox="0 0 80 80" aria-hidden="true">
             <g className={leanClass}>
