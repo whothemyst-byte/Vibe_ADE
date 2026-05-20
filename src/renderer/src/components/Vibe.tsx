@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Rnd } from 'react-rnd';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import type { TaskId } from '@shared/types';
 import {
   loadUiPreferences,
   UI_PREFERENCES_CHANGED_EVENT,
@@ -151,7 +152,7 @@ export function Vibe(): JSX.Element | null {
     }
   };
 
-  const handleDone = (taskId: string): void => {
+  const handleDone = (taskId: TaskId): void => {
     const wasLast = inProgress.length === 1;
     void moveTask(taskId, 'done');
     setCelebrateUntil(Date.now() + 1200);
@@ -160,7 +161,7 @@ export function Vibe(): JSX.Element | null {
     }
   };
 
-  const handleBacklog = (taskId: string): void => {
+  const handleBacklog = (taskId: TaskId): void => {
     const wasLast = inProgress.length === 1;
     void moveTask(taskId, 'backlog');
     if (wasLast) {
@@ -177,9 +178,7 @@ export function Vibe(): JSX.Element | null {
   const leanClass = dialogOpen && anchor
     ? `vibe-lean vibe-lean--${anchor.side}`
     : 'vibe-lean';
-  const celebrateClass = celebrating
-    ? 'vibe-celebrate vibe-celebrate--active'
-    : 'vibe-celebrate';
+  const celebrateClass = celebrating ? 'vibe-celebrate--active' : undefined;
   const hasInProgress = inProgress.length > 0;
 
   if (!enabled) {
