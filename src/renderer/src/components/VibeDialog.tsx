@@ -18,7 +18,6 @@ export interface VibeDialogProps {
   onDone: (taskId: TaskId) => void;
   onBacklog: (taskId: TaskId) => void;
   onOpenBoard: () => void;
-  onClose: () => void;
 }
 
 function dialogStyle(side: DialogSide, anchorX: number, anchorY: number): CSSProperties {
