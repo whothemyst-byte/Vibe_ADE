@@ -134,6 +134,11 @@ export function Vibe(): JSX.Element | null {
   };
 
   const handleMouseDown = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    // Only left-clicks count as a potential click-to-open. Middle/right buttons
+    // are ignored so they neither open the dialog nor block context menus.
+    if (event.button !== 0) {
+      return;
+    }
     grabStartRef.current = { x: event.clientX, y: event.clientY };
   };
 
