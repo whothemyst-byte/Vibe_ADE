@@ -209,3 +209,79 @@
 .vibe-dialog--bottom .vibe-dialog__tail { top:    -7px; left: calc(50% - 6px); border-bottom: none; border-right: none; }
 .vibe-dialog--left .vibe-dialog__tail   { right:  -7px; top: 80px;            border-top: none;    border-right: none; }
 .vibe-dialog--right .vibe-dialog__tail  { left:   -7px; top: 80px;            border-bottom: none; border-left: none; }
+
+/* Lean toward the dialog while open */
+.vibe-lean {
+  transform-origin: 50% 100%;
+  transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.vibe-lean--top    { transform: translateY(-2px); }
+.vibe-lean--bottom { transform: translateY(2px); }
+.vibe-lean--left   { transform: rotate(-6deg) translateX(-2px); }
+.vibe-lean--right  { transform: rotate(6deg)  translateX(2px); }
+
+/* Has-tasks: pulse the antenna orb */
+.vibe-orb-pulse {
+  transform-origin: 50px 8px;
+  animation: vibe-orb-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes vibe-orb-pulse {
+  0%, 100% { transform: scale(1);    filter: brightness(1); }
+  50%      { transform: scale(1.15); filter: brightness(1.25); }
+}
+
+/* Celebrate: hop on the outer group */
+.vibe-celebrate--active {
+  animation: vibe-celebrate-hop 700ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes vibe-celebrate-hop {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(-8px); }
+  100% { transform: translateY(0); }
+}
+
+/* Celebrate: happy eyes override blink */
+.vibe-eyes-happy {
+  animation: none !important;
+  transform: scaleY(0.25);
+}
+
+/* Celebrate: sparkles around the antenna orb */
+.vibe-sparkle {
+  font-size: 8px;
+  font-family: serif;
+  opacity: 0;
+  animation: vibe-sparkle 900ms ease-out forwards;
+}
+
+.vibe-sparkle--1 { animation-delay: 0ms; }
+.vibe-sparkle--2 { animation-delay: 120ms; }
+.vibe-sparkle--3 { animation-delay: 240ms; }
+
+@keyframes vibe-sparkle {
+  0%   { opacity: 0; transform: translateY(0)    scale(0.6); }
+  35%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-6px) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vibe-lean,
+  .vibe-lean--top,
+  .vibe-lean--bottom,
+  .vibe-lean--left,
+  .vibe-lean--right {
+    transition: none;
+    transform: none;
+  }
+  .vibe-orb-pulse,
+  .vibe-celebrate--active,
+  .vibe-sparkle {
+    animation: none;
+  }
+  .vibe-eyes-happy {
+    transform: none;
+  }
+}
