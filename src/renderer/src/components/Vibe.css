@@ -221,9 +221,16 @@
 .vibe-lean--left   { transform: rotate(-6deg) translateX(-2px); }
 .vibe-lean--right  { transform: rotate(6deg)  translateX(2px); }
 
+/* Host element for the orb. Always present so removing .vibe-orb-pulse
+   transitions the transform/filter back to the static values instead of
+   snapping mid-cycle. */
+.vibe-orb {
+  transform-origin: 50px 8px;
+  transition: transform 400ms ease-out, filter 400ms ease-out;
+}
+
 /* Has-tasks: pulse the antenna orb */
 .vibe-orb-pulse {
-  transform-origin: 50px 8px;
   animation: vibe-orb-pulse 2.4s ease-in-out infinite;
 }
 
@@ -243,9 +250,10 @@
   100% { transform: translateY(0); }
 }
 
-/* Celebrate: happy eyes override blink */
+/* Celebrate: happy eyes override blink. Source order alone makes this win
+   over .vibe-blink (declared earlier in the file) — no !important needed. */
 .vibe-eyes-happy {
-  animation: none !important;
+  animation: none;
   transform: scaleY(0.25);
 }
 
@@ -276,9 +284,11 @@
     transition: none;
     transform: none;
   }
+  .vibe-orb,
   .vibe-orb-pulse,
   .vibe-celebrate--active,
   .vibe-sparkle {
+    transition: none;
     animation: none;
   }
   .vibe-eyes-happy {
