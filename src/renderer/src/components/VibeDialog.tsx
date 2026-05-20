@@ -1,9 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { TaskItem, TaskId } from '@shared/types';
 import {
-  VIBE_DIALOG_GAP,
-  VIBE_DIALOG_WIDTH,
-  VIBE_SIZE,
+  computeDialogStyle,
   type DialogSide
 } from './Vibe.helpers';
 import type { DialogState } from './Vibe.captions';
@@ -20,28 +18,20 @@ export interface VibeDialogProps {
   onOpenBoard: () => void;
 }
 
-function dialogStyle(side: DialogSide, anchorX: number, anchorY: number): CSSProperties {
-  const half = VIBE_DIALOG_WIDTH / 2;
-  const gap = VIBE_SIZE / 2 + VIBE_DIALOG_GAP;
-  switch (side) {
-    case 'top':
-      return { left: anchorX - half, bottom: window.innerHeight - anchorY + gap };
-    case 'bottom':
-      return { left: anchorX - half, top: anchorY + gap };
-    case 'left':
-      return { right: window.innerWidth - anchorX + gap, top: anchorY - 80 };
-    case 'right':
-      return { left: anchorX + gap, top: anchorY - 80 };
-  }
-}
-
 export function VibeDialog(props: VibeDialogProps): JSX.Element {
   const { side, anchorX, anchorY, state, caption, tasks, onDone, onBacklog, onOpenBoard } = props;
+  const style = computeDialogStyle(
+    side,
+    anchorX,
+    anchorY,
+    window.innerWidth,
+    window.innerHeight
+  ) as CSSProperties;
   return (
     <div
       className={`vibe-dialog vibe-dialog--${side}`}
       data-vibe-dialog
-      style={dialogStyle(side, anchorX, anchorY)}
+      style={style}
       role="dialog"
       aria-label="Vibe — in-progress tasks"
     >

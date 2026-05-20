@@ -97,3 +97,56 @@ export function isClick(
 ): boolean {
   return Math.abs(end.x - start.x) + Math.abs(end.y - start.y) < threshold;
 }
+
+// Distance (px) from the side-anchored dialog's top edge to the tail. Keep in
+// sync with .vibe-dialog--{left,right} .vibe-dialog__tail's `top` value in CSS.
+export const VIBE_DIALOG_SIDE_TAIL_INSET = 80;
+
+export interface DialogStyle {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+}
+
+// Pure positioning math. Returns the CSS offsets for the dialog given Boo's
+// chosen side, Boo's center, and the current viewport. Clamps so the dialog
+// stays fully inside the viewport (minus VIBE_MARGIN on every edge).
+export function computeDialogStyle(
+  side: DialogSide,
+  anchorX: number,
+  anchorY: number,
+  viewportWidth: number,
+  viewportHeight: number
+): DialogStyle {
+  const half = VIBE_DIALOG_WIDTH / 2;
+  const gap = VIBE_SIZE / 2 + VIBE_DIALOG_GAP;
+
+  const clampLeft = (left: number): number =>
+    Math.max(VIBE_MARGIN, Math.min(left, viewportWidth - VIBE_DIALOG_WIDTH - VIBE_MARGIN));
+  const clampTop = (top: number): number =>
+    Math.max(VIBE_MARGIN, Math.min(top, viewportHeight - VIBE_DIALOG_MAX_HEIGHT - VIBE_MARGIN));
+
+  switch (side) {
+    case 'top':
+      return {
+        left: clampLeft(anchorX - half),
+        bottom: viewportHeight - anchorY + gap
+      };
+    case 'bottom':
+      return {
+        left: clampLeft(anchorX - half),
+        top: clampTop(anchorY + gap)
+      };
+    case 'left':
+      return {
+        right: viewportWidth - anchorX + gap,
+        top: clampTop(anchorY - VIBE_DIALOG_SIDE_TAIL_INSET)
+      };
+    case 'right':
+      return {
+        left: anchorX + gap,
+        top: clampTop(anchorY - VIBE_DIALOG_SIDE_TAIL_INSET)
+      };
+  }
+}
