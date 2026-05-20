@@ -137,9 +137,10 @@
   flex-shrink: 0;
 }
 
-.vibe-dialog__dot--low    { background: var(--text-muted); }
-.vibe-dialog__dot--medium { background: var(--accent); }
-.vibe-dialog__dot--high   { background: #ff7a59; }
+/* Dot colors mirror .task-priority.{low,medium,high} in app.css. */
+.vibe-dialog__dot--low    { background: #22c55e; }
+.vibe-dialog__dot--medium { background: var(--warn); }
+.vibe-dialog__dot--high   { background: var(--danger); }
 
 .vibe-dialog__title {
   flex: 1;
@@ -168,6 +169,16 @@
 .vibe-dialog__btn:hover {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border-color: var(--accent);
+}
+
+.vibe-dialog__btn--done:hover {
+  color: #22c55e;
+  border-color: #22c55e;
+  background: color-mix(in srgb, #22c55e 14%, transparent);
+}
+
+.vibe-dialog__btn--backlog:hover {
+  color: var(--text-muted);
 }
 
 .vibe-dialog__board-btn {
