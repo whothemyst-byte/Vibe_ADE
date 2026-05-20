@@ -54,7 +54,7 @@ export interface CommandBlock {
   collapsed: boolean;
 }
 
-export type TaskStatus = 'backlog' | 'in-progress' | 'done';
+export type TaskStatus = 'backlog' | 'in-progress' | 'review' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type TaskSortMode = 'updated-desc' | 'updated-asc' | 'created-desc' | 'created-asc' | 'priority-desc' | 'priority-asc' | 'due-asc' | 'due-desc';
 

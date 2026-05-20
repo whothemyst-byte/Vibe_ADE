@@ -28,9 +28,17 @@ export function normalizeTasks(tasks: TaskItem[]): TaskItem[] {
   const byStatus: Record<TaskStatus, TaskItem[]> = {
     backlog: [],
     'in-progress': [],
+    review: [],
     done: []
   };
   for (const task of tasks) {
+    // Defensive guard: silently skip tasks with an unknown status rather than
+    // throwing. Old persisted data could in theory contain stale values; the
+    // task remains in storage but is dropped from this normalized view.
+    if (!(task.status in byStatus)) {
+      console.warn(`normalizeTasks: skipping task with unknown status "${task.status}"`);
+      continue;
+    }
     byStatus[task.status].push({
       ...task,
       priority: task.priority ?? DEFAULT_TASK_PRIORITY,
@@ -47,7 +55,7 @@ export function normalizeTasks(tasks: TaskItem[]): TaskItem[] {
     });
     byStatus[status] = byStatus[status].map((task, index) => ({ ...task, order: index + 1 }));
   });
-  return [...byStatus.backlog, ...byStatus['in-progress'], ...byStatus.done];
+  return [...byStatus.backlog, ...byStatus['in-progress'], ...byStatus.review, ...byStatus.done];
 }
 
 export function matchesTaskFilters(task: TaskItem, search: string, filters: TaskFilterState): boolean {
