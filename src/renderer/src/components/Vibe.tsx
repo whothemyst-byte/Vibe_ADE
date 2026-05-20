@@ -232,7 +232,7 @@ export function Vibe(): JSX.Element | null {
                         strokeLinecap="round"
                         fill="none"
                       />
-                      <g className={hasInProgress ? 'vibe-orb-pulse' : undefined}>
+                      <g className={hasInProgress ? 'vibe-orb vibe-orb-pulse' : 'vibe-orb'}>
                         <circle cx="50" cy="8" r="2.6" fill="currentColor" />
                         <circle cx="49.3" cy="7.3" r="0.7" fill="#fff" opacity="0.7" />
                       </g>
