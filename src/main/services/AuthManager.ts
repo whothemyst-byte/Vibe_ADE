@@ -1,3 +1,4 @@
+import { safeStorage } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -38,6 +39,7 @@ export interface AuthSessionWithToken extends AuthSessionView {
 
 export class AuthManager {
   private static readonly REQUEST_TIMEOUT_MS = 12_000;
+  private static readonly ENCRYPTED_PREFIX = 'ENC1:';
   private readonly statePath: string;
   private readonly supabaseUrl: string | null;
   private readonly supabaseAnonKey: string | null;
@@ -305,27 +307,58 @@ export class AuthManager {
   }
 
   private async readState(): Promise<PersistedAuthState | null> {
+    let raw: string;
     try {
-      const raw = await fs.readFile(this.statePath, 'utf8');
-      const parsed = JSON.parse(raw) as PersistedAuthState;
-      if (
-        parsed.version !== 1
-        || !parsed.accessToken
-        || !parsed.refreshToken
-        || !parsed.expiresAt
-        || !parsed.user?.id
-      ) {
-        return null;
-      }
-      return parsed;
+      raw = await fs.readFile(this.statePath, 'utf8');
     } catch {
       return null;
     }
+
+    let json = raw;
+    let wasEncrypted = false;
+    if (raw.startsWith(AuthManager.ENCRYPTED_PREFIX)) {
+      if (!safeStorage.isEncryptionAvailable()) {
+        return null;
+      }
+      try {
+        const cipher = Buffer.from(raw.slice(AuthManager.ENCRYPTED_PREFIX.length), 'base64');
+        json = safeStorage.decryptString(cipher);
+        wasEncrypted = true;
+      } catch {
+        return null;
+      }
+    }
+
+    let parsed: PersistedAuthState;
+    try {
+      parsed = JSON.parse(json) as PersistedAuthState;
+    } catch {
+      return null;
+    }
+    if (
+      parsed.version !== 1
+      || !parsed.accessToken
+      || !parsed.refreshToken
+      || !parsed.expiresAt
+      || !parsed.user?.id
+    ) {
+      return null;
+    }
+
+    // Migrate legacy plaintext state to encrypted-at-rest on first read.
+    if (!wasEncrypted && safeStorage.isEncryptionAvailable()) {
+      await this.persistState(parsed).catch(() => undefined);
+    }
+    return parsed;
   }
 
   private async persistState(state: PersistedAuthState): Promise<void> {
+    const json = JSON.stringify(state, null, 2);
+    const serialized = safeStorage.isEncryptionAvailable()
+      ? `${AuthManager.ENCRYPTED_PREFIX}${safeStorage.encryptString(json).toString('base64')}`
+      : json;
     const tempPath = `${this.statePath}.tmp`;
-    await fs.writeFile(tempPath, JSON.stringify(state, null, 2), 'utf8');
+    await fs.writeFile(tempPath, serialized, 'utf8');
     await fs.rename(tempPath, this.statePath);
   }
 

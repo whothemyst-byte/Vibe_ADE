@@ -153,7 +153,16 @@ export function registerSystemHandlers({ webContents, updateManager, setSaveMenu
 
   ipcMain.handle('system:openExternal', (_event, url: unknown) => {
     assertNonEmptyString(url, 'url');
-    return shell.openExternal(url);
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error('Invalid URL');
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('Only http and https URLs can be opened externally.');
+    }
+    return shell.openExternal(parsed.href);
   });
 
   ipcMain.handle('update:getStatus', () => updateManager.getStatus());

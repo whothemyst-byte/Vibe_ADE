@@ -63,6 +63,22 @@ export function createMainWindow(): BrowserWindow {
     }
     event.preventDefault();
   });
+
+  // Harden every <webview> regardless of the attributes set in the renderer:
+  // strip any preload, keep Node disabled, and block non-web initial sources.
+  win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+
+    const src = params.src ?? '';
+    const allowed = src === '' || src === 'about:blank' || /^https?:\/\//i.test(src);
+    if (!allowed) {
+      event.preventDefault();
+    }
+  });
+
   win.setMenuBarVisibility(false);
   win.on('page-title-updated', (event) => event.preventDefault());
   win.setTitle('');
