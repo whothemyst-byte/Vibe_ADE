@@ -92,6 +92,7 @@ const SHORTCUT_GROUPS: Array<{
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   backlog: 'Backlog',
   'in-progress': 'In Progress',
+  review: 'Review',
   done: 'Done'
 };
 
@@ -691,6 +692,19 @@ export function SettingsDialog(): JSX.Element {
                   ))
                 )}
               </section>
+
+              <div className="appearance-block">
+                <h4>Layout</h4>
+                <p>Tighter rows and smaller text. Useful when you keep many tasks.</p>
+                <label className="appearance-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={uiPreferences.taskBoardCompactMode}
+                    onChange={(event) => updateUiPreference('taskBoardCompactMode', event.target.checked)}
+                  />
+                  <span>Compact layout</span>
+                </label>
+              </div>
             </div>
           )}
 

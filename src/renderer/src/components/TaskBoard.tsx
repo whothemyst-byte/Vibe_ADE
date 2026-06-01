@@ -1,17 +1,30 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TaskItem, TaskPriority, TaskSortMode, TaskStatus, WorkspaceState } from '@shared/types';
 import { useWorkspaceStore } from '@renderer/state/workspaceStore';
+import {
+  loadUiPreferences,
+  UI_PREFERENCES_CHANGED_EVENT,
+  UI_PREFERENCES_KEY
+} from '@renderer/services/preferences';
 import { Button, Input, Icon, cn } from './ui';
 
 interface TaskBoardProps {
   workspace: WorkspaceState;
 }
 
-const COLUMNS: { key: TaskStatus; label: string; accent: string }[] = [
-  { key: 'backlog', label: 'Backlog', accent: 'from-fg-muted/30 to-transparent' },
-  { key: 'in-progress', label: 'In Progress', accent: 'from-primary/40 to-transparent' },
-  { key: 'done', label: 'Done', accent: 'from-success/40 to-transparent' }
+const COLUMNS: { key: TaskStatus; label: string; accentBar: string; badge: string }[] = [
+  { key: 'backlog', label: 'Backlog', accentBar: 'bg-fg-muted/40', badge: 'text-fg-muted bg-bg-panel border-line' },
+  { key: 'in-progress', label: 'In Progress', accentBar: 'bg-primary/60', badge: 'text-primary bg-primary/10 border-primary/30' },
+  { key: 'review', label: 'Review', accentBar: 'bg-warn/60', badge: 'text-warn bg-warn/10 border-warn/30' },
+  { key: 'done', label: 'Done', accentBar: 'bg-success/60', badge: 'text-success bg-success/10 border-success/30' }
 ];
+
+const EMPTY_COPY: Record<TaskStatus, string> = {
+  backlog: 'Nothing in backlog — add one to get started.',
+  'in-progress': 'Nothing in flight — pull one from backlog.',
+  review: 'Nothing waiting on review.',
+  done: 'Nothing done yet — finish something.'
+};
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['low', 'medium', 'high'];
 
@@ -34,19 +47,22 @@ const SORT_OPTIONS: Array<{ value: TaskSortMode; label: string }> = [
 
 function nextStatus(status: TaskStatus): TaskStatus {
   if (status === 'backlog') return 'in-progress';
-  if (status === 'in-progress') return 'done';
+  if (status === 'in-progress') return 'review';
+  if (status === 'review') return 'done';
   return 'backlog';
 }
 
 function statusActionLabel(status: TaskStatus): string {
   if (status === 'backlog') return 'Start';
-  if (status === 'in-progress') return 'Done';
+  if (status === 'in-progress') return 'Review';
+  if (status === 'review') return 'Done';
   return 'Reopen';
 }
 
 function statusActionIcon(status: TaskStatus): string {
   if (status === 'backlog') return 'play_arrow';
-  if (status === 'in-progress') return 'check';
+  if (status === 'in-progress') return 'rate_review';
+  if (status === 'review') return 'check';
   return 'restart_alt';
 }
 
@@ -85,6 +101,13 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
   const [labelsInput, setLabelsInput] = useState('');
   const [draggedTask, setDraggedTask] = useState<TaskItem | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [compactMode, setCompactMode] = useState<boolean>(() => {
+    try {
+      return loadUiPreferences().taskBoardCompactMode;
+    } catch {
+      return false;
+    }
+  });
   const filtersOpen = useWorkspaceStore((s) => s.ui.taskFiltersOpen);
   const toggleTaskFilters = useWorkspaceStore((s) => s.toggleTaskFilters);
   const [draftStatus, setDraftStatus] = useState<TaskStatus>('backlog');
@@ -113,7 +136,31 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
     [getVisibleTasks, taskFilters, taskSearch, taskSort, workspace.tasks]
   );
 
+  useEffect(() => {
+    const sync = (): void => {
+      try {
+        setCompactMode(loadUiPreferences().taskBoardCompactMode);
+      } catch {
+        setCompactMode(false);
+      }
+    };
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key === UI_PREFERENCES_KEY) {
+        sync();
+      }
+    };
+    window.addEventListener(UI_PREFERENCES_CHANGED_EVENT, sync);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(UI_PREFERENCES_CHANGED_EVENT, sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
   const canCreate = Boolean(title.trim() && startDate && endDate) && endDate >= startDate;
+  const columnBodyClass = compactMode ? 'p-2 space-y-1.5' : 'p-3 space-y-2.5';
+  const cardPadClass = compactMode ? 'p-2' : 'p-3';
+  const cardTitleClass = compactMode ? 'text-[11px]' : 'text-xs';
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-bg-page">
@@ -137,7 +184,7 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
       </div>
 
       <div className={cn('flex-1 flex min-h-0', filtersOpen && 'pr-0')}>
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 p-2 overflow-auto">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2 p-2 overflow-auto">
           {grouped.map((column) => (
             <section
               key={column.key}
@@ -148,10 +195,15 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
                 setDraggedTask(null);
               }}
             >
-              <div className="flex items-center justify-between px-2 h-7 border-b border-line bg-bg-panel-2">
+              <div className="flex items-center justify-between px-2 h-7 bg-bg-panel-2">
                 <h4 className="flex items-center gap-1.5 text-xs font-medium text-fg">
                   {column.label}
-                  <span className="inline-flex items-center justify-center min-w-[16px] h-3.5 px-1 rounded-sm bg-bg-panel text-[10px] font-medium text-fg-muted border border-line">
+                  <span
+                    className={cn(
+                      'inline-flex items-center justify-center min-w-[16px] h-3.5 px-1 rounded-sm text-[10px] font-semibold border',
+                      column.badge
+                    )}
+                  >
                     {column.tasks.length}
                   </span>
                 </h4>
@@ -167,21 +219,32 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
                   <Icon name="add" size="sm" />
                 </button>
               </div>
+              <div className={cn('h-0.5 w-full', column.accentBar)} aria-hidden="true" />
 
-              <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+              <div className={cn('flex-1 overflow-y-auto', columnBodyClass)}>
                 {column.tasks.length === 0 && (
-                  <p className="text-center py-8 text-[11px] text-fg-muted">No tasks yet.</p>
+                  <p
+                    role="status"
+                    className="mx-0.5 my-1 px-3 py-4 text-center text-[11px] leading-relaxed text-fg-muted border border-dashed border-line/70 rounded-lg"
+                  >
+                    {EMPTY_COPY[column.key]}
+                  </p>
                 )}
                 {column.tasks.map((task, index) => {
                   const dueAt = task.endAt ?? task.dueAt;
-                  const isInProgress = task.status === 'in-progress';
-                  const progressWidth = task.status === 'done' ? 100 : isInProgress ? 65 : 0;
+                  const progressWidth =
+                    task.status === 'done' ? 100 :
+                    task.status === 'review' ? 85 :
+                    task.status === 'in-progress' ? 50 :
+                    0;
+                  const showProgress = task.status === 'in-progress' || task.status === 'review';
                   const state = dueState(dueAt);
                   return (
                     <article
                       key={task.id}
                       className={cn(
-                        'group p-3 rounded-lg border transition-all cursor-grab active:cursor-grabbing',
+                        'group rounded-lg border transition-all cursor-grab active:cursor-grabbing',
+                        cardPadClass,
                         'border-line bg-bg-panel-2/50 hover:border-line-strong hover:bg-bg-panel-2',
                         task.archived && 'opacity-60'
                       )}
@@ -201,16 +264,21 @@ export function TaskBoard({ workspace }: TaskBoardProps): JSX.Element {
                         setDraggedTask(null);
                       }}
                     >
-                      <p className="text-xs font-medium text-fg leading-snug">{task.title}</p>
+                      <p className={cn('font-medium text-fg leading-snug', cardTitleClass)}>{task.title}</p>
                       {task.description && (
                         <div className="mt-1 text-[11px] text-fg-muted leading-relaxed line-clamp-2">
                           {task.description}
                         </div>
                       )}
-                      {isInProgress && (
+                      {showProgress && (
                         <div className="mt-2 h-1 bg-bg-panel rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all"
+                            className={cn(
+                              'h-full transition-all',
+                              task.status === 'review'
+                                ? 'bg-gradient-to-r from-warn to-warn/70'
+                                : 'bg-gradient-to-r from-primary to-primary/70'
+                            )}
                             style={{ width: `${progressWidth}%` }}
                           />
                         </div>
