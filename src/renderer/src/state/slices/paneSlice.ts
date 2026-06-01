@@ -18,8 +18,54 @@ import {
 } from '@renderer/services/layoutEngine';
 import { getPresetById, getPresetIdForPaneCount } from '@renderer/services/layoutPresets';
 import { useToastStore } from '@renderer/hooks/useToast';
+import type { PaneId, WorkspaceState } from '@shared/types';
 import { activeWorkspace, normalizeWorkspacePanes } from '../helpers/workspace';
 import { markDirty, type StoreGet, type StoreSet, type WorkspaceStoreState } from '../storeTypes';
+
+const DEFAULT_CANVAS_TRANSFORM = { x: 0, y: 0, scale: 1 };
+const DEFAULT_CARD_SIZE = { w: 560, h: 360 };
+const CARD_OFFSET_STEP = 32;
+const CARD_OFFSET_ORIGIN = 48;
+
+function seedCanvasCardsForNewPanes(
+  prev: WorkspaceState,
+  next: WorkspaceState,
+  nextPaneIds: PaneId[]
+): WorkspaceState {
+  if (next.mode !== 'canvas') {
+    return next;
+  }
+  const prevPaneIds = new Set(collectPaneIds(prev.layout));
+  const newPaneIds = nextPaneIds.filter((id) => !prevPaneIds.has(id));
+  if (newPaneIds.length === 0) {
+    return next;
+  }
+  const existingCards = next.canvas?.cards ?? {};
+  const baseCount = Object.keys(existingCards).length;
+  const addedCards = Object.fromEntries(
+    newPaneIds.map((paneId, index) => {
+      const offset = CARD_OFFSET_ORIGIN + (baseCount + index) * CARD_OFFSET_STEP;
+      return [paneId, { x: offset, y: offset, ...DEFAULT_CARD_SIZE }];
+    })
+  );
+  return {
+    ...next,
+    canvas: {
+      transform: next.canvas?.transform ?? DEFAULT_CANVAS_TRANSFORM,
+      snapToGrid: next.canvas?.snapToGrid,
+      background: next.canvas?.background,
+      cards: { ...existingCards, ...addedCards }
+    }
+  };
+}
+
+function dropCanvasCard(ws: WorkspaceState, paneId: PaneId): WorkspaceState {
+  if (!ws.canvas || !(paneId in ws.canvas.cards)) {
+    return ws;
+  }
+  const { [paneId]: _drop, ...rest } = ws.canvas.cards;
+  return { ...ws, canvas: { ...ws.canvas, cards: rest } };
+}
 
 type PaneSlice = Pick<
   WorkspaceStoreState,
@@ -83,21 +129,22 @@ export function createPaneSlice(set: StoreSet, get: StoreGet): PaneSlice {
         return;
       }
       const paneIds = collectPaneIds(next.layout);
+      const withCanvas = seedCanvasCardsForNewPanes(current, next, paneIds);
 
       set((state) => ({
         appState: {
           ...state.appState,
-          workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? normalizeWorkspacePanes(next) : w))
+          workspaces: state.appState.workspaces.map((w) => (w.id === withCanvas.id ? normalizeWorkspacePanes(withCanvas) : w))
         },
         ui: {
-          ...markDirty(state, next.id),
+          ...markDirty(state, withCanvas.id),
           layoutPresetByWorkspace: {
             ...state.ui.layoutPresetByWorkspace,
-            [next.id]: getPresetIdForPaneCount(paneIds.length)
+            [withCanvas.id]: getPresetIdForPaneCount(paneIds.length)
           },
           paneOrderByWorkspace: {
             ...state.ui.paneOrderByWorkspace,
-            [next.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[next.id] ?? [], paneIds)
+            [withCanvas.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[withCanvas.id] ?? [], paneIds)
           }
         }
       }));
@@ -131,21 +178,22 @@ export function createPaneSlice(set: StoreSet, get: StoreGet): PaneSlice {
         return;
       }
       const paneIds = collectPaneIds(next.layout);
+      const withCanvas = seedCanvasCardsForNewPanes(current, next, paneIds);
 
       set((state) => ({
         appState: {
           ...state.appState,
-          workspaces: state.appState.workspaces.map((w) => (w.id === next.id ? normalizeWorkspacePanes(next) : w))
+          workspaces: state.appState.workspaces.map((w) => (w.id === withCanvas.id ? normalizeWorkspacePanes(withCanvas) : w))
         },
         ui: {
-          ...markDirty(state, next.id),
+          ...markDirty(state, withCanvas.id),
           layoutPresetByWorkspace: {
             ...state.ui.layoutPresetByWorkspace,
-            [next.id]: getPresetIdForPaneCount(paneIds.length)
+            [withCanvas.id]: getPresetIdForPaneCount(paneIds.length)
           },
           paneOrderByWorkspace: {
             ...state.ui.paneOrderByWorkspace,
-            [next.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[next.id] ?? [], paneIds)
+            [withCanvas.id]: syncPaneOrderList(state.ui.paneOrderByWorkspace[withCanvas.id] ?? [], paneIds)
           }
         }
       }));
@@ -287,10 +335,11 @@ export function createPaneSlice(set: StoreSet, get: StoreGet): PaneSlice {
       if (!current) {
         return false;
       }
-      const next = removePaneFromWorkspace(current, paneId);
-      if (next === current) {
+      const removed = removePaneFromWorkspace(current, paneId);
+      if (removed === current) {
         return false;
       }
+      const next = dropCanvasCard(removed, paneId);
       const paneIds = collectPaneIds(next.layout);
 
       set((state) => ({

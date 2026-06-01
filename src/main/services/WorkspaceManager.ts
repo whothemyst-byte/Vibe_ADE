@@ -342,6 +342,21 @@ export class WorkspaceManager {
     const commandBlocks = Object.fromEntries(
       paneIds.map((paneId) => [paneId, [] as CommandBlock[]])
     ) as Record<string, CommandBlock[]>;
+    const mode = input.mode ?? 'space';
+    const canvas =
+      mode === 'canvas'
+        ? {
+            transform: { x: 0, y: 0, scale: 1 },
+            cards: Object.fromEntries(
+              paneIds.map((paneId, index) => [
+                paneId,
+                { x: 48 + index * 32, y: 48 + index * 32, w: 560, h: 360 }
+              ])
+            ),
+            snapToGrid: true,
+            background: 'dots' as const
+          }
+        : undefined;
     const workspace: WorkspaceState = {
       id: uuidv4(),
       name: input.name,
@@ -353,7 +368,8 @@ export class WorkspaceManager {
       activePaneId: firstPaneId,
       commandBlocks,
       tasks: [],
-      mode: input.mode ?? 'space',
+      mode,
+      canvas,
       createdAt: now,
       updatedAt: now
     };

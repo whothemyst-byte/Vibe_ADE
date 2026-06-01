@@ -382,6 +382,15 @@ export class FileOwnershipManager {
   }
 
   /**
+   * Get a snapshot of every task and the files it currently owns.
+   */
+  public getTaskFileSnapshot(): Map<string, Set<string>> {
+    return new Map(
+      Array.from(this.taskFileMap.entries()).map(([taskId, files]) => [taskId, new Set(files)])
+    );
+  }
+
+  /**
    * Return true only if the agent owns *all* files in `filePaths`.
    *
    * This is intended for "preflight" checks before starting a multi-file operation.

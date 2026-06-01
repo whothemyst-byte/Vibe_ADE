@@ -8,16 +8,14 @@ export interface FileOwnershipSnapshot {
 
 export function buildFileOwnershipSnapshot(): FileOwnershipSnapshot {
   const mgr = FileOwnershipManager.getInstance();
-  const allFiles = mgr.getAllOwnedFiles();
   const byFile: Record<string, string> = {};
-  for (const [filePath, owner] of allFiles.entries()) {
+  for (const [filePath, owner] of mgr.getAllOwnedFiles().entries()) {
     byFile[filePath] = owner;
   }
 
   const byTask: Record<string, string[]> = {};
-  const taskIds = (mgr as unknown as { taskFileMap: Map<string, Set<string>> }).taskFileMap.keys();
-  for (const taskId of taskIds) {
-    byTask[taskId] = Array.from(mgr.getFilesOwnedByTask(taskId));
+  for (const [taskId, files] of mgr.getTaskFileSnapshot().entries()) {
+    byTask[taskId] = Array.from(files);
   }
   return { byFile, byTask };
 }
