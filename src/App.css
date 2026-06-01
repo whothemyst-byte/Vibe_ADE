@@ -12,9 +12,13 @@ html, body, #root { height: 100%; margin: 0; }
 .terminal-window {
   position: absolute; top: 0; left: 0; will-change: transform;
 }
-.terminal-body-placeholder {
+.terminal-body {
   position: absolute; left: 0; right: 0; bottom: 0;
-  display: grid; place-items: center;
-  color: #4b5563; font: 11px ui-monospace, monospace;
-  outline: 1px dashed rgba(120,140,170,.35);
+  pointer-events: all; background: #0b0e14; padding: 4px;
+}
+.terminal-start {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  pointer-events: all; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+  background: #1b2230; color: #e6e6e6; border: 1px solid #2a2f3a;
+  font: 12px ui-monospace, monospace;
 }

@@ -50,7 +50,6 @@ export class TerminalShapeUtil extends BaseBoxShapeUtil<TerminalShape> {
   }
 
   override component(shape: TerminalShape) {
-    const { label, started } = shape.props;
     return (
       <HTMLContainer
         style={{
@@ -59,18 +58,9 @@ export class TerminalShapeUtil extends BaseBoxShapeUtil<TerminalShape> {
           border: "1px solid #2a2f3a",
           borderRadius: 8,
           background: "#0b0e14",
-          color: "#9aa4b2",
-          display: "flex",
-          alignItems: started ? "stretch" : "center",
-          justifyContent: "center",
-          fontFamily: "ui-monospace, monospace",
-          fontSize: 12,
           pointerEvents: "all",
-          overflow: "hidden",
         }}
-      >
-        {started ? <span data-terminal-label>{label}</span> : <span>&#9655; click to start</span>}
-      </HTMLContainer>
+      />
     );
   }
 }

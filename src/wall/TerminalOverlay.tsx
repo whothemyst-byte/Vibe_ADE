@@ -1,7 +1,8 @@
 import { track } from "@tldraw/state-react";
 import { useEditor } from "tldraw";
 import type { TerminalShape } from "./TerminalShape";
-import { worldRectToScreen, HEADER_H } from "./transform";
+import { worldRectToScreen } from "./transform";
+import { TerminalWindow } from "./TerminalWindow";
 
 // track() wraps the component in a reactive context. Any signal reads inside
 // (editor.getCamera(), editor.getCurrentPageShapes()) are auto-tracked, so the
@@ -34,9 +35,7 @@ export const TerminalOverlay = track(function TerminalOverlay() {
               height: shape.props.h,
             }}
           >
-            <div className="terminal-body-placeholder" style={{ top: HEADER_H }}>
-              <span>{shape.id}</span>
-            </div>
+            <TerminalWindow shape={shape} editor={editor} />
           </div>
         );
       })}
