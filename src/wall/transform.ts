@@ -5,7 +5,14 @@ export type ScreenRect = { left: number; top: number; width: number; height: num
 /** Height (world px) reserved at the top of a terminal window for its header. */
 export const HEADER_H = 28;
 
-/** tldraw page-space rect -> screen-space CSS rect: screen = (page + camera) * zoom. */
+/**
+ * tldraw page-space rect -> screen-space CSS rect: screen = (page + camera) * zoom.
+ *
+ * NOTE: This omits tldraw's `screenBounds` origin offset. It is correct ONLY because
+ * the tldraw canvas and the terminal overlay both use `inset: 0` from the same root,
+ * so the viewport origin is always (0, 0). If the canvas ever gets an inset (i.e.
+ * screenBounds.x/y != 0), add the viewport screen-bounds origin here.
+ */
 export function worldRectToScreen(rect: Rect, cam: Camera): ScreenRect {
   return {
     left: (rect.x + cam.x) * cam.z,

@@ -28,26 +28,27 @@ export function TerminalWindow({ shape, editor }: { shape: TerminalShape; editor
     const unlisteners: Array<() => void> = [];
     let disposed = false;
 
-    spawnPty({
-      id,
-      shell: "powershell.exe",
-      cwd: shape.props.cwd || undefined,
-      rows: term.rows,
-      cols: term.cols,
-    });
-
     const dataSub = term.onData((d) => {
       writePty(id, new TextEncoder().encode(d));
     });
 
-    onPtyData(id, (bytes) => term.write(bytes)).then((u) => {
-      if (disposed) u();
-      else unlisteners.push(u);
-    });
-    onPtyExit(id, () => term.write("\r\n[process exited]\r\n")).then((u) => {
-      if (disposed) u();
-      else unlisteners.push(u);
-    });
+    (async () => {
+      const uData = await onPtyData(id, (bytes) => term.write(bytes));
+      if (disposed) { uData(); return; }
+      unlisteners.push(uData);
+
+      const uExit = await onPtyExit(id, () => term.write("\r\n[process exited]\r\n"));
+      if (disposed) { uExit(); return; }
+      unlisteners.push(uExit);
+
+      await spawnPty({
+        id,
+        shell: "powershell.exe",
+        cwd: shape.props.cwd || undefined,
+        rows: term.rows,
+        cols: term.cols,
+      });
+    })();
 
     return () => {
       disposed = true;

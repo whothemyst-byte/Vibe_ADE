@@ -42,7 +42,7 @@ pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
     if let Some(dir) = cfg.cwd.clone() {
         cmd.cwd(dir);
     }
-    let _child = pair.slave.spawn_command(cmd).context("spawn_command failed")?;
+    let mut child = pair.slave.spawn_command(cmd).context("spawn_command failed")?;
 
     let writer = Arc::new(Mutex::new(pair.master.take_writer().context("take_writer")?));
     let master = Arc::new(parking_lot::Mutex::new(pair.master));
@@ -94,7 +94,11 @@ pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
                         pixel_height: 0,
                     });
                 }
-                PtyCommand::Kill => break,
+                PtyCommand::Kill => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    break;
+                }
             }
         }
     });
