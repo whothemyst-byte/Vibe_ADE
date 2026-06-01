@@ -2,6 +2,7 @@ import { Tldraw, useEditor, createShapeId } from "tldraw";
 import "tldraw/tldraw.css";
 import "./App.css";
 import { TerminalShapeUtil } from "./wall/TerminalShape";
+import { TerminalOverlay } from "./wall/TerminalOverlay";
 
 const customShapeUtils = [TerminalShapeUtil];
 
@@ -29,6 +30,7 @@ export default function App() {
     <div className="wall-root">
       <Tldraw colorScheme="dark" shapeUtils={customShapeUtils}>
         <WallUi />
+        <TerminalOverlay />
       </Tldraw>
     </div>
   );
