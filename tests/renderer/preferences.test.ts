@@ -172,12 +172,42 @@ describe('preferences ui — vibeEnabled', () => {
       accentColor: '#D79A3D',
       fontStyle: 'modern',
       language: 'en',
-      vibeEnabled: false
+      vibeEnabled: false,
+      taskBoardCompactMode: false
     });
 
     expect(setItem).toHaveBeenCalledTimes(1);
     expect(dispatchEvent).toHaveBeenCalledTimes(1);
     const event = dispatchEvent.mock.calls[0][0] as Event;
     expect(event.type).toBe('vibe-ade:ui-preferences-changed');
+  });
+});
+
+describe('preferences ui — taskBoardCompactMode', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('defaults taskBoardCompactMode to false', () => {
+    expect(DEFAULT_UI_PREFERENCES.taskBoardCompactMode).toBe(false);
+  });
+
+  it('returns taskBoardCompactMode=false when no stored prefs exist', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => null } });
+    expect(loadUiPreferences().taskBoardCompactMode).toBe(false);
+  });
+
+  it('returns taskBoardCompactMode=true when stored prefs enable it', () => {
+    vi.stubGlobal('window', {
+      localStorage: { getItem: () => JSON.stringify({ taskBoardCompactMode: true }) }
+    });
+    expect(loadUiPreferences().taskBoardCompactMode).toBe(true);
+  });
+
+  it('coerces a non-boolean taskBoardCompactMode back to the default', () => {
+    vi.stubGlobal('window', {
+      localStorage: { getItem: () => JSON.stringify({ taskBoardCompactMode: 'yes' }) }
+    });
+    expect(loadUiPreferences().taskBoardCompactMode).toBe(false);
   });
 });

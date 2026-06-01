@@ -47,6 +47,7 @@ export interface UiPreferences {
   fontStyle: UiFontStyle;
   language: UiLanguage;
   vibeEnabled: boolean;
+  taskBoardCompactMode: boolean;
 }
 
 export interface SwarmRolePromptPreferences {
@@ -72,7 +73,8 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   accentColor: '#D79A3D',
   fontStyle: 'modern',
   language: 'en',
-  vibeEnabled: true
+  vibeEnabled: true,
+  taskBoardCompactMode: false
 };
 
 export function defaultSwarmPersonaLabel(role: SwarmAgentRole): string {
@@ -244,7 +246,8 @@ export function loadUiPreferences(): UiPreferences {
       accentColor: typeof parsed.accentColor === 'string' && parsed.accentColor.trim() ? parsed.accentColor.trim() : DEFAULT_UI_PREFERENCES.accentColor,
       fontStyle: parsed.fontStyle === 'balanced' || parsed.fontStyle === 'mono' ? parsed.fontStyle : DEFAULT_UI_PREFERENCES.fontStyle,
       language: parsed.language === 'system' ? 'system' : 'en',
-      vibeEnabled: typeof parsed.vibeEnabled === 'boolean' ? parsed.vibeEnabled : DEFAULT_UI_PREFERENCES.vibeEnabled
+      vibeEnabled: typeof parsed.vibeEnabled === 'boolean' ? parsed.vibeEnabled : DEFAULT_UI_PREFERENCES.vibeEnabled,
+      taskBoardCompactMode: typeof parsed.taskBoardCompactMode === 'boolean' ? parsed.taskBoardCompactMode : DEFAULT_UI_PREFERENCES.taskBoardCompactMode
     };
   } catch {
     return DEFAULT_UI_PREFERENCES;
