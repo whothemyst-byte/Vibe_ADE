@@ -177,6 +177,12 @@
   background: color-mix(in srgb, #22c55e 14%, transparent);
 }
 
+.vibe-dialog__btn--review:hover {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+}
+
 .vibe-dialog__btn--backlog:hover {
   color: var(--text-muted);
 }

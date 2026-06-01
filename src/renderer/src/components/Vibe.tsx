@@ -155,6 +155,14 @@ export function Vibe(): JSX.Element | null {
     }
   };
 
+  const handleReview = (taskId: TaskId): void => {
+    const wasLast = inProgress.length === 1;
+    void moveTask(taskId, 'review');
+    if (wasLast) {
+      window.setTimeout(() => setDialogOpen(false), 250);
+    }
+  };
+
   const handleBacklog = (taskId: TaskId): void => {
     const wasLast = inProgress.length === 1;
     void moveTask(taskId, 'backlog');
@@ -276,6 +284,7 @@ export function Vibe(): JSX.Element | null {
           caption={caption}
           tasks={inProgress}
           onDone={handleDone}
+          onReview={handleReview}
           onBacklog={handleBacklog}
           onOpenBoard={handleOpenBoard}
         />

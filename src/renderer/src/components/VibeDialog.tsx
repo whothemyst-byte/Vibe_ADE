@@ -14,12 +14,13 @@ export interface VibeDialogProps {
   caption: string;
   tasks: TaskItem[];
   onDone: (taskId: TaskId) => void;
+  onReview: (taskId: TaskId) => void;
   onBacklog: (taskId: TaskId) => void;
   onOpenBoard: () => void;
 }
 
 export function VibeDialog(props: VibeDialogProps): JSX.Element {
-  const { side, anchorX, anchorY, state, caption, tasks, onDone, onBacklog, onOpenBoard } = props;
+  const { side, anchorX, anchorY, state, caption, tasks, onDone, onReview, onBacklog, onOpenBoard } = props;
   const computed = computeDialogStyle(
     side,
     anchorX,
@@ -69,6 +70,14 @@ export function VibeDialog(props: VibeDialogProps): JSX.Element {
                 aria-label={`Mark "${task.title}" done`}
               >
                 ✓
+              </button>
+              <button
+                type="button"
+                className="vibe-dialog__btn vibe-dialog__btn--review"
+                onClick={() => onReview(task.id)}
+                aria-label={`Move "${task.title}" to review`}
+              >
+                →
               </button>
               <button
                 type="button"
