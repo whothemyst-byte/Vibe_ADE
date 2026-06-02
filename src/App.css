@@ -44,11 +44,28 @@ html, body, #root { height: 100%; margin: 0; }
   background: #1b2230; color: #e6e6e6; border: 1px solid #2a2f3a;
   font: 12px ui-monospace, monospace;
 }
-.wall-back {
-  position: absolute; top: 12px; left: 12px; z-index: 300;
-  padding: 6px 12px; border-radius: 8px; cursor: pointer;
-  background: #1b2230; color: #e6e6e6; border: 1px solid #2a2f3a;
+.cnvs-toolbar {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 320;
+  display: flex; align-items: center; gap: 6px;
+  background: #11151c; border: 1px solid #2a2f3a; border-radius: 10px; padding: 4px;
 }
+.cnvs-btn, .cnvs-name {
+  background: transparent; color: #e6e6e6; border: none; cursor: pointer;
+  padding: 4px 10px; border-radius: 6px; font-size: 13px;
+}
+.cnvs-btn:hover, .cnvs-name:hover { background: #1b2230; }
+.cnvs-caret { color: #9aa4b2; font-size: 10px; }
+.cnvs-menu {
+  position: absolute; top: 100%; left: 0; margin-top: 6px; min-width: 180px;
+  background: #11151c; border: 1px solid #2a2f3a; border-radius: 8px; padding: 4px;
+  display: flex; flex-direction: column; max-height: 320px; overflow: auto;
+}
+.cnvs-menu-item {
+  background: transparent; color: #e6e6e6; border: none; cursor: pointer;
+  text-align: left; padding: 6px 10px; border-radius: 6px; font-size: 13px;
+}
+.cnvs-menu-item:hover { background: #1b2230; }
+.cnvs-menu-item.active { color: #6ea8ff; }
 .start-page {
   position: fixed; inset: 0; overflow: auto; padding: 32px;
   background: #0b0e14; color: #e6e6e6; font-family: system-ui, sans-serif;

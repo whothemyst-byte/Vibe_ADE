@@ -10,6 +10,10 @@ export default function App() {
   return view.kind === "start" ? (
     <StartPage onOpen={(id) => setView({ kind: "wall", id })} />
   ) : (
-    <WallView wallId={view.id} onExit={() => setView({ kind: "start" })} />
+    <WallView
+      wallId={view.id}
+      onExit={() => setView({ kind: "start" })}
+      onSwitch={(id) => setView({ kind: "wall", id })}
+    />
   );
 }
