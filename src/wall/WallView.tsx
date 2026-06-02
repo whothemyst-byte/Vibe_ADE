@@ -12,6 +12,8 @@ import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../stor
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
 import { WallBackground } from "./WallBackground";
 import { BackgroundMenu } from "./BackgroundMenu";
+import { LaunchMenu } from "./LaunchMenu";
+import { usePresetStore } from "./presetStore";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
@@ -37,6 +39,8 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
   const backgroundRef = useRef<Background>(DEFAULT_BACKGROUND);
   const [gearOpen, setGearOpen] = useState(false);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
+  const presets = usePresetStore((s) => s.presets);
+  const [wallPath, setWallPath] = useState("");
 
   const saveTimer = useRef<number | null>(null);
   const savesEnabled = useRef(false);
@@ -100,6 +104,9 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
         : null;
       const api = apiRef.current;
       if (api && pendingScene.current) applyScene(api, pendingScene.current);
+      usePresetStore.getState().load();
+      const index = await loadIndex();
+      if (!cancelled) setWallPath(index.find((w) => w.id === wallId)?.path ?? "");
       window.setTimeout(() => { savesEnabled.current = true; }, 400);
     })();
     return () => { cancelled = true; if (saveTimer.current) window.clearTimeout(saveTimer.current); };
@@ -115,7 +122,7 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
     scheduleSave();
   }, [scheduleSave]);
 
-  const addTerminal = () => {
+  const addTerminal = (presetId: string) => {
     const api = apiRef.current;
     const appState = api?.getAppState() as AppStateLike | undefined;
     const viewport: Rect = appState ? excalidrawViewport(appState) : { x: 0, y: 0, w: 1200, h: 800 };
@@ -123,7 +130,7 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
     const terms: Rect[] = useTerminalStore.getState().terminals.map((t) => ({ x: t.x, y: t.y, w: t.w, h: t.h }));
     const { x, y } = findSpawnPoint(viewport, [...drawn, ...terms], TERMINAL_SIZE);
     useTerminalStore.getState().add({
-      id: crypto.randomUUID(), x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId: "plain", cwd: "", started: false,
+      id: crypto.randomUUID(), x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId, cwd: wallPath, started: false,
     });
   };
 
@@ -146,7 +153,7 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
         onChange={onChange as Parameters<typeof Excalidraw>[0]["onChange"]}
         initialData={{ appState: { viewBackgroundColor: "transparent" } }}
       />
-      <button className="add-terminal" onPointerDown={addTerminal}>+ Terminal</button>
+      <LaunchMenu presets={presets} onLaunch={addTerminal} />
       <TerminalOverlay camera={camera} />
     </div>
   );
