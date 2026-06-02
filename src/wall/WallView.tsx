@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Excalidraw } from "@excalidraw/excalidraw";
+import { Excalidraw, exportToBlob } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
@@ -7,7 +7,8 @@ import { TerminalOverlay } from "./TerminalOverlay";
 import { useTerminalStore } from "./terminalStore";
 import { findSpawnPoint, type Camera, type Rect } from "./transform";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
-import { loadWall } from "../store/persistence";
+import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
+import { DEFAULT_BACKGROUND, type WallDoc } from "../store/types";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
@@ -31,7 +32,53 @@ export function WallView({ wallId, onExit }: { wallId: string; onExit: () => voi
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
 
+  const saveTimer = useRef<number | null>(null);
+  const savesEnabled = useRef(false);
+
+  const buildDoc = (): WallDoc | null => {
+    const api = apiRef.current;
+    if (!api) return null;
+    const st = api.getAppState();
+    return {
+      scene: {
+        elements: [...api.getSceneElements()],
+        appState: { scrollX: st.scrollX, scrollY: st.scrollY, zoom: st.zoom },
+      },
+      terminals: useTerminalStore.getState().terminals.map(({ id, x, y, w, h, presetId, cwd }) => ({
+        id, x, y, w, h, presetId, cwd,
+      })),
+      background: DEFAULT_BACKGROUND,
+    };
+  };
+
+  const doSave = async () => {
+    const api = apiRef.current;
+    const doc = buildDoc();
+    if (!api || !doc) return;
+    await saveWall(wallId, doc);
+    try {
+      const blob = await exportToBlob({
+        elements: [...api.getSceneElements()] as readonly ExcalidrawElement[],
+        appState: { ...api.getAppState(), exportBackground: false },
+        files: api.getFiles(),
+        mimeType: "image/png",
+        maxWidthOrHeight: 480,
+      });
+      await saveThumbnail(wallId, new Uint8Array(await blob.arrayBuffer()));
+    } catch { /* thumbnail is best-effort */ }
+    const index = await loadIndex();
+    await saveIndex(index.map((w) => (w.id === wallId ? { ...w, updatedAt: Date.now() } : w)));
+  };
+
+  const scheduleSave = useCallback(() => {
+    if (!savesEnabled.current) return;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => { void doSave(); }, 800);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallId]);
+
   useEffect(() => {
+    savesEnabled.current = false;
     let cancelled = false;
     (async () => {
       const doc = await loadWall(wallId);
@@ -44,16 +91,20 @@ export function WallView({ wallId, onExit }: { wallId: string; onExit: () => voi
         : null;
       const api = apiRef.current;
       if (api && pendingScene.current) applyScene(api, pendingScene.current);
+      window.setTimeout(() => { savesEnabled.current = true; }, 400);
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; if (saveTimer.current) window.clearTimeout(saveTimer.current); };
   }, [wallId]);
+
+  useEffect(() => useTerminalStore.subscribe(scheduleSave), [scheduleSave]);
 
   const onChange = useCallback((_els: readonly unknown[], appState: AppStateLike) => {
     const next = excalidrawCamera(appState);
     setCamera((prev) =>
       prev.x === next.x && prev.y === next.y && prev.z === next.z ? prev : next
     );
-  }, []);
+    scheduleSave();
+  }, [scheduleSave]);
 
   const addTerminal = () => {
     const api = apiRef.current;
