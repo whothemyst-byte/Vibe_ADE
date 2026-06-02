@@ -18,6 +18,9 @@ pub fn backgrounds_dir(base: &Path) -> PathBuf {
 pub fn presets_path(base: &Path) -> PathBuf {
     base.join("presets.json")
 }
+pub fn tasks_path(base: &Path) -> PathBuf {
+    base.join("tasks.json")
+}
 
 #[cfg(test)]
 mod tests {

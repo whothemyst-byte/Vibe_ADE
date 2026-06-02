@@ -98,3 +98,18 @@ pub fn presets_load(app: AppHandle) -> Result<Option<String>, String> {
 pub fn presets_save(app: AppHandle, json: String) -> Result<(), String> {
     write_atomic(&super::paths::presets_path(&base(&app)?), json.as_bytes()).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn tasks_load(app: AppHandle) -> Result<String, String> {
+    let p = super::paths::tasks_path(&base(&app)?);
+    match fs::read_to_string(&p) {
+        Ok(s) => Ok(s),
+        Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => Ok("[]".to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn tasks_save(app: AppHandle, json: String) -> Result<(), String> {
+    write_atomic(&super::paths::tasks_path(&base(&app)?), json.as_bytes()).map_err(|e| e.to_string())
+}
