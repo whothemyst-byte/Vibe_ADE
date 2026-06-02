@@ -19,7 +19,10 @@ export default function App() {
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
 
   const onChange = useCallback((_els: readonly unknown[], appState: AppStateLike) => {
-    setCamera(excalidrawCamera(appState));
+    const next = excalidrawCamera(appState);
+    setCamera((prev) =>
+      prev.x === next.x && prev.y === next.y && prev.z === next.z ? prev : next
+    );
   }, []);
 
   const addTerminal = () => {
