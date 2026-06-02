@@ -9,7 +9,9 @@ import { useTerminalStore } from "./terminalStore";
 import { findSpawnPoint, type Camera, type Rect } from "./transform";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
-import { DEFAULT_BACKGROUND, type WallDoc } from "../store/types";
+import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
+import { WallBackground } from "./WallBackground";
+import { BackgroundMenu } from "./BackgroundMenu";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
@@ -31,6 +33,9 @@ function applyScene(
 export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit: () => void; onSwitch: (id: string) => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
+  const [background, setBackground] = useState<Background>(DEFAULT_BACKGROUND);
+  const backgroundRef = useRef<Background>(DEFAULT_BACKGROUND);
+  const [gearOpen, setGearOpen] = useState(false);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
 
   const saveTimer = useRef<number | null>(null);
@@ -48,7 +53,7 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
       terminals: useTerminalStore.getState().terminals.map(({ id, x, y, w, h, presetId, cwd }) => ({
         id, x, y, w, h, presetId, cwd,
       })),
-      background: DEFAULT_BACKGROUND,
+      background: backgroundRef.current,
     };
   };
 
@@ -84,6 +89,9 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
     (async () => {
       const doc = await loadWall(wallId);
       if (cancelled) return;
+      const bg = doc?.background ?? DEFAULT_BACKGROUND;
+      backgroundRef.current = bg;
+      setBackground(bg);
       useTerminalStore.setState({
         terminals: (doc?.terminals ?? []).map((t) => ({ ...t, started: false })),
       });
@@ -119,9 +127,16 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
     });
   };
 
+  const changeBg = (bg: Background) => { backgroundRef.current = bg; setBackground(bg); scheduleSave(); };
+
   return (
     <div className="wall-root">
+      <WallBackground background={background} />
       <Toolbar wallId={wallId} onBack={onExit} onSwitch={onSwitch} />
+      <button className="wall-gear" onClick={() => setGearOpen((o) => !o)} title="Background">⚙</button>
+      {gearOpen && (
+        <BackgroundMenu background={background} onChange={changeBg} onClose={() => setGearOpen(false)} />
+      )}
       <Excalidraw
         theme="dark"
         excalidrawAPI={(api) => {
