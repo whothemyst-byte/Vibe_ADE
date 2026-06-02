@@ -5,6 +5,8 @@ import "@xterm/xterm/css/xterm.css";
 import { HEADER_H } from "./transform";
 import { useTerminalStore, type TerminalState } from "./terminalStore";
 import { spawnPty, writePty, resizePty, killPty, onPtyData, onPtyExit } from "../pty/client";
+import { usePresetStore } from "./presetStore";
+import { resolvePreset } from "./presets";
 
 export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zoom: number }) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -13,6 +15,8 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
   const update = useTerminalStore((s) => s.update);
   const remove = useTerminalStore((s) => s.remove);
   const { id, started, w, h, cwd } = terminal;
+  const presets = usePresetStore((s) => s.presets);
+  const preset = resolvePreset(presets, terminal.presetId);
 
   useEffect(() => {
     if (!started || !bodyRef.current) return;
@@ -38,7 +42,14 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
       if (disposed) { uExit(); return; }
       unlisteners.push(uExit);
 
-      await spawnPty({ id, shell: "powershell.exe", cwd: cwd || undefined, rows: term.rows, cols: term.cols });
+      await spawnPty({
+        id,
+        shell: "powershell.exe",
+        cwd: cwd || undefined,
+        rows: term.rows,
+        cols: term.cols,
+        command: preset.command,
+      });
     })();
 
     return () => {
@@ -96,7 +107,7 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
   return (
     <>
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
-        <span className="terminal-title">{`Terminal ${id.slice(0, 4)}`}</span>
+        <span className="terminal-title">{preset.icon} {preset.label}</span>
         <button className="terminal-close" title="Close" onPointerDown={close}>
           &times;
         </button>
