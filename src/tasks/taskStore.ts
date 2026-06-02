@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type TaskStatus = "backlog" | "in-progress" | "done";
+export type TaskStatus = "backlog" | "in-progress" | "in-review" | "done";
 
 export type Task = {
   id: string;

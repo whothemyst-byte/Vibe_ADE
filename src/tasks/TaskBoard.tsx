@@ -1,17 +1,23 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import { useTaskStore, type Task, type TaskStatus } from "./taskStore";
 import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 
-const COLUMNS: { key: TaskStatus; label: string }[] = [
-  { key: "backlog", label: "Backlog" },
-  { key: "in-progress", label: "In progress" },
-  { key: "done", label: "Done" },
+const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
+  { key: "backlog", label: "Backlog", color: "#64748b" },
+  { key: "in-progress", label: "In progress", color: "#3b82f6" },
+  { key: "in-review", label: "In review", color: "#f59e0b" },
+  { key: "done", label: "Done", color: "#22c55e" },
 ];
 
 function TaskCard({
-  task, walls, onOpenWall,
-}: { task: Task; walls: WallMeta[]; onOpenWall: (id: string) => void }) {
+  task, walls, onOpenWall, onDragEndClear,
+}: {
+  task: Task;
+  walls: WallMeta[];
+  onOpenWall: (id: string) => void;
+  onDragEndClear: () => void;
+}) {
   const update = useTaskStore((s) => s.update);
   const remove = useTaskStore((s) => s.remove);
   const linkedWall = walls.find((w) => w.id === task.wallId);
@@ -21,12 +27,19 @@ function TaskCard({
         <span
           className="tb-grip"
           draggable
-          onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/plain", task.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragEnd={onDragEndClear}
           title="Drag to move"
-        >⠿</span>
+        >
+          ⠿
+        </span>
         <input
           className="tb-card-title"
           value={task.title}
+          placeholder="Untitled"
           onChange={(e) => update(task.id, { title: e.target.value })}
         />
         <button className="tb-card-del" onClick={() => remove(task.id)} title="Delete">×</button>
@@ -34,7 +47,7 @@ function TaskCard({
       <textarea
         className="tb-card-desc"
         value={task.description}
-        placeholder="Notes…"
+        placeholder="Add notes…"
         onChange={(e) => update(task.id, { description: e.target.value })}
       />
       <div className="tb-card-link">
@@ -63,6 +76,7 @@ export function TaskBoard({
 }: { onBack: () => void; onOpenWall: (id: string) => void }) {
   const tasks = useTaskStore((s) => s.tasks);
   const [walls, setWalls] = useState<WallMeta[]>([]);
+  const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
   const saveTimer = useRef<number | null>(null);
   const ready = useRef(false);
 
@@ -85,6 +99,7 @@ export function TaskBoard({
 
   const onDrop = (status: TaskStatus) => (e: DragEvent) => {
     e.preventDefault();
+    setDragOver(null);
     const id = e.dataTransfer.getData("text/plain");
     if (id) useTaskStore.getState().update(id, { status });
   };
@@ -93,7 +108,8 @@ export function TaskBoard({
     <div className="taskboard">
       <div className="tb-bar">
         <button className="cnvs-btn" onClick={onBack} title="Back">←</button>
-        <span className="tb-title">Taskboard</span>
+        <span className="tb-title">▦ Taskboard</span>
+        <span className="tb-total">{tasks.length} {tasks.length === 1 ? "task" : "tasks"}</span>
         <button className="tb-add" onClick={() => useTaskStore.getState().add("New task")}>+ Task</button>
       </div>
       <div className="tb-columns">
@@ -102,17 +118,30 @@ export function TaskBoard({
           return (
             <div
               key={col.key}
-              className="tb-col"
-              onDragOver={(e) => e.preventDefault()}
+              className={`tb-col${dragOver === col.key ? " drag-over" : ""}`}
+              style={{ "--accent": col.color } as CSSProperties}
+              onDragOver={(e) => { e.preventDefault(); if (dragOver !== col.key) setDragOver(col.key); }}
               onDrop={onDrop(col.key)}
             >
               <div className="tb-col-head">
-                {col.label} <span className="tb-count">{items.length}</span>
+                <span className="tb-dot" />
+                <span className="tb-col-label">{col.label}</span>
+                <span className="tb-count">{items.length}</span>
               </div>
               <div className="tb-col-body">
-                {items.map((t) => (
-                  <TaskCard key={t.id} task={t} walls={walls} onOpenWall={onOpenWall} />
-                ))}
+                {items.length === 0 ? (
+                  <div className="tb-empty">Drop tasks here</div>
+                ) : (
+                  items.map((t) => (
+                    <TaskCard
+                      key={t.id}
+                      task={t}
+                      walls={walls}
+                      onOpenWall={onOpenWall}
+                      onDragEndClear={() => setDragOver(null)}
+                    />
+                  ))
+                )}
               </div>
             </div>
           );
