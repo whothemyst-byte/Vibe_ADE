@@ -1,21 +1,51 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import { TerminalOverlay } from "./TerminalOverlay";
 import { useTerminalStore } from "./terminalStore";
 import { findSpawnPoint, type Camera, type Rect } from "./transform";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
+import { loadWall } from "../store/persistence";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
 
+function applyScene(
+  api: ExcalidrawImperativeAPI,
+  scene: { elements: unknown[]; appState: AppStateLike }
+) {
+  api.updateScene({
+    elements: scene.elements as readonly ExcalidrawElement[],
+    appState: {
+      scrollX: scene.appState.scrollX,
+      scrollY: scene.appState.scrollY,
+      zoom: { value: scene.appState.zoom.value as NormalizedZoomValue },
+    },
+  });
+}
+
 export function WallView({ wallId, onExit }: { wallId: string; onExit: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
+  const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
 
   useEffect(() => {
-    useTerminalStore.setState({ terminals: [] });
+    let cancelled = false;
+    (async () => {
+      const doc = await loadWall(wallId);
+      if (cancelled) return;
+      useTerminalStore.setState({
+        terminals: (doc?.terminals ?? []).map((t) => ({ ...t, started: false })),
+      });
+      pendingScene.current = doc
+        ? { elements: doc.scene.elements, appState: doc.scene.appState as AppStateLike }
+        : null;
+      const api = apiRef.current;
+      if (api && pendingScene.current) applyScene(api, pendingScene.current);
+    })();
+    return () => { cancelled = true; };
   }, [wallId]);
 
   const onChange = useCallback((_els: readonly unknown[], appState: AppStateLike) => {
@@ -44,6 +74,7 @@ export function WallView({ wallId, onExit }: { wallId: string; onExit: () => voi
         theme="dark"
         excalidrawAPI={(api) => {
           apiRef.current = api;
+          if (pendingScene.current) applyScene(api, pendingScene.current);
           setCamera(excalidrawCamera(api.getAppState() as AppStateLike));
         }}
         onChange={onChange as Parameters<typeof Excalidraw>[0]["onChange"]}
