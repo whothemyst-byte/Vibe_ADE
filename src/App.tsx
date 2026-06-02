@@ -49,7 +49,12 @@ export default function App() {
     <div className="wall-root">
       <Excalidraw
         theme="dark"
-        excalidrawAPI={(api) => { apiRef.current = api; }}
+        excalidrawAPI={(api) => {
+          apiRef.current = api;
+          // Excalidraw doesn't fire onChange on mount and its initial scroll is
+          // usually non-zero — seed the camera so the first terminal is placed right.
+          setCamera(excalidrawCamera(api.getAppState() as AppStateLike));
+        }}
         onChange={onChange as Parameters<typeof Excalidraw>[0]["onChange"]}
         initialData={{ appState: { viewBackgroundColor: "transparent" } }}
       />
