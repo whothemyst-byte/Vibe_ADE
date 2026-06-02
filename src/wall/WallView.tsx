@@ -133,8 +133,11 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
     // the initial load), look it up on demand so agents never start in the wrong dir.
     let cwd = wallPath;
     if (!cwd) cwd = (await loadIndex()).find((w) => w.id === wallId)?.path ?? "";
+    // Newly created terminals start immediately (no manual "Start" click). Terminals
+    // RESTORED from a saved wall still load idle (started:false in the load effect) so
+    // reopening a wall doesn't auto-spawn every agent at once.
     useTerminalStore.getState().add({
-      id: crypto.randomUUID(), x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId, cwd, started: false,
+      id: crypto.randomUUID(), x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId, cwd, started: true,
     });
   };
 
