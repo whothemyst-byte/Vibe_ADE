@@ -44,3 +44,22 @@ html, body, #root { height: 100%; margin: 0; }
   background: #1b2230; color: #e6e6e6; border: 1px solid #2a2f3a;
   font: 12px ui-monospace, monospace;
 }
+.wall-back {
+  position: absolute; top: 12px; left: 12px; z-index: 300;
+  padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  background: #1b2230; color: #e6e6e6; border: 1px solid #2a2f3a;
+}
+.start-page {
+  position: fixed; inset: 0; overflow: auto; padding: 32px;
+  background: #0b0e14; color: #e6e6e6; font-family: system-ui, sans-serif;
+}
+.start-title { font-size: 20px; margin: 0 0 20px; }
+.start-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.wall-card {
+  width: 220px; height: 150px; border-radius: 10px; cursor: pointer; text-align: left;
+  background: #11151c; border: 1px solid #2a2f3a; color: #e6e6e6; padding: 12px;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;
+}
+.wall-card-name { font-weight: 600; }
+.wall-card-path { font-size: 11px; color: #9aa4b2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.new-canvas { align-items: center; justify-content: center; border-style: dashed; color: #9aa4b2; }
