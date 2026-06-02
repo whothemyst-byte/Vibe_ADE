@@ -28,44 +28,35 @@ describe("worldRectToScreen", () => {
 });
 
 describe("findSpawnPoint", () => {
-  // A viewport large enough that a second window can fit beside a centered one.
   const viewport: Rect = { x: 0, y: 0, w: 2000, h: 1400 };
   const size = { w: 420, h: 260 };
 
-  it("centers in the viewport when nothing else is there", () => {
+  it("centers in viewport when there are no obstacles", () => {
     expect(findSpawnPoint(viewport, [], size)).toEqual({
       x: (2000 - 420) / 2,
       y: (1400 - 260) / 2,
     });
   });
 
-  it("returns a non-overlapping, fully-visible slot when the center is taken", () => {
-    const centered: Rect = { x: (2000 - 420) / 2, y: (1400 - 260) / 2, w: 420, h: 260 };
-    const got = findSpawnPoint(viewport, [centered], size);
-    const gotRect: Rect = { x: got.x, y: got.y, w: size.w, h: size.h };
-
-    // Does not overlap the existing centered window (respecting the gap)...
-    expect(rectsOverlap(gotRect, centered, 12)).toBe(false);
-    // ...and stays inside the viewport.
-    expect(got.x).toBeGreaterThanOrEqual(viewport.x);
-    expect(got.y).toBeGreaterThanOrEqual(viewport.y);
-    expect(got.x + size.w).toBeLessThanOrEqual(viewport.x + viewport.w);
-    expect(got.y + size.h).toBeLessThanOrEqual(viewport.y + viewport.h);
+  it("places the new window adjacent-right of a single obstacle with the gap, no overlap", () => {
+    const obstacle: Rect = { x: 100, y: 100, w: 420, h: 260 };
+    const got = findSpawnPoint(viewport, [obstacle], size);
+    // Expected: right of cluster
+    expect(got).toEqual({ x: 100 + 420 + 24, y: 100 });
+    const newRect: Rect = { x: got.x, y: got.y, w: size.w, h: size.h };
+    expect(rectsOverlap(newRect, obstacle, 24)).toBe(false);
   });
 
-  it("cascades near center when the viewport is too small for a free slot", () => {
-    const small: Rect = { x: 0, y: 0, w: 1000, h: 800 };
-    const centered: Rect = { x: (1000 - 420) / 2, y: (800 - 260) / 2, w: 420, h: 260 };
-    const got = findSpawnPoint(small, [centered], size);
-    // No free slot exists, so it offsets from the centered position (near focus).
-    expect(got).toEqual({ x: centered.x + 28, y: centered.y + 28 });
-  });
-
-  it("respects the viewport origin (pan offset)", () => {
-    const panned: Rect = { x: 5000, y: -2000, w: 1000, h: 800 };
-    expect(findSpawnPoint(panned, [], size)).toEqual({
-      x: 5000 + (1000 - 420) / 2,
-      y: -2000 + (800 - 260) / 2,
-    });
+  it("anchors to the union of multiple obstacles (placed right of the cluster), overlapping none", () => {
+    const obstacles: Rect[] = [
+      { x: 0, y: 0, w: 420, h: 260 },
+      { x: 500, y: 300, w: 420, h: 260 },
+    ];
+    // Union right = 500 + 420 = 920; expected x = 920 + 24 = 944
+    const got = findSpawnPoint(viewport, obstacles, size);
+    expect(got.x).toBe(920 + 24);
+    const newRect: Rect = { x: got.x, y: got.y, w: size.w, h: size.h };
+    expect(rectsOverlap(newRect, obstacles[0], 24)).toBe(false);
+    expect(rectsOverlap(newRect, obstacles[1], 24)).toBe(false);
   });
 });

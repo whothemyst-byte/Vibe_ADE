@@ -32,38 +32,68 @@ export function rectsOverlap(a: Rect, b: Rect, gap = 0): boolean {
   );
 }
 
+/** Returns the union bounding box of a non-empty array of rects. */
+function unionBBox(rects: Rect[]): Rect {
+  let minX = rects[0].x;
+  let minY = rects[0].y;
+  let maxRight = rects[0].x + rects[0].w;
+  let maxBottom = rects[0].y + rects[0].h;
+  for (let i = 1; i < rects.length; i++) {
+    const r = rects[i];
+    if (r.x < minX) minX = r.x;
+    if (r.y < minY) minY = r.y;
+    if (r.x + r.w > maxRight) maxRight = r.x + r.w;
+    if (r.y + r.h > maxBottom) maxBottom = r.y + r.h;
+  }
+  return { x: minX, y: minY, w: maxRight - minX, h: maxBottom - minY };
+}
+
 /**
- * Pick a top-left page-space point for a new `size` rect inside the current
- * `viewport` (page space) that does not overlap any `existing` rect. Prefers the
- * viewport center (the focused area); if that's occupied, scans a grid within the
- * viewport for the first free, fully-visible slot; if the viewport is full, cascades
- * from center so the new window still lands near the focus.
+ * Pick a top-left page-space point for a new `size` rect that lands adjacent to
+ * the cluster of existing obstacle rects, without overlapping any of them.
+ *
+ * Strategy ("cluster-adjacent"):
+ *  - No obstacles → return viewport-centered position.
+ *  - Otherwise compute the union bbox of all obstacles and try four candidate
+ *    positions adjacent to the cluster (right, below, left, above) in that order,
+ *    returning the first that does not overlap any obstacle. If all four overlap
+ *    (degenerate case), returns the right candidate.
  */
 export function findSpawnPoint(
   viewport: Rect,
-  existing: Rect[],
+  obstacles: Rect[],
   size: { w: number; h: number },
-  gap = 12
+  gap = 24
 ): { x: number; y: number } {
   const { w, h } = size;
-  const free = (x: number, y: number) =>
-    !existing.some((r) => rectsOverlap({ x, y, w, h }, r, gap));
 
-  const centered = {
-    x: viewport.x + (viewport.w - w) / 2,
-    y: viewport.y + (viewport.h - h) / 2,
-  };
-  if (free(centered.x, centered.y)) return centered;
-
-  const pad = 16;
-  const step = 40;
-  for (let y = viewport.y + pad; y + h <= viewport.y + viewport.h - pad; y += step) {
-    for (let x = viewport.x + pad; x + w <= viewport.x + viewport.w - pad; x += step) {
-      if (free(x, y)) return { x, y };
-    }
+  if (obstacles.length === 0) {
+    return {
+      x: viewport.x + (viewport.w - w) / 2,
+      y: viewport.y + (viewport.h - h) / 2,
+    };
   }
 
-  // Viewport is full — cascade from center so it's still near the focus.
-  const n = existing.length;
-  return { x: centered.x + n * 28, y: centered.y + n * 28 };
+  const union = unionBBox(obstacles);
+  const clusterLeft = union.x;
+  const clusterTop = union.y;
+  const clusterRight = union.x + union.w;
+  const clusterBottom = union.y + union.h;
+
+  const candidates = [
+    { x: clusterRight + gap, y: clusterTop },
+    { x: clusterLeft, y: clusterBottom + gap },
+    { x: clusterLeft - w - gap, y: clusterTop },
+    { x: clusterLeft, y: clusterTop - h - gap },
+  ];
+
+  const free = (x: number, y: number) =>
+    !obstacles.some((r) => rectsOverlap({ x, y, w, h }, r, gap));
+
+  for (const candidate of candidates) {
+    if (free(candidate.x, candidate.y)) return candidate;
+  }
+
+  // Fallback: right candidate (by construction never overlaps, but guard anyway)
+  return candidates[0];
 }

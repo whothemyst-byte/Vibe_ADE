@@ -1,7 +1,7 @@
 import { Tldraw, useEditor, createShapeId } from "tldraw";
 import "tldraw/tldraw.css";
 import "./App.css";
-import { TerminalShapeUtil, type TerminalShape } from "./wall/TerminalShape";
+import { TerminalShapeUtil } from "./wall/TerminalShape";
 import { TerminalOverlay } from "./wall/TerminalOverlay";
 import { findSpawnPoint, type Rect } from "./wall/transform";
 
@@ -13,11 +13,12 @@ function WallUi() {
   const addTerminal = () => {
     const vp = editor.getViewportPageBounds();
     const viewport: Rect = { x: vp.x, y: vp.y, w: vp.w, h: vp.h };
-    const existing: Rect[] = editor
+    const obstacles: Rect[] = editor
       .getCurrentPageShapes()
-      .filter((s): s is TerminalShape => s.type === "terminal")
-      .map((s) => ({ x: s.x, y: s.y, w: s.props.w, h: s.props.h }));
-    const { x, y } = findSpawnPoint(viewport, existing, TERMINAL_SIZE);
+      .map((s) => editor.getShapePageBounds(s))
+      .filter((b): b is NonNullable<typeof b> => !!b)
+      .map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
+    const { x, y } = findSpawnPoint(viewport, obstacles, TERMINAL_SIZE);
     editor.createShape({
       id: createShapeId(),
       type: "terminal",

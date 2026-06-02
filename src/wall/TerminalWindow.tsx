@@ -37,7 +37,10 @@ export function TerminalWindow({ shape, editor }: { shape: TerminalShape; editor
       if (disposed) { uData(); return; }
       unlisteners.push(uData);
 
-      const uExit = await onPtyExit(id, () => term.write("\r\n[process exited]\r\n"));
+      const uExit = await onPtyExit(id, () => {
+        if (disposed) return;
+        editor.deleteShapes([shape.id]);
+      });
       if (disposed) { uExit(); return; }
       unlisteners.push(uExit);
 
