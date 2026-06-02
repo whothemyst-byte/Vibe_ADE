@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { WallMeta, WallDoc } from "./types";
 import { DEFAULT_PRESETS, type Preset } from "../wall/presets";
+import type { Task } from "../tasks/taskStore";
 
 export async function loadIndex(): Promise<WallMeta[]> {
   return JSON.parse(await invoke<string>("index_load"));
@@ -44,6 +45,13 @@ export async function loadPresets(): Promise<Preset[]> {
 export async function pickFolder(): Promise<string | null> {
   const res = await open({ directory: true, multiple: false });
   return typeof res === "string" ? res : null;
+}
+
+export async function loadTasks(): Promise<Task[]> {
+  return JSON.parse(await invoke<string>("tasks_load"));
+}
+export function saveTasks(tasks: Task[]): Promise<void> {
+  return invoke("tasks_save", { json: JSON.stringify(tasks) });
 }
 
 /** File picker for a background image/video. Returns the absolute path or null. */
