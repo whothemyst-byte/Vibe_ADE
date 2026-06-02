@@ -11,6 +11,11 @@ html, body, #root { height: 100%; margin: 0; }
 }
 .terminal-window {
   position: absolute; top: 0; left: 0; will-change: transform;
+  border: 1px solid #2a2f3a; border-radius: 8px; background: #0b0e14; overflow: hidden;
+}
+.terminal-resize {
+  position: absolute; right: 0; bottom: 0; width: 14px; height: 14px;
+  cursor: nwse-resize; pointer-events: all;
 }
 .terminal-header {
   position: absolute; top: 0; left: 0; right: 0;
