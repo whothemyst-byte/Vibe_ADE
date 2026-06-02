@@ -47,6 +47,7 @@ export function StartPage({ onOpen }: { onOpen: (id: string) => void }) {
     const id = crypto.randomUUID();
     const meta: WallMeta = { id, name: basename(path), path, updatedAt: Date.now(), isCurrent: true };
     const next = [...walls.map((w) => ({ ...w, isCurrent: false })), meta];
+    setWalls(next);
     await saveIndex(next);
     onOpen(id);
   };

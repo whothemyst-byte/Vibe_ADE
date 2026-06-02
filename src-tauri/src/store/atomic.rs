@@ -8,7 +8,13 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).context("create_dir_all")?;
     }
-    let tmp = path.with_extension("tmp");
+    // Unique temp name so concurrent writes to sibling files that share a stem
+    // (e.g. <id>.json and <id>.png) never collide on the same temp path.
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp = path.with_extension(format!("tmp.{nanos}"));
     fs::write(&tmp, bytes).context("write temp")?;
     fs::rename(&tmp, path).context("rename temp over target")?;
     Ok(())

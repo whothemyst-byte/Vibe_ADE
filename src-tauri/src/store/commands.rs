@@ -4,6 +4,16 @@ use tauri::{AppHandle, Manager};
 use super::atomic::write_atomic;
 use super::paths::{index_path, thumb_path, wall_path};
 
+/// Reject ids that could escape the walls dir. Frontend ids are UUIDs, so this is
+/// defense-in-depth against path traversal via a crafted id.
+fn safe_id(id: &str) -> Result<(), String> {
+    if !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        Ok(())
+    } else {
+        Err("invalid wall id".to_string())
+    }
+}
+
 /// App-data base dir, created if missing.
 fn base(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -28,6 +38,7 @@ pub fn index_save(app: AppHandle, json: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn wall_load(app: AppHandle, id: String) -> Result<Option<String>, String> {
+    safe_id(&id)?;
     let p = wall_path(&base(&app)?, &id);
     match fs::read_to_string(&p) {
         Ok(s) => Ok(Some(s)),
@@ -38,11 +49,13 @@ pub fn wall_load(app: AppHandle, id: String) -> Result<Option<String>, String> {
 
 #[tauri::command]
 pub fn wall_save(app: AppHandle, id: String, json: String) -> Result<(), String> {
+    safe_id(&id)?;
     write_atomic(&wall_path(&base(&app)?, &id), json.as_bytes()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn wall_delete(app: AppHandle, id: String) -> Result<(), String> {
+    safe_id(&id)?;
     let b = base(&app)?;
     for p in [wall_path(&b, &id), thumb_path(&b, &id)] {
         if let Err(e) = fs::remove_file(&p) {
@@ -56,11 +69,13 @@ pub fn wall_delete(app: AppHandle, id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn thumb_save(app: AppHandle, id: String, bytes: Vec<u8>) -> Result<(), String> {
+    safe_id(&id)?;
     write_atomic(&thumb_path(&base(&app)?, &id), &bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn thumb_load(app: AppHandle, id: String) -> Result<Option<Vec<u8>>, String> {
+    safe_id(&id)?;
     let p = thumb_path(&base(&app)?, &id);
     match fs::read(&p) {
         Ok(b) => Ok(Some(b)),
