@@ -44,29 +44,35 @@ html, body, #root { height: 100%; margin: 0; }
   background: #1b2230; color: #e6e6e6; border: 1px solid #2a2f3a;
   font: 12px ui-monospace, monospace;
 }
+/* Styled to match Excalidraw's dark tool island so the whole top row reads as
+   one cohesive bar (island bg #232329, light icons, hover #363541). */
 .cnvs-toolbar {
-  /* Top-left, clear of Excalidraw's hamburger (left) and its centered tool island. */
-  position: absolute; top: 12px; left: 56px; z-index: 320;
-  display: flex; align-items: center; gap: 6px;
-  background: #11151c; border: 1px solid #2a2f3a; border-radius: 10px; padding: 4px;
+  position: absolute; top: 14px; left: 60px; z-index: 320;
+  display: flex; align-items: center; gap: 2px;
+  background: #232329; border: none; border-radius: 10px; padding: 4px 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .4), 0 0 0 1px rgba(0, 0, 0, .2);
 }
 .cnvs-btn, .cnvs-name {
-  background: transparent; color: #e6e6e6; border: none; cursor: pointer;
-  padding: 4px 10px; border-radius: 6px; font-size: 13px;
+  display: inline-flex; align-items: center; gap: 6px; line-height: 1;
+  background: transparent; color: #d8d8dc; border: none; cursor: pointer;
+  padding: 6px 10px; border-radius: 8px; font-size: 13px;
 }
-.cnvs-btn:hover, .cnvs-name:hover { background: #1b2230; }
-.cnvs-caret { color: #9aa4b2; font-size: 10px; }
+.cnvs-btn { min-width: 32px; justify-content: center; }
+.cnvs-btn:hover, .cnvs-name:hover { background: #363541; }
+.cnvs-caret { color: #8b8b95; font-size: 10px; }
+.cnvs-sep { width: 1px; align-self: stretch; margin: 4px 2px; background: rgba(255, 255, 255, .1); }
 .cnvs-menu {
   position: absolute; top: 100%; left: 0; margin-top: 6px; min-width: 180px;
-  background: #11151c; border: 1px solid #2a2f3a; border-radius: 8px; padding: 4px;
+  background: #232329; border: none; border-radius: 8px; padding: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
   display: flex; flex-direction: column; max-height: 320px; overflow: auto;
 }
 .cnvs-menu-item {
-  background: transparent; color: #e6e6e6; border: none; cursor: pointer;
+  background: transparent; color: #d8d8dc; border: none; cursor: pointer;
   text-align: left; padding: 6px 10px; border-radius: 6px; font-size: 13px;
 }
-.cnvs-menu-item:hover { background: #1b2230; }
-.cnvs-menu-item.active { color: #6ea8ff; }
+.cnvs-menu-item:hover { background: #363541; }
+.cnvs-menu-item.active { color: #a8a5ff; }
 .start-page {
   position: fixed; inset: 0; overflow: auto; padding: 32px;
   background: #0b0e14; color: #e6e6e6; font-family: system-ui, sans-serif;
@@ -105,18 +111,16 @@ html, body, #root { height: 100%; margin: 0; }
    `.wall-root > :not(.wall-bg)` rule — its specificity overrides the absolute
    positioning of the floating controls and collapses them into document flow. */
 .wall-bg { position: absolute; inset: 0; z-index: -1; object-fit: cover; width: 100%; height: 100%; }
-.wall-gear {
-  position: absolute; top: 56px; right: 12px; z-index: 320; width: 32px; height: 32px;
-  border-radius: 8px; cursor: pointer; background: #11151c; color: #e6e6e6; border: 1px solid #2a2f3a;
-}
+/* Background menu drops below the left CNVS pill (the gear now lives inside it). */
 .bg-menu {
-  position: absolute; top: 96px; right: 12px; z-index: 320; min-width: 160px;
-  background: #11151c; border: 1px solid #2a2f3a; border-radius: 8px; padding: 6px;
+  position: absolute; top: 58px; left: 60px; z-index: 320; min-width: 160px;
+  background: #232329; border: none; border-radius: 8px; padding: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
   display: flex; flex-direction: column; gap: 4px;
 }
 .bg-row {
   display: flex; align-items: center; justify-content: space-between;
-  background: transparent; color: #e6e6e6; border: none; cursor: pointer;
+  background: transparent; color: #d8d8dc; border: none; cursor: pointer;
   padding: 6px 8px; border-radius: 6px; font-size: 13px; text-align: left;
 }
-.bg-row:hover { background: #1b2230; }
+.bg-row:hover { background: #363541; }

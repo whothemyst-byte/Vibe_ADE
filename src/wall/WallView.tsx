@@ -132,8 +132,7 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
   return (
     <div className="wall-root">
       <WallBackground background={background} />
-      <Toolbar wallId={wallId} onBack={onExit} onSwitch={onSwitch} />
-      <button className="wall-gear" onClick={() => setGearOpen((o) => !o)} title="Background">⚙</button>
+      <Toolbar wallId={wallId} onBack={onExit} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} />
       {gearOpen && (
         <BackgroundMenu background={background} onChange={changeBg} onClose={() => setGearOpen(false)} />
       )}
