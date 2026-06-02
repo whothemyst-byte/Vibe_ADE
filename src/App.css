@@ -158,3 +158,20 @@ html, body, #root { height: 100%; margin: 0; }
 }
 .tb-title { font-size: 16px; font-weight: 600; }
 .tb-columns { flex: 1; display: flex; gap: 16px; padding: 16px; overflow: auto; }
+.tb-add { margin-left: auto; background: #232329; color: #d8d8dc; border: none; border-radius: 8px; cursor: pointer; padding: 6px 12px; font-size: 13px; }
+.tb-add:hover { background: #363541; }
+.tb-col { flex: 1; min-width: 240px; max-width: 360px; background: #0e1220; border: 1px solid #1c2030; border-radius: 10px; display: flex; flex-direction: column; }
+.tb-col-head { padding: 10px 12px; font-size: 12px; font-weight: 600; color: #9aa4b2; border-bottom: 1px solid #1c2030; display: flex; gap: 6px; align-items: center; }
+.tb-count { color: #5b6577; font-weight: 400; }
+.tb-col-body { flex: 1; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.tb-card { background: #151a28; border: 1px solid #232a3d; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.tb-card-top { display: flex; align-items: center; gap: 6px; }
+.tb-grip { cursor: grab; color: #5b6577; user-select: none; }
+.tb-card-title { flex: 1; background: transparent; border: none; color: #e6e6e6; font-size: 13px; font-weight: 600; outline: none; }
+.tb-card-del { background: transparent; border: none; color: #5b6577; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
+.tb-card-del:hover { color: #fff; }
+.tb-card-desc { background: #0e1220; border: 1px solid #232a3d; border-radius: 6px; color: #cbd2dd; font-size: 12px; resize: vertical; min-height: 34px; padding: 6px; outline: none; font-family: inherit; }
+.tb-card-link { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tb-chip { background: #1e3a8a; color: #cfe0ff; border: none; border-radius: 6px; cursor: pointer; padding: 3px 8px; font-size: 11px; }
+.tb-chip:hover { background: #27499f; }
+.tb-link-select { background: #0e1220; color: #9aa4b2; border: 1px solid #232a3d; border-radius: 6px; font-size: 11px; padding: 3px 6px; }
