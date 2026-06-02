@@ -32,7 +32,7 @@ function applyScene(
   });
 }
 
-export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit: () => void; onSwitch: (id: string) => void }) {
+export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string; onExit: () => void; onSwitch: (id: string) => void; onTasks: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [background, setBackground] = useState<Background>(DEFAULT_BACKGROUND);
@@ -146,7 +146,7 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
   return (
     <div className="wall-root">
       <WallBackground background={background} />
-      <Toolbar wallId={wallId} onBack={onExit} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} />
+      <Toolbar wallId={wallId} onBack={onExit} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onTasks={onTasks} />
       {gearOpen && (
         <BackgroundMenu background={background} onChange={changeBg} onClose={() => setGearOpen(false)} />
       )}

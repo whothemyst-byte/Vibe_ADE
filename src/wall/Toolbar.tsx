@@ -3,8 +3,8 @@ import { loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 
 export function Toolbar({
-  wallId, onBack, onSwitch, onGear,
-}: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void }) {
+  wallId, onBack, onSwitch, onGear, onTasks,
+}: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void; onTasks: () => void }) {
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [open, setOpen] = useState(false);
   useEffect(() => { loadIndex().then(setWalls).catch(() => setWalls([])); }, [wallId]);
@@ -18,6 +18,7 @@ export function Toolbar({
       </button>
       <span className="cnvs-sep" />
       <button className="cnvs-btn" onClick={onGear} title="Background">⚙</button>
+      <button className="cnvs-btn" onClick={onTasks} title="Taskboard">▦</button>
       {open && (
         <div className="cnvs-menu" onMouseLeave={() => setOpen(false)}>
           {walls.map((w) => (

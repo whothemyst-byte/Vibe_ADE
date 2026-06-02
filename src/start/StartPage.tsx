@@ -35,7 +35,7 @@ function WallCard({ meta, onOpen, onDelete }: { meta: WallMeta; onOpen: () => vo
   );
 }
 
-export function StartPage({ onOpen }: { onOpen: (id: string) => void }) {
+export function StartPage({ onOpen, onTasks }: { onOpen: (id: string) => void; onTasks: () => void }) {
   const [walls, setWalls] = useState<WallMeta[]>([]);
   useEffect(() => {
     loadIndex().then(setWalls).catch(() => setWalls([]));
@@ -61,7 +61,10 @@ export function StartPage({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <div className="start-page">
-      <h1 className="start-title">Walls</h1>
+      <div className="start-head">
+        <h1 className="start-title">Walls</h1>
+        <button className="start-tasks" onClick={onTasks}>▦ Taskboard</button>
+      </div>
       <div className="start-grid">
         {walls.map((w) => (
           <WallCard key={w.id} meta={w} onOpen={() => onOpen(w.id)} onDelete={() => remove(w.id)} />
