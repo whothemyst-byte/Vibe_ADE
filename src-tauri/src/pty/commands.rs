@@ -12,13 +12,14 @@ pub async fn pty_spawn(
     cwd: Option<String>,
     rows: u16,
     cols: u16,
+    command: Option<String>,
 ) -> Result<(), String> {
     if registry.contains(&id) {
         return Ok(()); // already running; idempotent
     }
     let handle = spawn(
         app,
-        SpawnConfig { id: id.clone(), shell, cwd, rows, cols },
+        SpawnConfig { id: id.clone(), shell, cwd, rows, cols, command },
     )
     .map_err(|e| e.to_string())?;
     registry.insert(id, handle);

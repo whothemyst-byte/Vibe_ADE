@@ -13,6 +13,10 @@ pub struct SpawnConfig {
     pub cwd: Option<String>,
     pub rows: u16,
     pub cols: u16,
+    /// Optional command typed into the shell after a warm-up delay (e.g. "claude").
+    /// Used to launch an agent CLI inside the spawned shell rather than spawning the
+    /// CLI's .cmd shim directly under ConPTY.
+    pub command: Option<String>,
 }
 
 pub fn data_channel(id: &str) -> String {
@@ -75,6 +79,17 @@ pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
         }
         let _ = reader_app.emit(&exit_channel(&id), ());
     });
+
+    // Optional auto-run: type the command into the shell once it has warmed up.
+    if let Some(cmd_line) = cfg.command.clone() {
+        let inject_writer = writer.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+            let mut w = inject_writer.lock().await;
+            let _ = w.write_all(format!("{cmd_line}\r\n").as_bytes());
+            let _ = w.flush();
+        });
+    }
 
     // Command loop on the tokio runtime.
     tokio::spawn(async move {
