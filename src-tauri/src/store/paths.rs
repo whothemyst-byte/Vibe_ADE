@@ -15,6 +15,9 @@ pub fn thumb_path(base: &Path, id: &str) -> PathBuf {
 pub fn backgrounds_dir(base: &Path) -> PathBuf {
     base.join("backgrounds")
 }
+pub fn presets_path(base: &Path) -> PathBuf {
+    base.join("presets.json")
+}
 
 #[cfg(test)]
 mod tests {

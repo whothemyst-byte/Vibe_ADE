@@ -19,6 +19,8 @@ pub fn run() {
             store::commands::wall_delete,
             store::commands::thumb_save,
             store::commands::thumb_load,
+            store::commands::presets_load,
+            store::commands::presets_save,
             store::backgrounds::import_background,
         ])
         .run(tauri::generate_context!())

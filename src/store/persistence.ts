@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { WallMeta, WallDoc } from "./types";
+import { DEFAULT_PRESETS, type Preset } from "../wall/presets";
 
 export async function loadIndex(): Promise<WallMeta[]> {
   return JSON.parse(await invoke<string>("index_load"));
@@ -29,6 +30,14 @@ export async function loadThumbnailUrl(id: string): Promise<string | null> {
 }
 export function importBackground(srcPath: string, destName: string): Promise<string> {
   return invoke("import_background", { srcPath, destName });
+}
+
+export async function loadPresets(): Promise<Preset[]> {
+  const s = await invoke<string | null>("presets_load");
+  if (s) return JSON.parse(s) as Preset[];
+  // First run: write the defaults so the user has a presets.json to edit.
+  await invoke("presets_save", { json: JSON.stringify(DEFAULT_PRESETS, null, 2) });
+  return DEFAULT_PRESETS;
 }
 
 /** Folder picker for "New canvas". Returns the chosen absolute path or null. */
