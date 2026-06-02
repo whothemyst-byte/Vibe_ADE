@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { Editor } from "@tldraw/editor";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -73,12 +73,54 @@ export function TerminalWindow({ shape, editor }: { shape: TerminalShape; editor
   const start = () =>
     editor.updateShape({ id: shape.id, type: "terminal", props: { started: true } });
 
-  if (!started) {
-    return (
-      <button className="terminal-start" onPointerDown={(e) => { e.stopPropagation(); start(); }}>
-        &#9655; Start
-      </button>
-    );
-  }
-  return <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H }} />;
+  // Close: deleting the shape unmounts this window, whose cleanup kills the PTY.
+  const close = (e: ReactPointerEvent) => {
+    e.stopPropagation();
+    editor.deleteShapes([shape.id]);
+  };
+
+  // Drag the window by its header. The overlay sits above tldraw, so tldraw never
+  // sees these pointer events — we move the shape ourselves (screen delta / zoom).
+  const beginDrag = (e: ReactPointerEvent) => {
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origin = { x: shape.x, y: shape.y };
+    const z = editor.getCamera().z;
+    const onMove = (ev: PointerEvent) => {
+      editor.updateShape({
+        id: shape.id,
+        type: "terminal",
+        x: origin.x + (ev.clientX - startX) / z,
+        y: origin.y + (ev.clientY - startY) / z,
+      });
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  return (
+    <>
+      <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
+        <span className="terminal-title">{shape.props.label}</span>
+        <button className="terminal-close" title="Close" onPointerDown={close}>
+          &times;
+        </button>
+      </div>
+      {started ? (
+        <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H }} />
+      ) : (
+        <button
+          className="terminal-start"
+          onPointerDown={(e) => { e.stopPropagation(); start(); }}
+        >
+          &#9655; Start
+        </button>
+      )}
+    </>
+  );
 }
