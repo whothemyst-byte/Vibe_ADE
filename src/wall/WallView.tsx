@@ -122,15 +122,19 @@ export function WallView({ wallId, onExit, onSwitch }: { wallId: string; onExit:
     scheduleSave();
   }, [scheduleSave]);
 
-  const addTerminal = (presetId: string) => {
+  const addTerminal = async (presetId: string) => {
     const api = apiRef.current;
     const appState = api?.getAppState() as AppStateLike | undefined;
     const viewport: Rect = appState ? excalidrawViewport(appState) : { x: 0, y: 0, w: 1200, h: 800 };
     const drawn: Rect[] = (api?.getSceneElements() ?? []).map((e) => ({ x: e.x, y: e.y, w: e.width, h: e.height }));
     const terms: Rect[] = useTerminalStore.getState().terminals.map((t) => ({ x: t.x, y: t.y, w: t.w, h: t.h }));
     const { x, y } = findSpawnPoint(viewport, [...drawn, ...terms], TERMINAL_SIZE);
+    // Default cwd to the wall folder. If the path hasn't resolved yet (click during
+    // the initial load), look it up on demand so agents never start in the wrong dir.
+    let cwd = wallPath;
+    if (!cwd) cwd = (await loadIndex()).find((w) => w.id === wallId)?.path ?? "";
     useTerminalStore.getState().add({
-      id: crypto.randomUUID(), x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId, cwd: wallPath, started: false,
+      id: crypto.randomUUID(), x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId, cwd, started: false,
     });
   };
 
