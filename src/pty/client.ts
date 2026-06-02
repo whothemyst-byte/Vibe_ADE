@@ -10,6 +10,7 @@ export function spawnPty(args: {
   cwd?: string;
   rows: number;
   cols: number;
+  command?: string;
 }): Promise<void> {
   return invoke("pty_spawn", args);
 }
