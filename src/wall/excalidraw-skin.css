@@ -2,6 +2,14 @@
    Scoped reskin of the embedded Excalidraw chrome. All rules live under .wall-root
    so they never touch other views. Tokens come from theme.css. */
 
+/* ─── Keep Excalidraw's UI chrome above the terminal overlay ─── */
+/* Terminals render in a DOM overlay at z-index 250 (App.css .terminal-overlay).
+   Excalidraw's UI layer sits at z-index 4, so the properties panel / zoom footer
+   would hide behind terminals. The wrapper is pointer-events:none (only its panels
+   capture clicks), so lifting it above the terminals keeps the panels visible while
+   the interactive canvas (z-index 2, below 250) still lets terminals receive input. */
+.wall-root .layer-ui__wrapper { z-index: 260 !important; }
+
 /* ─── Hide the stock chrome we replace ─── */
 .wall-root .App-toolbar,                   /* stock top tool row (replaced by our ToolsIsland) */
 .wall-root .dropdown-menu-button,          /* hamburger / main menu button */
