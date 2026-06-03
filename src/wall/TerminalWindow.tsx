@@ -7,6 +7,7 @@ import { useTerminalStore, type TerminalState } from "./terminalStore";
 import { spawnPty, writePty, resizePty, killPty, onPtyData, onPtyExit } from "../pty/client";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset } from "./presets";
+import { presetTierColor } from "./presetTier";
 
 export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zoom: number }) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -20,7 +21,17 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
 
   useEffect(() => {
     if (!started || !bodyRef.current) return;
-    const term = new Terminal({ fontSize: 13, fontFamily: "ui-monospace, monospace", theme: { background: "#0b0e14" } });
+    const term = new Terminal({
+      fontSize: 13,
+      fontFamily: '"Geist Mono", ui-monospace, monospace',
+      theme: {
+        background: "#12110f",
+        foreground: "#f3eee5",
+        cursor: "#d79a3d",
+        cursorAccent: "#12110f",
+        selectionBackground: "rgba(215, 154, 61, .28)",
+      },
+    });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(bodyRef.current);
@@ -107,7 +118,8 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
   return (
     <>
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
-        <span className="terminal-title">{preset.icon} {preset.label}</span>
+        <span className="terminal-tier" style={{ background: presetTierColor(preset.id) }} />
+        <span className="terminal-title">{preset.label}</span>
         <button className="terminal-close" title="Close" onPointerDown={close}>
           &times;
         </button>

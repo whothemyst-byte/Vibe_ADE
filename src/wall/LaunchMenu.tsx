@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Preset } from "./presets";
+import { presetTierColor } from "./presetTier";
 
 export function LaunchMenu({
   presets, onLaunch,
@@ -17,7 +18,7 @@ export function LaunchMenu({
               className="launch-item"
               onPointerDown={() => { setOpen(false); onLaunch(p.id); }}
             >
-              <span className="launch-ic">{p.icon}</span>
+              <span className="launch-ic" style={{ background: presetTierColor(p.id), color: "transparent" }} />
               {p.label}
             </button>
           ))}

@@ -23,45 +23,43 @@
   font-size: 13px; font-family: var(--font-ui); transition: background .14s, color .14s;
 }
 .launch-item:hover { background: rgba(243, 238, 229, .06); color: var(--text); }
-.launch-ic { width: 16px; text-align: center; color: var(--accent); }
-.terminal-overlay {
-  position: absolute; inset: 0; z-index: 250; pointer-events: none;
-}
+.launch-ic { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.terminal-overlay { position: absolute; inset: 0; z-index: 250; pointer-events: none; }
 .terminal-window {
   position: absolute; top: 0; left: 0; will-change: transform;
-  border: 1px solid #2a2f3a; border-radius: 8px; background: #0b0e14; overflow: hidden;
+  border: 1px solid var(--rule); border-radius: var(--radius); background: var(--bg); overflow: hidden;
+  box-shadow: var(--shadow); transition: border-color .14s, box-shadow .14s;
 }
-.terminal-resize {
-  position: absolute; right: 0; bottom: 0; width: 14px; height: 14px;
-  cursor: nwse-resize; pointer-events: all;
-}
+.terminal-window:focus-within { border-color: var(--accent); box-shadow: var(--focus), var(--shadow); }
+.terminal-resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; pointer-events: all; }
 .terminal-header {
   position: absolute; top: 0; left: 0; right: 0;
-  display: flex; align-items: center; justify-content: space-between; gap: 6px;
-  padding: 0 6px 0 10px; box-sizing: border-box;
-  background: #11151c; border-bottom: 1px solid #2a2f3a; border-radius: 8px 8px 0 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 8px 0 10px; box-sizing: border-box;
+  background: var(--glass); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rule); border-radius: var(--radius) var(--radius) 0 0;
   pointer-events: all; cursor: grab; user-select: none;
 }
 .terminal-header:active { cursor: grabbing; }
+.terminal-tier { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .terminal-title {
-  color: #9aa4b2; font: 11px ui-monospace, monospace;
+  flex: 1; color: var(--text-muted); font: 500 11px var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .terminal-close {
   pointer-events: all; cursor: pointer; border: none; background: transparent;
-  color: #9aa4b2; font-size: 15px; line-height: 1; padding: 2px 7px; border-radius: 4px;
+  color: var(--text-faint); font-size: 15px; line-height: 1; padding: 2px 7px; border-radius: 6px;
+  transition: color .14s, background .14s;
 }
-.terminal-close:hover { background: #2a2f3a; color: #fff; }
-.terminal-body {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  pointer-events: all; background: #0b0e14; padding: 4px;
-}
+.terminal-close:hover { background: rgba(192, 86, 63, .16); color: var(--danger); }
+.terminal-body { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: all; background: var(--bg); padding: 4px; }
 .terminal-start {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  pointer-events: all; padding: 6px 14px; border-radius: 8px; cursor: pointer;
-  background: #1b2230; color: #e6e6e6; border: 1px solid #2a2f3a;
-  font: 12px ui-monospace, monospace;
+  pointer-events: all; padding: 7px 16px; border-radius: var(--radius-sm); cursor: pointer;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-dim);
+  font: 600 12px var(--font-ui); transition: background .14s;
 }
+.terminal-start:hover { background: rgba(215, 154, 61, .22); }
 .cnvs-toolbar {
   position: absolute; top: 14px; left: 60px; z-index: 320;
   display: flex; align-items: center; gap: 2px;
