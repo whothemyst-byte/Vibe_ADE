@@ -13,6 +13,8 @@ import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/type
 import { WallBackground } from "./WallBackground";
 import { BackgroundMenu } from "./BackgroundMenu";
 import { LaunchMenu } from "./LaunchMenu";
+import { ToolsIsland } from "./ToolsIsland";
+import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
@@ -35,6 +37,7 @@ function applyScene(
 export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string; onExit: () => void; onSwitch: (id: string) => void; onTasks: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
+  const [activeType, setActiveType] = useState<string>("selection");
   const [background, setBackground] = useState<Background>(DEFAULT_BACKGROUND);
   const backgroundRef = useRef<Background>(DEFAULT_BACKGROUND);
   const [gearOpen, setGearOpen] = useState(false);
@@ -115,6 +118,8 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
   useEffect(() => useTerminalStore.subscribe(scheduleSave), [scheduleSave]);
 
   const onChange = useCallback((_els: readonly unknown[], appState: AppStateLike) => {
+    const tool = (appState as { activeTool?: { type?: string } }).activeTool?.type;
+    if (tool) setActiveType(tool);
     const next = excalidrawCamera(appState);
     setCamera((prev) =>
       prev.x === next.x && prev.y === next.y && prev.z === next.z ? prev : next
@@ -143,6 +148,16 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
 
   const changeBg = (bg: Background) => { backgroundRef.current = bg; setBackground(bg); scheduleSave(); };
 
+  const selectTool = (tool: ToolDef) => {
+    // tool.type is a literal union that includes "image"; assert to setActiveTool's exact
+    // parameter union so the discriminated type checks (ExcalidrawImperativeAPI is already
+    // imported at the top of this file).
+    apiRef.current?.setActiveTool(
+      { type: tool.type } as Parameters<ExcalidrawImperativeAPI["setActiveTool"]>[0]
+    );
+    setActiveType(tool.type);
+  };
+
   return (
     <div className="wall-root">
       <WallBackground background={background} />
@@ -152,6 +167,17 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       )}
       <Excalidraw
         theme="dark"
+        UIOptions={{
+          canvasActions: {
+            changeViewBackgroundColor: false,
+            clearCanvas: false,
+            loadScene: false,
+            saveToActiveFile: false,
+            toggleTheme: false,
+            export: false,
+            saveAsImage: false,
+          },
+        }}
         excalidrawAPI={(api) => {
           apiRef.current = api;
           if (pendingScene.current) applyScene(api, pendingScene.current);
@@ -161,6 +187,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
         initialData={{ appState: { viewBackgroundColor: "transparent" } }}
       />
       <LaunchMenu presets={presets} onLaunch={addTerminal} />
+      <ToolsIsland activeType={activeType} onSelect={selectTool} />
       <TerminalOverlay camera={camera} />
     </div>
   );
