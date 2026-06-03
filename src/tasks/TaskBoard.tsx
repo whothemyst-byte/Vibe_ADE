@@ -4,10 +4,10 @@ import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 
 const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
-  { key: "backlog", label: "Backlog", color: "#64748b" },
-  { key: "in-progress", label: "In progress", color: "#3b82f6" },
-  { key: "in-review", label: "In review", color: "#f59e0b" },
-  { key: "done", label: "Done", color: "#22c55e" },
+  { key: "backlog", label: "Backlog", color: "var(--text-muted)" },
+  { key: "in-progress", label: "In progress", color: "var(--accent)" },
+  { key: "in-review", label: "In review", color: "var(--info)" },
+  { key: "done", label: "Done", color: "var(--ok)" },
 ];
 
 function TaskCard({
@@ -119,7 +119,7 @@ export function TaskBoard({
             <div
               key={col.key}
               className={`tb-col${dragOver === col.key ? " drag-over" : ""}`}
-              style={{ "--accent": col.color } as CSSProperties}
+              style={{ "--col": col.color } as CSSProperties}
               onDragOver={(e) => { e.preventDefault(); if (dragOver !== col.key) setDragOver(col.key); }}
               onDrop={onDrop(col.key)}
             >
