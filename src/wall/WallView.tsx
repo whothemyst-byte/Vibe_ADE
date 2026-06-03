@@ -3,6 +3,7 @@ import { Excalidraw, exportToBlob } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
+import "./excalidraw-skin.css";
 import { Toolbar } from "./Toolbar";
 import { TerminalOverlay } from "./TerminalOverlay";
 import { useTerminalStore } from "./terminalStore";

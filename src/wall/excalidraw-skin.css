@@ -1,0 +1,47 @@
+/* src/wall/excalidraw-skin.css
+   Scoped reskin of the embedded Excalidraw chrome. All rules live under .wall-root
+   so they never touch other views. Tokens come from theme.css. */
+
+/* ─── Hide the stock chrome we replace ─── */
+.wall-root .App-toolbar,                   /* stock top tool row (replaced by our ToolsIsland) */
+.wall-root .dropdown-menu-button,          /* hamburger / main menu button */
+.wall-root .layer-ui__wrapper__top-right,  /* share / collab / save cluster (top-right) */
+.wall-root .sidebar-trigger,              /* Library panel trigger button */
+.wall-root .help-icon,                    /* "?" help button */
+.wall-root .collab-button,                /* live-collab button (confirmed in CSS) */
+.wall-root .welcome-screen-center {       /* first-run hint overlay */
+  display: none !important;
+}
+
+/* ─── Reskin: left properties panel (.App-menu__left contains an .Island) ─── */
+/* DO NOT add display:none here — this panel must remain visible */
+.wall-root .App-menu__left .Island {
+  background: var(--glass) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--rule) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow) !important;
+  color: var(--text) !important;
+}
+
+.wall-root .App-menu__left .buttonList button {
+  border-radius: 6px !important;
+}
+
+.wall-root .App-menu__left .Island .active,
+.wall-root .App-menu__left .Island [aria-pressed="true"] {
+  background: var(--accent-soft) !important;
+  box-shadow: 0 0 0 1px var(--accent-dim) inset !important;
+}
+
+/* ─── Reskin: bottom-left zoom / undo footer ─── */
+.wall-root .App-bottom-bar .Island,
+.wall-root .footer .Island,
+.wall-root .zoom-actions,
+.wall-root .undo-redo-buttons {
+  background: var(--glass) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--rule) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text) !important;
+}
