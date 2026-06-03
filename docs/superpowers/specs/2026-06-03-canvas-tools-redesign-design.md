@@ -76,7 +76,11 @@ Hidden via Excalidraw `UIOptions` where supported, and a scoped CSS layer for th
 
 - Stock top-centre shape toolbar (replaced by our island).
 - Hamburger menu, search, Library button, help and encryption footer.
-- The menu actions we still want (e.g. **export image**) fold into the existing **⚙ menu**.
+
+> **Export image is deferred.** Hiding the hamburger removes Excalidraw's native
+> image export. A replacement (Tauri save-dialog + a Rust write command) is real new
+> scope the redesign doesn't require, so it is intentionally out of scope for this pass.
+> Thumbnail export (used for wall cards) is unaffected — it runs independently in `doSave`.
 
 ## Technical Approach
 
@@ -136,6 +140,5 @@ This is **desktop software**, not a web product. Hold the line:
   key highlights amber and follows keyboard shortcuts.
 - Properties panel and zoom/undo footer appear in the reskinned warm style; full editing
   controls (colour, fill, width, opacity, font, layers) still function.
-- Export-image still reachable (via ⚙ menu).
 - Existing behaviour unaffected: terminals spawn/drag/persist, camera sync, background, save.
 - The skin CSS does not leak into start page / taskboard views.
