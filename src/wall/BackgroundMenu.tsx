@@ -20,7 +20,7 @@ export function BackgroundMenu({
         Color
         <input
           type="color"
-          value={background.kind === "color" ? background.color : "#0b0e14"}
+          value={background.kind === "color" ? background.color : "#12110f"}
           onChange={(e) => onChange({ kind: "color", color: e.target.value })}
         />
       </label>

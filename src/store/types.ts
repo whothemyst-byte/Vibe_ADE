@@ -26,4 +26,4 @@ export type WallDoc = {
   background: Background;
 };
 
-export const DEFAULT_BACKGROUND: Background = { kind: "color", color: "#0b0e14" };
+export const DEFAULT_BACKGROUND: Background = { kind: "color", color: "#12110f" };
