@@ -1,0 +1,41 @@
+:root {
+  /* surfaces (warm) */
+  --bg: #12110f;
+  --surface: #161411;
+  --surface-2: #1a1815;
+  --rule: rgba(243, 238, 229, .14);
+  --glass: rgba(22, 20, 17, .72);
+
+  /* text */
+  --text: #f3eee5;
+  --text-muted: #b1a692;
+  --text-faint: #6f6960;
+
+  /* accent (amber — used sparingly) */
+  --accent: #d79a3d;
+  --accent-hover: #e3a94e;
+  --accent-dim: #b8802b;
+  --accent-soft: rgba(215, 154, 61, .14);
+  --focus: 0 0 0 3px rgba(215, 154, 61, .35);
+
+  /* status / tiers */
+  --ok: #7fa55a;
+  --info: #5d8fb3;
+  --warn: #d79a3d;
+  --danger: #c0563f;
+
+  /* shape / motion */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 10px 30px -18px rgba(0, 0, 0, .6);
+
+  /* type */
+  --font-ui: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-display: "Instrument Serif", Georgia, serif;
+
+  color-scheme: dark;
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
