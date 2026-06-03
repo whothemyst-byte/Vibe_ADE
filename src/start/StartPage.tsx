@@ -62,7 +62,10 @@ export function StartPage({ onOpen, onTasks }: { onOpen: (id: string) => void; o
   return (
     <div className="start-page">
       <div className="start-head">
-        <h1 className="start-title">Walls</h1>
+        <div className="start-headings">
+          <h1 className="start-title">Walls</h1>
+          <span className="start-sub">{walls.length} {walls.length === 1 ? "wall" : "walls"}</span>
+        </div>
         <button className="start-tasks" onClick={onTasks}>▦ Taskboard</button>
       </div>
       <div className="start-grid">
