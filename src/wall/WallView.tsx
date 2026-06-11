@@ -18,6 +18,7 @@ import { ToolsIsland } from "./ToolsIsland";
 import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
 import { pickAgentName } from "./agentNames";
+import { wasSessionDead } from "./sessions";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
@@ -112,13 +113,16 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       backgroundRef.current = bg;
       setBackground(bg);
       // Docs saved before agent names existed lack `name` - assign unique ones.
+      // Terminals whose PTY died while this wall was closed are dropped.
       const names: string[] = [];
       useTerminalStore.setState({
-        terminals: (doc?.terminals ?? []).map((t) => {
-          const name = t.name ?? pickAgentName(names);
-          names.push(name);
-          return { ...t, name, started: false };
-        }),
+        terminals: (doc?.terminals ?? [])
+          .filter((t) => !wasSessionDead(t.id))
+          .map((t) => {
+            const name = t.name ?? pickAgentName(names);
+            names.push(name);
+            return { ...t, name };
+          }),
       });
       pendingScene.current = doc
         ? { elements: doc.scene.elements, appState: doc.scene.appState as AppStateLike }
@@ -169,13 +173,10 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     // the initial load), look it up on demand so agents never start in the wrong dir.
     let cwd = wallPath;
     if (!cwd) cwd = (await loadIndex()).find((w) => w.id === wallId)?.path ?? "";
-    // Newly created terminals start immediately (no manual "Start" click). Terminals
-    // RESTORED from a saved wall still load idle (started:false in the load effect) so
-    // reopening a wall doesn't auto-spawn every agent at once.
     useTerminalStore.getState().add({
       id: crypto.randomUUID(),
       name: pickAgentName(useTerminalStore.getState().terminals.map((t) => t.name)),
-      x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId, cwd, started: true,
+      x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId, cwd,
     });
   };
 

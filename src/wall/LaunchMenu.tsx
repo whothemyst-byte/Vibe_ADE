@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Preset } from "./presets";
 import { presetTierColor } from "./presetTier";
+import { ChevronDownIcon, ChevronUpIcon, PlusIcon } from "./icons";
 
 export function LaunchMenu({
   presets, onLaunch,
@@ -8,8 +9,12 @@ export function LaunchMenu({
   const [open, setOpen] = useState(false);
   return (
     <div className="launch">
-      <button className="launch-main" onPointerDown={() => onLaunch("plain")}>+ Terminal</button>
-      <button className="launch-caret" onPointerDown={() => setOpen((o) => !o)} title="Launch…">▴</button>
+      <button className="launch-main" onPointerDown={() => onLaunch("plain")}>
+        <PlusIcon /> Terminal
+      </button>
+      <button className="launch-caret" onPointerDown={() => setOpen((o) => !o)} title="Launch…">
+        {open ? <ChevronDownIcon /> : <ChevronUpIcon />}
+      </button>
       {open && (
         <div className="launch-menu" onMouseLeave={() => setOpen(false)}>
           {presets.map((p) => (

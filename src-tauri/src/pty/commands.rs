@@ -16,8 +16,10 @@ pub async fn pty_spawn(
     command: Option<String>,
     on_data: Channel<InvokeResponseBody>,
 ) -> Result<(), String> {
-    if registry.contains(&id) {
-        return Ok(()); // already running; idempotent
+    // A lingering PTY under this id (e.g. after a webview reload) has a dead
+    // channel on the JS side — kill it and spawn fresh so the card never goes mute.
+    if let Some(old) = registry.remove(&id) {
+        let _ = old.cmd_tx.send(PtyCommand::Kill).await;
     }
     let handle = spawn(
         app,

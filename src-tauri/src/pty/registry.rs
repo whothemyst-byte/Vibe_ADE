@@ -30,11 +30,7 @@ impl PtyRegistry {
         self.inner.lock().insert(id, handle);
     }
 
-    pub fn contains(&self, id: &str) -> bool {
-        self.inner.lock().contains_key(id)
-    }
-
-    /// Removes and returns the handle if present (used by kill).
+    /// Removes and returns the handle if present (used by kill and respawn).
     pub fn remove(&self, id: &str) -> Option<PtyHandle> {
         self.inner.lock().remove(id)
     }
@@ -59,19 +55,17 @@ mod tests {
     }
 
     #[test]
-    fn insert_contains_remove_roundtrip() {
+    fn insert_remove_roundtrip() {
         let reg = PtyRegistry::new();
         assert_eq!(reg.len(), 0);
-        assert!(!reg.contains("a"));
+        assert!(reg.sender("a").is_none());
 
         reg.insert("a".into(), dummy_handle());
-        assert!(reg.contains("a"));
         assert_eq!(reg.len(), 1);
         assert!(reg.sender("a").is_some());
 
         let removed = reg.remove("a");
         assert!(removed.is_some());
-        assert!(!reg.contains("a"));
         assert_eq!(reg.len(), 0);
         assert!(reg.sender("a").is_none());
     }

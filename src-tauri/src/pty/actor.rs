@@ -72,7 +72,7 @@ pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
     let (chunk_tx, mut chunk_rx) = mpsc::channel::<Vec<u8>>(256);
     std::thread::spawn(move || {
         let mut reader = {
-            let mut guard = reader_master.lock();
+            let guard = reader_master.lock();
             match guard.try_clone_reader() {
                 Ok(r) => r,
                 Err(_) => return,

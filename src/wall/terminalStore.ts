@@ -9,7 +9,6 @@ export type TerminalState = {
   h: number;
   presetId: string;
   cwd: string;
-  started: boolean;
 };
 
 type TerminalStore = {

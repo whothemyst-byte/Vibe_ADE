@@ -1,15 +1,11 @@
 import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
-import "@xterm/xterm/css/xterm.css";
 import { HEADER_H, FOOTER_H, type Camera } from "./transform";
 import { useTerminalStore, type TerminalState } from "./terminalStore";
-import { spawnPty, writePty, resizePty, killPty, onPtyExit } from "../pty/client";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset } from "./presets";
-import { newActivity, recordOutput, type Activity } from "./agentStatus";
 import { StatusFooter } from "./StatusFooter";
+import { CloseIcon } from "./icons";
+import { ensureSession, detachSession, destroySession, fitSession, getActivityRef } from "./sessions";
 
 function TerminalWindowInner({
   terminal,
@@ -20,89 +16,31 @@ function TerminalWindowInner({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const activityRef = useRef<Activity>(newActivity());
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
   const update = useTerminalStore((s) => s.update);
   const remove = useTerminalStore((s) => s.remove);
-  const { id, started, w, h, cwd } = terminal;
+  const { id, w, h, cwd } = terminal;
   const presets = usePresetStore((s) => s.presets);
   const preset = resolvePreset(presets, terminal.presetId);
+  const activityRef = getActivityRef(id);
 
+  // The session (xterm + PTY) lives in sessions.ts and survives unmounts; this
+  // effect only parents its host element into this card's body.
   useEffect(() => {
-    if (!started || !bodyRef.current) return;
-    const term = new Terminal({
-      fontSize: 13,
-      scrollback: 5000,
-      fontFamily: '"Geist Mono", ui-monospace, monospace',
-      theme: {
-        background: "#12110f",
-        foreground: "#f3eee5",
-        cursor: "#d79a3d",
-        cursorAccent: "#12110f",
-        selectionBackground: "rgba(215, 154, 61, .28)",
-      },
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(bodyRef.current);
-    try {
-      const webgl = new WebglAddon();
-      // On context loss, dispose the addon: xterm falls back to the DOM renderer.
-      webgl.onContextLoss(() => webgl.dispose());
-      term.loadAddon(webgl);
-    } catch {
-      // WebGL unavailable - DOM renderer fallback.
-    }
-    fit.fit();
-    termRef.current = term;
-    fitRef.current = fit;
-
-    const unlisteners: Array<() => void> = [];
-    let disposed = false;
-
-    const dataSub = term.onData((d) => writePty(id, new TextEncoder().encode(d)));
-
-    (async () => {
-      const uExit = await onPtyExit(id, () => { if (!disposed) remove(id); });
-      if (disposed) { uExit(); return; }
-      unlisteners.push(uExit);
-
-      await spawnPty({
-        id,
-        shell: "powershell.exe",
-        cwd: cwd || undefined,
-        rows: term.rows,
-        cols: term.cols,
-        command: preset.command,
-        onData: (bytes) => {
-          if (disposed) return;
-          activityRef.current = recordOutput(activityRef.current, Date.now());
-          term.write(bytes);
-        },
-      });
-    })();
-
-    return () => {
-      disposed = true;
-      dataSub.dispose();
-      unlisteners.forEach((u) => u());
-      killPty(id);
-      term.dispose();
-      termRef.current = null;
-      fitRef.current = null;
-    };
+    if (!bodyRef.current) return;
+    ensureSession({ id, cwd: cwd || undefined, command: preset.command, container: bodyRef.current });
+    return () => detachSession(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, id]);
+  }, [id]);
 
   useEffect(() => {
-    if (!started || !fitRef.current || !termRef.current) return;
-    fitRef.current.fit();
-    resizePty(id, termRef.current.rows, termRef.current.cols);
-  }, [w, h, started, id]);
+    fitSession(id);
+  }, [w, h, id]);
 
-  const start = () => update(id, { started: true });
-  const close = (e: ReactPointerEvent) => { e.stopPropagation(); remove(id); };
+  const close = (e: ReactPointerEvent) => {
+    e.stopPropagation();
+    destroySession(id);
+    remove(id);
+  };
 
   // Gestures mutate the wrapper element directly; the store gets ONE commit on
   // release (one autosave, no per-frame React work).
@@ -163,19 +101,11 @@ function TerminalWindowInner({
         <span className="terminal-status-dot" />
         <span className="terminal-title">{terminal.name} &middot; {preset.label}</span>
         <button className="terminal-close" title="Close" onPointerDown={close}>
-          &times;
+          <CloseIcon />
         </button>
       </div>
-      {started ? (
-        <>
-          <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H, bottom: FOOTER_H }} />
-          <StatusFooter activityRef={activityRef} wrapRef={wrapRef} />
-        </>
-      ) : (
-        <button className="terminal-start" onPointerDown={(e) => { e.stopPropagation(); start(); }}>
-          &#9655; Start
-        </button>
-      )}
+      <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H, bottom: FOOTER_H }} />
+      <StatusFooter activityRef={activityRef} wrapRef={wrapRef} />
       <div className="terminal-resize" onPointerDown={beginResize} />
     </div>
   );
