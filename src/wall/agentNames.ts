@@ -1,10 +1,9 @@
-/** Short friendly agent names shown in terminal card headers (cnvs-style). */
+/** Short, easy-to-pronounce agent names (spoken to/by the voice agent). */
 export const AGENT_NAMES = [
-  "Atlas", "Juno", "Miles", "Hazel", "Wren", "Otis", "Nova", "Reed",
-  "Ivy", "Felix", "Luna", "Moss", "Sage", "Remy", "Cleo", "Dash",
-  "Ember", "Finch", "Goldie", "Hank", "Indie", "Jett", "Koda", "Lark",
-  "Maple", "Nico", "Olive", "Pico", "Quill", "Rosco", "Scout", "Tilly",
-  "Umber", "Vesper", "Willa", "Ziggy",
+  "Max", "Leo", "Mia", "Zoe", "Ben", "Sam", "Ruby", "Toby",
+  "Milo", "Nina", "Coco", "Daisy", "Finn", "Lily", "Oscar", "Penny",
+  "Rosie", "Sunny", "Teddy", "Bella", "Charlie", "Ellie", "Jack", "Lucy",
+  "Ollie", "Poppy", "Archie", "Holly", "Louie", "Maggie", "Frankie", "Winnie",
 ];
 
 /** Picks a random name not in `taken`; suffixes a counter once all are in use. */
