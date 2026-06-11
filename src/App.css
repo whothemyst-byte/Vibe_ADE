@@ -57,7 +57,20 @@
   pointer-events: all; cursor: grab; user-select: none;
 }
 .terminal-header:active { cursor: grabbing; }
-.terminal-tier { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.terminal-status-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-faint); transition: background .2s; }
+.terminal-window[data-working="true"] .terminal-status-dot { background: var(--accent); animation: status-pulse 1.6s ease-in-out infinite; }
+@keyframes status-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(215, 154, 61, .45); }
+  50% { box-shadow: 0 0 0 5px rgba(215, 154, 61, 0); }
+}
+.terminal-status {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 22px;
+  display: flex; align-items: center; padding: 0 10px; box-sizing: border-box;
+  font: 500 10px var(--font-mono); color: var(--text-faint);
+  background: var(--glass); border-top: 1px solid var(--rule);
+  pointer-events: all; user-select: none;
+}
+.terminal-window[data-working="true"] .terminal-status { color: var(--accent); }
 .terminal-title {
   flex: 1; color: var(--text-muted); font: 500 11px var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

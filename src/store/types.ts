@@ -8,6 +8,7 @@ export type WallMeta = {
 
 export type SavedTerminal = {
   id: string; x: number; y: number; w: number; h: number; presetId: string; cwd: string;
+  name?: string;
 };
 
 export type Background =

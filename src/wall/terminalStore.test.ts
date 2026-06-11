@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { useTerminalStore, type TerminalState } from "./terminalStore";
 
 const mk = (id: string): TerminalState => ({
-  id, x: 0, y: 0, w: 420, h: 260, presetId: "plain", cwd: "", started: false,
+  id, name: "Atlas", x: 0, y: 0, w: 420, h: 260, presetId: "plain", cwd: "", started: false,
 });
 
 beforeEach(() => useTerminalStore.setState({ terminals: [] }));

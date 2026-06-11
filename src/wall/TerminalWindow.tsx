@@ -3,12 +3,13 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
-import { HEADER_H, type Camera } from "./transform";
+import { HEADER_H, FOOTER_H, type Camera } from "./transform";
 import { useTerminalStore, type TerminalState } from "./terminalStore";
 import { spawnPty, writePty, resizePty, killPty, onPtyExit } from "../pty/client";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset } from "./presets";
-import { presetTierColor } from "./presetTier";
+import { newActivity, recordOutput, type Activity } from "./agentStatus";
+import { StatusFooter } from "./StatusFooter";
 
 function TerminalWindowInner({
   terminal,
@@ -19,6 +20,7 @@ function TerminalWindowInner({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const activityRef = useRef<Activity>(newActivity());
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const update = useTerminalStore((s) => s.update);
@@ -73,7 +75,11 @@ function TerminalWindowInner({
         rows: term.rows,
         cols: term.cols,
         command: preset.command,
-        onData: (bytes) => { if (!disposed) term.write(bytes); },
+        onData: (bytes) => {
+          if (disposed) return;
+          activityRef.current = recordOutput(activityRef.current, Date.now());
+          term.write(bytes);
+        },
       });
     })();
 
@@ -154,14 +160,17 @@ function TerminalWindowInner({
       }}
     >
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
-        <span className="terminal-tier" style={{ background: presetTierColor(preset.id) }} />
-        <span className="terminal-title">{preset.label}</span>
+        <span className="terminal-status-dot" />
+        <span className="terminal-title">{terminal.name} &middot; {preset.label}</span>
         <button className="terminal-close" title="Close" onPointerDown={close}>
           &times;
         </button>
       </div>
       {started ? (
-        <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H }} />
+        <>
+          <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H, bottom: FOOTER_H }} />
+          <StatusFooter activityRef={activityRef} wrapRef={wrapRef} />
+        </>
       ) : (
         <button className="terminal-start" onPointerDown={(e) => { e.stopPropagation(); start(); }}>
           &#9655; Start

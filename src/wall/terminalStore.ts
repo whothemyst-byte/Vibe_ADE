@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 export type TerminalState = {
   id: string;
+  name: string;
   x: number;
   y: number;
   w: number;
