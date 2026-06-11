@@ -19,5 +19,13 @@ Settings → Vibe. It needs:
   the "Vibe" wake word runs fully locally via Vosk (Apache-2.0).
 
 Say **"Vibe"**, wait for the orb to pulse, then speak — or press **Ctrl+Shift+V**,
-or click the pet. Without the model file the hotkey/click still works. Phase 1
+or click the pet. Without the model file the hotkey/click still works. Vibe
 controls the UI only; it never types into terminals.
+
+It can: open Claude Code / Codex / plain terminals, close or focus them, change
+the wall background or apply a theme (Ember, Midnight, Parchment, Moss, Plum,
+Slate), zoom to fit, switch or CREATE walls (it asks where, or opens the folder
+picker), open the task board, create/move tasks, and answer questions. If it
+needs missing info it asks and listens for your answer. Say **"go to sleep"**
+to silence the wake word (click it or press the hotkey to wake it). Pick its
+speaking voice in Settings → Vibe.

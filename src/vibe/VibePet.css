@@ -158,6 +158,32 @@
 }
 .vibe-caption--error { border-color: rgba(220, 90, 70, 0.55); }
 
+/* Sleeping: dimmed, eyes shut, slow drift, floating z's */
+.vibe-state--sleeping svg { opacity: 0.7; }
+.vibe-state--sleeping .vibe-float { animation-duration: 6.5s; }
+.vibe-state--sleeping .vibe-sway { animation-duration: 8s; }
+.vibe-state--sleeping .vibe-blink {
+  animation: none;
+  transform: scaleY(0.12);
+}
+
+.vibe-zzz {
+  font-size: 7px;
+  font-family: serif;
+  opacity: 0;
+  animation: vibe-zzz 2.8s ease-in-out infinite;
+}
+.vibe-zzz--1 { animation-delay: 0ms; }
+.vibe-zzz--2 { animation-delay: 700ms; }
+.vibe-zzz--3 { animation-delay: 1400ms; }
+
+@keyframes vibe-zzz {
+  0%   { opacity: 0; transform: translateY(2px); }
+  30%  { opacity: 0.9; }
+  70%  { opacity: 0.4; }
+  100% { opacity: 0; transform: translateY(-5px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .vibe-breathe,
   .vibe-float,
@@ -167,6 +193,7 @@
   .vibe-orb-pulse,
   .vibe-celebrate--active,
   .vibe-sparkle,
+  .vibe-zzz,
   .vibe-state--error .vibe-grip {
     transition: none;
     animation: none;

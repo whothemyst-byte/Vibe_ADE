@@ -3,13 +3,13 @@ import { DEFAULT_BACKGROUND, type Background } from "../store/types";
 export type Settings = {
   terminal: { fontSize: number; scrollback: number; shell: string };
   canvas: { defaultBackground: Background };
-  vibe: { enabled: boolean; groqApiKey: string; hotkey: string };
+  vibe: { enabled: boolean; groqApiKey: string; hotkey: string; voice: string };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   terminal: { fontSize: 13, scrollback: 5000, shell: "powershell.exe" },
   canvas: { defaultBackground: DEFAULT_BACKGROUND },
-  vibe: { enabled: false, groqApiKey: "", hotkey: "Ctrl+Shift+V" },
+  vibe: { enabled: false, groqApiKey: "", hotkey: "Ctrl+Shift+V", voice: "" },
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -52,6 +52,7 @@ export function mergeSettings(raw: unknown): Settings {
       enabled: bool(vibe.enabled, d.vibe.enabled),
       groqApiKey: typeof vibe.groqApiKey === "string" ? vibe.groqApiKey : d.vibe.groqApiKey,
       hotkey: str(vibe.hotkey, d.vibe.hotkey),
+      voice: typeof vibe.voice === "string" ? vibe.voice : d.vibe.voice,
     },
   };
 }

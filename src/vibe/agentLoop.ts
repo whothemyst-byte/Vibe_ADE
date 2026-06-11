@@ -6,25 +6,46 @@ export const MAX_TOOL_ROUNDS = 3;
 const SYSTEM_PROMPT = `You are Vibe, a small friendly ghost who lives inside the
 vibe-walls app and controls it for the user by voice. The user just spoke one
 request. Use the provided tools to carry it out, then confirm what you did in
-ONE short, casual sentence (it will be read aloud). If no tool fits, answer
-conversationally and briefly. If asked what you can do, summarize your current
-tools in plain words. Never invent tools, never output code or markdown.`;
+ONE short, casual sentence (it will be read aloud). If a command needs
+information the user didn't give (like a name or location), do NOT guess —
+reply with ONE short question ending in "?" and the user's spoken answer will
+arrive as the next message. If no tool fits, answer conversationally and
+briefly. If asked what you can do, summarize your current tools in plain
+words. Never invent tools, never output code or markdown.`;
 
 export type ChatFn = (
   messages: ChatMessage[],
   tools: ToolDef[]
 ) => Promise<AssistantMessage>;
 
-/** Runs one utterance through the tool-calling loop. Returns text to speak. */
-export async function runAgent(transcript: string, chatFn: ChatFn): Promise<string> {
-  const messages: ChatMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
-    { role: "user", content: transcript },
-  ];
+export type AgentResult = {
+  /** Text to speak. */
+  text: string;
+  /** Full message log including this turn — pass back in to continue the conversation. */
+  messages: ChatMessage[];
+};
+
+/**
+ * Runs one spoken utterance through the tool-calling loop. Pass the previous
+ * result's `messages` as `prior` to continue a conversation (e.g. answering a
+ * question the agent asked); omit it to start fresh.
+ */
+export async function runAgent(
+  transcript: string,
+  chatFn: ChatFn,
+  prior?: ChatMessage[]
+): Promise<AgentResult> {
+  const messages: ChatMessage[] = prior
+    ? [...prior, { role: "user", content: transcript }]
+    : [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: transcript },
+      ];
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const msg = await chatFn(messages, getToolDefs());
+    const msg = await chatFn([...messages], getToolDefs());
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
-      return msg.content?.trim() || "Done!";
+      messages.push(msg);
+      return { text: msg.content?.trim() || "Done!", messages };
     }
     messages.push(msg);
     for (const tc of msg.tool_calls) {
@@ -38,5 +59,5 @@ export async function runAgent(transcript: string, chatFn: ChatFn): Promise<stri
       messages.push({ role: "tool", content: result, tool_call_id: tc.id });
     }
   }
-  return "Okay, done!";
+  return { text: "Okay, done!", messages };
 }

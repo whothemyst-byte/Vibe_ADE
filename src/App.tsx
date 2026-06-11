@@ -5,7 +5,8 @@ import { WallView } from "./wall/WallView";
 import { TaskBoard } from "./tasks/TaskBoard";
 import { VibeAgent } from "./vibe/VibeAgent";
 import { useVibeCommand } from "./vibe/commands";
-import { loadIndex } from "./store/persistence";
+import { loadIndex, saveIndex, pickFolder } from "./store/persistence";
+import type { WallMeta } from "./store/types";
 
 type View = { kind: "start" } | { kind: "wall"; id: string } | { kind: "tasks"; from: View };
 
@@ -43,6 +44,41 @@ export default function App() {
       }
       setView({ kind: "wall", id: wall.id });
       return `Opened the wall "${wall.name}".`;
+    },
+  });
+  useVibeCommand({
+    name: "create_wall",
+    description:
+      "Create a NEW wall (canvas workspace) in a folder and open it. If the user did not say where, ask where to create it — they can answer with a full folder path or ask you to open the folder picker.",
+    parameters: {
+      type: "object",
+      properties: {
+        location: {
+          type: "string",
+          description:
+            "Absolute folder path (e.g. C:\\Users\\admin\\Projects\\demo), or 'picker' to open the native folder picker",
+        },
+        name: { type: "string", description: "Optional wall name; defaults to the folder name" },
+      },
+      required: ["location"],
+    },
+    run: async (args) => {
+      let path = String(args.location ?? "").trim();
+      const wantsPicker = !path || /\b(pick|picker|choose|browse|dialog|select)\b/i.test(path);
+      if (wantsPicker) {
+        const picked = await pickFolder();
+        if (!picked) return "Error: the folder picker was closed without choosing a folder.";
+        path = picked;
+      } else if (!/^[a-zA-Z]:[\\/]/.test(path)) {
+        return `Error: "${path}" is not a full Windows path. Ask the user for one (like C:\\Users\\admin\\Projects) or pass location "picker" to let them choose in a dialog.`;
+      }
+      const basename = path.replace(/[/\\]+$/, "").split(/[/\\]/).pop() || "wall";
+      const name = String(args.name ?? "").trim() || basename;
+      const index = await loadIndex();
+      const meta: WallMeta = { id: crypto.randomUUID(), name, path, updatedAt: Date.now(), isCurrent: true };
+      await saveIndex([...index.map((w) => ({ ...w, isCurrent: false })), meta]);
+      setView({ kind: "wall", id: meta.id });
+      return `Created and opened the wall "${name}" at ${path}.`;
     },
   });
 

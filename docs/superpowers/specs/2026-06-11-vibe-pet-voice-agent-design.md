@@ -14,6 +14,24 @@
 > README). The Picovoice AccessKey settings field and `.ppn`/`.pv` assets are
 > removed. Everything below referring to Porcupine is superseded by this.
 
+> **Amendment 2 (2026-06-11, after first user testing):**
+> 1. `open_terminal` preset matching is now `findPresetByPhrase` (exact id/label
+>    → contains either direction → shared word), and an unmatched *specified*
+>    preset returns an error instead of silently opening Plain shell.
+> 2. **Ask-back conversations:** `runAgent` returns `{text, messages}` and
+>    accepts prior messages; when the reply ends in "?" the pet speaks the
+>    question and immediately listens for the answer, continuing the same
+>    conversation (max 2 follow-ups).
+> 3. New commands: `create_wall(location, name?)` (App; asks for a location
+>    when unspecified, accepts a path or opens the native folder picker),
+>    `apply_theme(name)` (WallView; the six pre-made themes),
+>    `go_to_sleep` (VibeAgent; always available).
+> 4. **Sleeping state:** wake word off + mic released, dimmed pet with closed
+>    eyes and floating z's; click or hotkey wakes it.
+> 5. Settings → Vibe gains a TTS **voice picker** (`settings.vibe.voice`,
+>    speechSynthesis voices, with a Test button) and displays the Groq models
+>    in use (`llama-3.3-70b-versatile` + `whisper-large-v3-turbo`).
+
 ## Purpose
 
 A floating pet (the ghost mascot from Vibe_ADE) that lives on every view of

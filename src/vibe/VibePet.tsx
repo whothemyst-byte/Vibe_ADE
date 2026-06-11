@@ -5,7 +5,7 @@ import {
 } from "./vibeHelpers";
 import "./VibePet.css";
 
-export type VibeState = "idle" | "listening" | "thinking" | "speaking" | "error";
+export type VibeState = "idle" | "listening" | "thinking" | "speaking" | "error" | "sleeping";
 
 const CLICK_THRESHOLD_PX = 4;
 
@@ -102,6 +102,13 @@ export function VibePet({ state, caption, celebrating, onActivate }: {
                         <text className="vibe-sparkle vibe-sparkle--1" x="58" y="6"  fill="currentColor">*</text>
                         <text className="vibe-sparkle vibe-sparkle--2" x="44" y="2"  fill="currentColor">*</text>
                         <text className="vibe-sparkle vibe-sparkle--3" x="60" y="14" fill="currentColor">*</text>
+                      </>
+                    )}
+                    {state === "sleeping" && (
+                      <>
+                        <text className="vibe-zzz vibe-zzz--1" x="56" y="16" fill="currentColor">z</text>
+                        <text className="vibe-zzz vibe-zzz--2" x="62" y="10" fill="currentColor">Z</text>
+                        <text className="vibe-zzz vibe-zzz--3" x="68" y="4"  fill="currentColor">z</text>
                       </>
                     )}
                   </g>

@@ -161,6 +161,15 @@ function VibePane() {
   const setVibe = (patch: Partial<typeof v>) =>
     save({ ...settings, vibe: { ...v, ...patch } });
 
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const load = () => setVoices(window.speechSynthesis.getVoices());
+    load();
+    window.speechSynthesis.addEventListener("voiceschanged", load);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", load);
+  }, []);
+
   return (
     <>
       <h2 className="set-title">Vibe</h2>
@@ -168,6 +177,8 @@ function VibePane() {
         Voice companion. Needs a free Groq API key (console.groq.com) for speech
         recognition and the brain. The "Vibe" wake word runs fully offline — no
         account needed — and the hotkey or clicking the pet always works too.
+        Models: Llama 3.3 70B (brain) + Whisper large-v3-turbo (ears), both on
+        the Groq free tier.
       </p>
       <div className="set-row">
         <span className="set-label">Enable Vibe</span>
@@ -193,6 +204,33 @@ function VibePane() {
           value={v.hotkey}
           onChange={(e) => setVibe({ hotkey: e.target.value || "Ctrl+Shift+V" })}
         />
+      </div>
+      <div className="set-row">
+        <span className="set-label">Voice</span>
+        <select
+          className="set-input"
+          value={v.voice}
+          onChange={(e) => setVibe({ voice: e.target.value })}
+        >
+          <option value="">System default</option>
+          {voices.map((voice) => (
+            <option key={voice.name} value={voice.name}>
+              {voice.name} ({voice.lang})
+            </option>
+          ))}
+        </select>
+        <button
+          className="set-btn"
+          onClick={() => {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance("Hi! I'm Vibe, your voice companion.");
+            const chosen = voices.find((x) => x.name === v.voice);
+            if (chosen) u.voice = chosen;
+            window.speechSynthesis.speak(u);
+          }}
+        >
+          Test
+        </button>
       </div>
     </>
   );
