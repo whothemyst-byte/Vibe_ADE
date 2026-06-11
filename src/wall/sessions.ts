@@ -5,6 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 import { spawnPty, writePty, resizePty, killPty, onPtyExit } from "../pty/client";
 import { newActivity, recordOutput, type Activity } from "./agentStatus";
 import { useTerminalStore } from "./terminalStore";
+import { useSettingsStore } from "../settings/settingsStore";
 
 /**
  * Terminal sessions live OUTSIDE the React tree. A session (xterm instance, its
@@ -77,9 +78,10 @@ export function ensureSession(opts: {
   host.className = "terminal-host";
   container.appendChild(host);
 
+  const termSettings = useSettingsStore.getState().settings.terminal;
   const term = new Terminal({
-    fontSize: 13,
-    scrollback: 5000,
+    fontSize: termSettings.fontSize,
+    scrollback: termSettings.scrollback,
     fontFamily: '"Geist Mono", ui-monospace, monospace',
     theme: {
       background: "#12110f",
@@ -136,7 +138,7 @@ export function ensureSession(opts: {
     unExit = un;
     await spawnPty({
       id,
-      shell: "powershell.exe",
+      shell: termSettings.shell,
       cwd: opts.cwd || undefined,
       rows: term.rows,
       cols: term.cols,
@@ -163,6 +165,19 @@ export function fitSession(id: string): void {
   s.fit.fit();
   void resizePty(id, s.term.rows, s.term.cols);
 }
+
+// Font size applies to running terminals live; other terminal settings only
+// affect sessions spawned after the change.
+let appliedFontSize = useSettingsStore.getState().settings.terminal.fontSize;
+useSettingsStore.subscribe((state) => {
+  const next = state.settings.terminal.fontSize;
+  if (next === appliedFontSize) return;
+  appliedFontSize = next;
+  for (const [id, s] of sessions) {
+    s.term.options.fontSize = next;
+    fitSession(id);
+  }
+});
 
 /** Kills the PTY and disposes the terminal (card closed or process exited). */
 export function destroySession(id: string): void {

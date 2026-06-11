@@ -12,7 +12,8 @@ import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excal
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
 import { WallBackground } from "./WallBackground";
-import { BackgroundMenu } from "./BackgroundMenu";
+import { SettingsModal } from "../settings/SettingsModal";
+import { useSettingsStore } from "../settings/settingsStore";
 import { LaunchMenu } from "./LaunchMenu";
 import { ToolsIsland } from "./ToolsIsland";
 import type { ToolDef } from "./tools";
@@ -109,7 +110,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     (async () => {
       const doc = await loadWall(wallId);
       if (cancelled) return;
-      const bg = doc?.background ?? DEFAULT_BACKGROUND;
+      const bg = doc?.background ?? useSettingsStore.getState().settings.canvas.defaultBackground;
       backgroundRef.current = bg;
       setBackground(bg);
       // Docs saved before agent names existed lack `name` - assign unique ones.
@@ -203,7 +204,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       <WallBackground background={background} />
       <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onTasks={onTasks} />
       {gearOpen && (
-        <BackgroundMenu background={background} onChange={changeBg} onClose={() => setGearOpen(false)} />
+        <SettingsModal background={background} onChangeBackground={changeBg} onClose={() => setGearOpen(false)} />
       )}
       <Excalidraw
         theme="dark"
