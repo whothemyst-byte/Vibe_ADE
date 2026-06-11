@@ -3,6 +3,7 @@ import { useTaskStore, type Task, type TaskStatus } from "./taskStore";
 import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { BackIcon, GridIcon } from "../wall/icons";
+import { useVibeCommand } from "../vibe/commands";
 
 const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "backlog", label: "Backlog", color: "var(--text-muted)" },
@@ -97,6 +98,52 @@ export function TaskBoard({
     });
     return () => { unsub(); if (saveTimer.current) window.clearTimeout(saveTimer.current); };
   }, []);
+
+  useVibeCommand({
+    name: "create_task",
+    description: "Create a new task in the backlog column.",
+    parameters: {
+      type: "object",
+      properties: { title: { type: "string", description: "Task title" } },
+      required: ["title"],
+    },
+    run: (args) => {
+      const title = String(args.title ?? "").trim();
+      if (!title) return "Error: the task needs a title.";
+      useTaskStore.getState().add(title);
+      return `Created task "${title}" in the backlog.`;
+    },
+  });
+
+  useVibeCommand({
+    name: "move_task",
+    description:
+      "Move a task to another column. Columns: backlog, in progress, in review, done.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Task title (fuzzy matched)" },
+        column: { type: "string", description: "Target column" },
+      },
+      required: ["title", "column"],
+    },
+    run: (args) => {
+      const aliases: Record<string, TaskStatus> = {
+        "backlog": "backlog", "todo": "backlog",
+        "in progress": "in-progress", "in-progress": "in-progress", "doing": "in-progress",
+        "in review": "in-review", "in-review": "in-review", "review": "in-review",
+        "done": "done", "finished": "done", "complete": "done",
+      };
+      const status = aliases[String(args.column ?? "").toLowerCase().trim()];
+      if (!status) return `Error: "${args.column}" is not a column. Use backlog, in progress, in review, or done.`;
+      const wanted = String(args.title ?? "").toLowerCase();
+      const { tasks: all, update } = useTaskStore.getState();
+      const task = all.find((t) => t.title.toLowerCase().includes(wanted));
+      if (!task) return `Error: no task matches "${args.title}".`;
+      update(task.id, { status });
+      return `Moved "${task.title}" to ${status.replace("-", " ")}.`;
+    },
+  });
 
   const onDrop = (status: TaskStatus) => (e: DragEvent) => {
     e.preventDefault();
