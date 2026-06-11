@@ -88,6 +88,15 @@ export const GridIcon = () => (
     <rect x="14" y="14" width="7" height="7" rx="1" />
   </Svg>
 );
+export const PaletteIcon = () => (
+  <Svg>
+    <path d="M12 22a10 10 0 1 1 10-10 5 5 0 0 1-5 5h-2.2a1.8 1.8 0 0 0-1.4 2.9l.3.4a1.8 1.8 0 0 1-1.4 2.9z" />
+    <circle cx="13.5" cy="6.5" r=".8" fill="currentColor" />
+    <circle cx="17.5" cy="10.5" r=".8" fill="currentColor" />
+    <circle cx="8.5" cy="7.5" r=".8" fill="currentColor" />
+    <circle cx="6.5" cy="12.5" r=".8" fill="currentColor" />
+  </Svg>
+);
 export const ChevronDownIcon = () => <Svg><path d="m6 9 6 6 6-6" /></Svg>;
 export const ChevronUpIcon = () => <Svg><path d="m18 15-6-6-6 6" /></Svg>;
 export const PlusIcon = () => <Svg><path d="M5 12h14" /><path d="M12 5v14" /></Svg>;

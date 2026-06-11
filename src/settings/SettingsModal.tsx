@@ -5,18 +5,28 @@ import { presetTierColor } from "../wall/presetTier";
 import type { Preset } from "../wall/presets";
 import { importBackground, pickBackgroundFile, savePresets } from "../store/persistence";
 import type { Background } from "../store/types";
-import { CloseIcon, EllipseIcon, GearIcon, ImageIcon, PlusIcon, RectangleIcon, SelectIcon } from "../wall/icons";
+import { CloseIcon, EllipseIcon, GearIcon, ImageIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon } from "../wall/icons";
+import { THEMES, isThemeActive } from "./themes";
 
-type Section = "agents" | "terminal" | "canvas" | "about";
+type Section = "agents" | "terminal" | "themes" | "canvas" | "about";
 
 const SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[] = [
   { key: "agents", label: "Agents", icon: SelectIcon },
   { key: "terminal", label: "Terminal", icon: RectangleIcon },
+  { key: "themes", label: "Themes", icon: PaletteIcon },
   { key: "canvas", label: "Canvas", icon: ImageIcon },
   { key: "about", label: "About", icon: EllipseIcon },
 ];
 
 const extOf = (p: string) => p.split(".").pop()?.toLowerCase() ?? "bin";
+
+/** Rough relative luminance of a #rrggbb color, for picking label contrast. */
+const isLightColor = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  if (Number.isNaN(n)) return false;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 140;
+};
 
 /** Shared color / image / video background picker row. */
 function BackgroundPicker({ value, onChange }: { value: Background; onChange: (bg: Background) => void }) {
@@ -143,21 +153,61 @@ function TerminalPane() {
   );
 }
 
-function CanvasPane({ background, onChangeBackground }: {
+function ThemesPane({ background, onChangeBackground }: {
   background: Background;
   onChangeBackground: (bg: Background) => void;
 }) {
+  return (
+    <>
+      <h2 className="set-title">Themes</h2>
+      <p className="set-sub">Pick a theme for this wall — or craft your own below.</p>
+      <div className="theme-grid">
+        {THEMES.map((t) => {
+          const active = isThemeActive(background, t);
+          const light = t.background.kind === "color" && isLightColor(t.background.color);
+          return (
+            <button
+              key={t.id}
+              className={`theme-card${active ? " active" : ""}`}
+              onClick={() => onChangeBackground(t.background)}
+            >
+              <span
+                className="theme-preview"
+                style={{ background: t.background.kind === "color" ? t.background.color : undefined }}
+              >
+                {t.palette.map((c) => (
+                  <span key={c} className="theme-dot" style={{ background: c }} />
+                ))}
+              </span>
+              <span
+                className={`theme-meta${light ? " on-light" : ""}`}
+                style={{ background: t.background.kind === "color" ? t.background.color : undefined }}
+              >
+                <span className="theme-name">{t.name}</span>
+                <span className="theme-tagline">{t.tagline}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="set-group">
+        <span className="set-label">Create your own</span>
+        <BackgroundPicker value={background} onChange={onChangeBackground} />
+        <span className="set-hint">A color, image, or video of your choice becomes this wall’s theme.</span>
+      </div>
+    </>
+  );
+}
+
+function CanvasPane() {
   const settings = useSettingsStore((s) => s.settings);
   const save = useSettingsStore((s) => s.save);
   return (
     <>
       <h2 className="set-title">Canvas</h2>
+      <p className="set-sub">Wall-level canvas behavior. Theme the current wall from the Themes tab.</p>
       <div className="set-group">
-        <span className="set-label">This wall’s background</span>
-        <BackgroundPicker value={background} onChange={onChangeBackground} />
-      </div>
-      <div className="set-group">
-        <span className="set-label">Default for new walls</span>
+        <span className="set-label">Default background for new walls</span>
         <BackgroundPicker
           value={settings.canvas.defaultBackground}
           onChange={(bg) => save({ ...settings, canvas: { ...settings.canvas, defaultBackground: bg } })}
@@ -212,7 +262,8 @@ export function SettingsModal({ background, onChangeBackground, onClose }: {
           <button className="settings-close" title="Close" onClick={onClose}><CloseIcon /></button>
           {section === "agents" && <AgentsPane />}
           {section === "terminal" && <TerminalPane />}
-          {section === "canvas" && <CanvasPane background={background} onChangeBackground={onChangeBackground} />}
+          {section === "themes" && <ThemesPane background={background} onChangeBackground={onChangeBackground} />}
+          {section === "canvas" && <CanvasPane />}
           {section === "about" && <AboutPane />}
         </section>
       </div>
