@@ -6,6 +6,7 @@ import { resolvePreset } from "./presets";
 import { StatusFooter } from "./StatusFooter";
 import { CloseIcon } from "./icons";
 import { ensureSession, detachSession, destroySession, fitSession, getActivityRef } from "./sessions";
+import { nearestSlotIndex } from "./gridLayout";
 
 function TerminalWindowInner({
   terminal,
@@ -16,7 +17,6 @@ function TerminalWindowInner({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const update = useTerminalStore((s) => s.update);
   const remove = useTerminalStore((s) => s.remove);
   const { id, w, h, cwd } = terminal;
   const presets = usePresetStore((s) => s.presets);
@@ -42,8 +42,9 @@ function TerminalWindowInner({
     remove(id);
   };
 
-  // Gestures mutate the wrapper element directly; the store gets ONE commit on
-  // release (one autosave, no per-frame React work).
+  // Dragging follows the cursor (DOM-only, no per-frame React work); on release
+  // the terminal either snaps back or commits a grid reorder via moveToIndex,
+  // which triggers WallView's layout pass.
   const beginDrag = (e: ReactPointerEvent) => {
     e.stopPropagation();
     // Camera can't change mid-gesture: the pointer is captured by the window, not the canvas.
@@ -60,28 +61,16 @@ function TerminalWindowInner({
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      update(id, { x: nx, y: ny });
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-
-  const beginResize = (e: ReactPointerEvent) => {
-    e.stopPropagation();
-    const z = cameraRef.current.z;
-    const sx = e.clientX, sy = e.clientY;
-    const ow = terminal.w, oh = terminal.h;
-    let nw = ow, nh = oh;
-    const onMove = (ev: PointerEvent) => {
-      nw = Math.max(220, ow + (ev.clientX - sx) / z);
-      nh = Math.max(140, oh + (ev.clientY - sy) / z);
+      // Snap the element back first; a reorder re-renders with new positions anyway.
       const el = wrapRef.current;
-      if (el) { el.style.width = `${nw}px`; el.style.height = `${nh}px`; }
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      update(id, { w: nw, h: nh }); // commit refits xterm via the w/h effect
+      if (el) el.style.transform = `translate(${terminal.x}px, ${terminal.y}px)`;
+      const { terminals, moveToIndex } = useTerminalStore.getState();
+      const slot = nearestSlotIndex(
+        { x: nx + terminal.w / 2, y: ny + terminal.h / 2 },
+        terminals.map((t) => ({ x: t.x, y: t.y, w: t.w, h: t.h }))
+      );
+      const from = terminals.findIndex((t) => t.id === id);
+      if (slot !== -1 && slot !== from) moveToIndex(id, slot);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -106,7 +95,6 @@ function TerminalWindowInner({
       </div>
       <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H, bottom: FOOTER_H }} />
       <StatusFooter activityRef={activityRef} wrapRef={wrapRef} />
-      <div className="terminal-resize" onPointerDown={beginResize} />
     </div>
   );
 }
