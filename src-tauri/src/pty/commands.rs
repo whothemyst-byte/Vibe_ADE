@@ -1,3 +1,4 @@
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, State};
 
 use super::actor::{spawn, SpawnConfig};
@@ -13,13 +14,14 @@ pub async fn pty_spawn(
     rows: u16,
     cols: u16,
     command: Option<String>,
+    on_data: Channel<InvokeResponseBody>,
 ) -> Result<(), String> {
     if registry.contains(&id) {
         return Ok(()); // already running; idempotent
     }
     let handle = spawn(
         app,
-        SpawnConfig { id: id.clone(), shell, cwd, rows, cols, command },
+        SpawnConfig { id: id.clone(), shell, cwd, rows, cols, command, on_data },
     )
     .map_err(|e| e.to_string())?;
     registry.insert(id, handle);

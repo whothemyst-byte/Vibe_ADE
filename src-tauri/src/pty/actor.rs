@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::{Read, Write};
 use std::sync::Arc;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{mpsc, Mutex};
 
@@ -17,18 +18,32 @@ pub struct SpawnConfig {
     /// Used to launch an agent CLI inside the spawned shell rather than spawning the
     /// CLI's .cmd shim directly under ConPTY.
     pub command: Option<String>,
-}
-
-pub fn data_channel(id: &str) -> String {
-    format!("pty://data/{id}")
+    /// IPC channel that receives raw output bytes (coalesced batches).
+    pub on_data: Channel<InvokeResponseBody>,
 }
 
 pub fn exit_channel(id: &str) -> String {
     format!("pty://exit/{id}")
 }
 
+/// Max bytes per coalesced IPC message.
+const BATCH_CAP: usize = 64 * 1024;
+
+/// Appends every immediately-available chunk to `batch` (no waiting), stopping at
+/// BATCH_CAP. Coalesces only when the PTY outpaces the IPC consumer, so single
+/// chunks are forwarded with zero added latency.
+fn drain_pending(rx: &mut mpsc::Receiver<Vec<u8>>, mut batch: Vec<u8>) -> Vec<u8> {
+    while batch.len() < BATCH_CAP {
+        match rx.try_recv() {
+            Ok(more) => batch.extend_from_slice(&more),
+            Err(_) => break,
+        }
+    }
+    batch
+}
+
 /// Opens a PTY, spawns the shell, and wires reader + command loop.
-/// Raw bytes are emitted to `pty://data/<id>`; exit to `pty://exit/<id>`.
+/// Raw bytes go to the `on_data` IPC channel; exit to the `pty://exit/<id>` event.
 pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
     let (cmd_tx, mut cmd_rx) = mpsc::channel::<PtyCommand>(256);
 
@@ -52,9 +67,9 @@ pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
     let master = Arc::new(parking_lot::Mutex::new(pair.master));
     let reader_master = master.clone();
 
-    // Reader thread: blocking read -> emit raw bytes; emit exit on EOF.
-    let reader_app = app.clone();
-    let id = cfg.id.clone();
+    // Reader thread: blocking read -> bounded queue. Dropping the sender on EOF
+    // closes the queue, which makes the forwarder emit the exit event.
+    let (chunk_tx, mut chunk_rx) = mpsc::channel::<Vec<u8>>(256);
     std::thread::spawn(move || {
         let mut reader = {
             let mut guard = reader_master.lock();
@@ -63,21 +78,32 @@ pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
                 Err(_) => return,
             }
         };
-        let data_ch = data_channel(&id);
-        let mut buf = [0u8; 4096];
+        let mut buf = [0u8; 8192];
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
-                    let bytes = buf[..n].to_vec();
-                    if reader_app.emit(&data_ch, bytes).is_err() {
+                    if chunk_tx.blocking_send(buf[..n].to_vec()).is_err() {
                         break;
                     }
                 }
                 Err(_) => break,
             }
         }
-        let _ = reader_app.emit(&exit_channel(&id), ());
+    });
+
+    // Forwarder: coalesce queued chunks into one raw binary IPC message.
+    let forward_app = app.clone();
+    let on_data = cfg.on_data.clone();
+    let exit_id = cfg.id.clone();
+    tokio::spawn(async move {
+        while let Some(first) = chunk_rx.recv().await {
+            let batch = drain_pending(&mut chunk_rx, first);
+            if on_data.send(InvokeResponseBody::Raw(batch)).is_err() {
+                break;
+            }
+        }
+        let _ = forward_app.emit(&exit_channel(&exit_id), ());
     });
 
     // Optional auto-run: type the command into the shell once it has warmed up.
@@ -126,8 +152,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn channels_are_namespaced_by_id() {
-        assert_eq!(data_channel("abc"), "pty://data/abc");
+    fn exit_channel_is_namespaced_by_id() {
         assert_eq!(exit_channel("abc"), "pty://exit/abc");
+    }
+
+    #[test]
+    fn drain_pending_concatenates_available_chunks() {
+        let (tx, mut rx) = mpsc::channel::<Vec<u8>>(8);
+        tx.try_send(vec![2, 3]).unwrap();
+        tx.try_send(vec![4]).unwrap();
+        assert_eq!(drain_pending(&mut rx, vec![1]), vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn drain_pending_returns_first_alone_when_queue_is_empty() {
+        let (_tx, mut rx) = mpsc::channel::<Vec<u8>>(8);
+        assert_eq!(drain_pending(&mut rx, vec![9]), vec![9]);
+    }
+
+    #[test]
+    fn drain_pending_stops_at_the_batch_cap() {
+        let (tx, mut rx) = mpsc::channel::<Vec<u8>>(8);
+        tx.try_send(vec![1]).unwrap();
+        let batch = drain_pending(&mut rx, vec![0; BATCH_CAP]);
+        assert_eq!(batch.len(), BATCH_CAP); // queued chunk stays for the next batch
+        assert_eq!(rx.try_recv().unwrap(), vec![1]);
     }
 }
