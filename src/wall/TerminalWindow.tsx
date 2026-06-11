@@ -1,15 +1,22 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { HEADER_H } from "./transform";
+import { HEADER_H, type Camera } from "./transform";
 import { useTerminalStore, type TerminalState } from "./terminalStore";
 import { spawnPty, writePty, resizePty, killPty, onPtyExit } from "../pty/client";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset } from "./presets";
 import { presetTierColor } from "./presetTier";
 
-export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zoom: number }) {
+export function TerminalWindow({
+  terminal,
+  cameraRef,
+}: {
+  terminal: TerminalState;
+  cameraRef: RefObject<Camera>;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -83,10 +90,12 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
 
   const beginDrag = (e: ReactPointerEvent) => {
     e.stopPropagation();
+    // Camera can't change mid-gesture: the pointer is captured by the window, not the canvas.
+    const z = cameraRef.current.z;
     const sx = e.clientX, sy = e.clientY;
     const ox = terminal.x, oy = terminal.y;
     const onMove = (ev: PointerEvent) =>
-      update(id, { x: ox + (ev.clientX - sx) / zoom, y: oy + (ev.clientY - sy) / zoom });
+      update(id, { x: ox + (ev.clientX - sx) / z, y: oy + (ev.clientY - sy) / z });
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -97,12 +106,13 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
 
   const beginResize = (e: ReactPointerEvent) => {
     e.stopPropagation();
+    const z = cameraRef.current.z;
     const sx = e.clientX, sy = e.clientY;
     const ow = terminal.w, oh = terminal.h;
     const onMove = (ev: PointerEvent) =>
       update(id, {
-        w: Math.max(220, ow + (ev.clientX - sx) / zoom),
-        h: Math.max(140, oh + (ev.clientY - sy) / zoom),
+        w: Math.max(220, ow + (ev.clientX - sx) / z),
+        h: Math.max(140, oh + (ev.clientY - sy) / z),
       });
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
@@ -113,7 +123,15 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
   };
 
   return (
-    <>
+    <div
+      ref={wrapRef}
+      className="terminal-window"
+      style={{
+        transform: `translate(${terminal.x}px, ${terminal.y}px)`,
+        width: terminal.w,
+        height: terminal.h,
+      }}
+    >
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
         <span className="terminal-tier" style={{ background: presetTierColor(preset.id) }} />
         <span className="terminal-title">{preset.label}</span>
@@ -129,6 +147,6 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
         </button>
       )}
       <div className="terminal-resize" onPointerDown={beginResize} />
-    </>
+    </div>
   );
 }

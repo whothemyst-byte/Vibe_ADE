@@ -7,7 +7,7 @@ import "./excalidraw-skin.css";
 import { Toolbar } from "./Toolbar";
 import { TerminalOverlay } from "./TerminalOverlay";
 import { useTerminalStore } from "./terminalStore";
-import { findSpawnPoint, type Camera, type Rect } from "./transform";
+import { findSpawnPoint, layerTransform, type Camera, type Rect } from "./transform";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
@@ -37,7 +37,9 @@ function applyScene(
 
 export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string; onExit: () => void; onSwitch: (id: string) => void; onTasks: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
-  const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
+  const cameraRef = useRef<Camera>(DEFAULT_CAMERA);
+  const layerRef = useRef<HTMLDivElement>(null);
+  const rafPending = useRef(false);
   const [activeType, setActiveType] = useState<string>("selection");
   const [background, setBackground] = useState<Background>(DEFAULT_BACKGROUND);
   const backgroundRef = useRef<Background>(DEFAULT_BACKGROUND);
@@ -118,15 +120,28 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
 
   useEffect(() => useTerminalStore.subscribe(scheduleSave), [scheduleSave]);
 
+  // Pan/zoom never goes through React state: write the camera to a ref and patch
+  // the overlay layer's transform in one rAF. Terminals re-render only when the
+  // terminals array itself changes.
+  const applyCamera = useCallback((next: Camera) => {
+    const prev = cameraRef.current;
+    if (prev.x === next.x && prev.y === next.y && prev.z === next.z) return;
+    cameraRef.current = next;
+    if (rafPending.current) return;
+    rafPending.current = true;
+    requestAnimationFrame(() => {
+      rafPending.current = false;
+      const el = layerRef.current;
+      if (el) el.style.transform = layerTransform(cameraRef.current);
+    });
+  }, []);
+
   const onChange = useCallback((_els: readonly unknown[], appState: AppStateLike) => {
     const tool = (appState as { activeTool?: { type?: string } }).activeTool?.type;
     if (tool) setActiveType(tool);
-    const next = excalidrawCamera(appState);
-    setCamera((prev) =>
-      prev.x === next.x && prev.y === next.y && prev.z === next.z ? prev : next
-    );
+    applyCamera(excalidrawCamera(appState));
     scheduleSave();
-  }, [scheduleSave]);
+  }, [applyCamera, scheduleSave]);
 
   const addTerminal = async (presetId: string) => {
     const api = apiRef.current;
@@ -182,14 +197,14 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
         excalidrawAPI={(api) => {
           apiRef.current = api;
           if (pendingScene.current) applyScene(api, pendingScene.current);
-          setCamera(excalidrawCamera(api.getAppState() as AppStateLike));
+          applyCamera(excalidrawCamera(api.getAppState() as AppStateLike));
         }}
         onChange={onChange as Parameters<typeof Excalidraw>[0]["onChange"]}
         initialData={{ appState: { viewBackgroundColor: "transparent" } }}
       />
       <LaunchMenu presets={presets} onLaunch={addTerminal} />
       <ToolsIsland activeType={activeType} onSelect={selectTool} />
-      <TerminalOverlay camera={camera} />
+      <TerminalOverlay layerRef={layerRef} cameraRef={cameraRef} />
     </div>
   );
 }

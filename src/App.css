@@ -40,6 +40,7 @@
 .tool-key.active { background: var(--accent); color: #20170a; }
 .tool-glyph { font: 500 15px var(--font-mono); line-height: 1; }
 .terminal-overlay { position: absolute; inset: 0; z-index: 250; pointer-events: none; }
+.terminal-layer { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
 .terminal-window {
   position: absolute; top: 0; left: 0; will-change: transform;
   border: 1px solid var(--rule); border-radius: var(--radius); background: var(--bg); overflow: hidden;
