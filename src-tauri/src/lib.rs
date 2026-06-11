@@ -21,6 +21,8 @@ pub fn run() {
             store::commands::thumb_load,
             store::commands::presets_load,
             store::commands::presets_save,
+            store::commands::settings_load,
+            store::commands::settings_save,
             store::commands::tasks_load,
             store::commands::tasks_save,
             store::backgrounds::import_background,

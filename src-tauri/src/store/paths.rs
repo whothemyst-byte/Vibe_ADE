@@ -21,6 +21,9 @@ pub fn presets_path(base: &Path) -> PathBuf {
 pub fn tasks_path(base: &Path) -> PathBuf {
     base.join("tasks.json")
 }
+pub fn settings_path(base: &Path) -> PathBuf {
+    base.join("settings.json")
+}
 
 #[cfg(test)]
 mod tests {
