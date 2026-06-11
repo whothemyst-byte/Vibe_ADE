@@ -12,11 +12,12 @@ Vibe is the floating ghost that controls the app by voice. Enable it in
 Settings → Vibe. It needs:
 
 - A free Groq API key (https://console.groq.com/keys) — speech-to-text + brain.
-- A free Picovoice AccessKey (https://console.picovoice.ai) — the "Vibe" wake word.
-- Two files in `public/` (see docs/superpowers/specs/2026-06-11-vibe-pet-voice-agent-design.md):
-  `vibe_wake.ppn` (train "Vibe" for Web/WASM in the Picovoice console) and
-  `porcupine_params.pv` (from the Porcupine repo, lib/common).
+  Any email works; no card required.
+- The offline wake-word model (~40MB, not committed to git). Download
+  https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz
+  and save it as `public/vosk-model-small-en-us.tar.gz`. No account needed —
+  the "Vibe" wake word runs fully locally via Vosk (Apache-2.0).
 
-Say **"Vibe"**, wait for the orb to pulse, then speak — or press **Ctrl+Shift+V**.
-Without the Picovoice files the hotkey still works. Phase 1 controls the UI only;
-it never types into terminals.
+Say **"Vibe"**, wait for the orb to pulse, then speak — or press **Ctrl+Shift+V**,
+or click the pet. Without the model file the hotkey/click still works. Phase 1
+controls the UI only; it never types into terminals.

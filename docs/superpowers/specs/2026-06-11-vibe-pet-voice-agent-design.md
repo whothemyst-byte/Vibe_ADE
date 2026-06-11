@@ -1,8 +1,18 @@
 # Vibe Pet — Global Voice Agent
 
 **Date:** 2026-06-11
-**Status:** Approved
+**Status:** Approved (amended same day, see below)
 **Target:** vibe-walls (Tauri)
+
+> **Amendment 2026-06-11 — wake word engine swapped Porcupine → Vosk.**
+> Picovoice Console now requires a company email for signup, violating the
+> "free with no restrictions" requirement. The wake word is instead detected
+> by `vosk-browser` (Apache-2.0, WASM, fully offline, no account): a
+> `KaldiRecognizer` restricted to the grammar `["vibe", "[unk]"]` runs on the
+> same WebVoiceProcessor mic frames. Requires
+> `public/vosk-model-small-en-us.tar.gz` (~40MB, gitignored; download URL in
+> README). The Picovoice AccessKey settings field and `.ppn`/`.pv` assets are
+> removed. Everything below referring to Porcupine is superseded by this.
 
 ## Purpose
 

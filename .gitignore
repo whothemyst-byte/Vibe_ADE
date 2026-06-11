@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .superpowers/
+.firecrawl/
+
+# Vosk wake-word model (~40MB) — see README "Vibe — voice companion"
+public/vosk-model-*.tar.gz

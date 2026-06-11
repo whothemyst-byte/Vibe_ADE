@@ -86,7 +86,6 @@ export function VibeAgent() {
 
   const pipeline = useVoicePipeline({
     enabled: vibe.enabled,
-    picovoiceAccessKey: vibe.picovoiceAccessKey,
     onWake: () => { void listen(); },
   });
 

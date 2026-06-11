@@ -166,8 +166,8 @@ function VibePane() {
       <h2 className="set-title">Vibe</h2>
       <p className="set-sub">
         Voice companion. Needs a free Groq API key (console.groq.com) for speech
-        recognition and the brain, and a free Picovoice AccessKey (console.picovoice.ai)
-        for the "Vibe" wake word. Without the Picovoice key, the hotkey still works.
+        recognition and the brain. The "Vibe" wake word runs fully offline — no
+        account needed — and the hotkey or clicking the pet always works too.
       </p>
       <div className="set-row">
         <span className="set-label">Enable Vibe</span>
@@ -184,15 +184,6 @@ function VibePane() {
           type="password"
           value={v.groqApiKey}
           onChange={(e) => setVibe({ groqApiKey: e.target.value.trim() })}
-        />
-      </div>
-      <div className="set-row">
-        <span className="set-label">Picovoice AccessKey</span>
-        <input
-          className="set-input set-mono"
-          type="password"
-          value={v.picovoiceAccessKey}
-          onChange={(e) => setVibe({ picovoiceAccessKey: e.target.value.trim() })}
         />
       </div>
       <div className="set-row">
