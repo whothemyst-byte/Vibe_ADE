@@ -33,3 +33,28 @@ describe("mergeSettings", () => {
     expect("voice" in s).toBe(false);
   });
 });
+
+describe("vibe settings", () => {
+  it("defaults: disabled with empty keys", () => {
+    expect(DEFAULT_SETTINGS.vibe).toEqual({
+      enabled: false,
+      groqApiKey: "",
+      picovoiceAccessKey: "",
+      hotkey: "Ctrl+Shift+V",
+    });
+  });
+
+  it("merges a valid vibe section", () => {
+    const merged = mergeSettings({
+      vibe: { enabled: true, groqApiKey: "gsk_x", picovoiceAccessKey: "pv_y", hotkey: "Ctrl+Alt+V" },
+    });
+    expect(merged.vibe).toEqual({
+      enabled: true, groqApiKey: "gsk_x", picovoiceAccessKey: "pv_y", hotkey: "Ctrl+Alt+V",
+    });
+  });
+
+  it("falls back field-by-field on wrong types and missing section", () => {
+    expect(mergeSettings({}).vibe).toEqual(DEFAULT_SETTINGS.vibe);
+    expect(mergeSettings({ vibe: { enabled: "yes", groqApiKey: 42 } }).vibe).toEqual(DEFAULT_SETTINGS.vibe);
+  });
+});

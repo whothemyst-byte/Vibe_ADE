@@ -3,11 +3,13 @@ import { DEFAULT_BACKGROUND, type Background } from "../store/types";
 export type Settings = {
   terminal: { fontSize: number; scrollback: number; shell: string };
   canvas: { defaultBackground: Background };
+  vibe: { enabled: boolean; groqApiKey: string; picovoiceAccessKey: string; hotkey: string };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   terminal: { fontSize: 13, scrollback: 5000, shell: "powershell.exe" },
   canvas: { defaultBackground: DEFAULT_BACKGROUND },
+  vibe: { enabled: false, groqApiKey: "", picovoiceAccessKey: "", hotkey: "Ctrl+Shift+V" },
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -22,6 +24,7 @@ function isBackground(v: unknown): v is Background {
 
 const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
 const str = (v: unknown, fallback: string) => (typeof v === "string" && v.length > 0 ? v : fallback);
+const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
 
 /**
  * Field-by-field overlay of a loaded settings.json onto DEFAULT_SETTINGS.
@@ -32,6 +35,7 @@ export function mergeSettings(raw: unknown): Settings {
   const r = isRecord(raw) ? raw : {};
   const term = isRecord(r.terminal) ? r.terminal : {};
   const canvas = isRecord(r.canvas) ? r.canvas : {};
+  const vibe = isRecord(r.vibe) ? r.vibe : {};
   const d = DEFAULT_SETTINGS;
   return {
     terminal: {
@@ -43,6 +47,13 @@ export function mergeSettings(raw: unknown): Settings {
       defaultBackground: isBackground(canvas.defaultBackground)
         ? canvas.defaultBackground
         : d.canvas.defaultBackground,
+    },
+    vibe: {
+      enabled: bool(vibe.enabled, d.vibe.enabled),
+      groqApiKey: typeof vibe.groqApiKey === "string" ? vibe.groqApiKey : d.vibe.groqApiKey,
+      picovoiceAccessKey:
+        typeof vibe.picovoiceAccessKey === "string" ? vibe.picovoiceAccessKey : d.vibe.picovoiceAccessKey,
+      hotkey: str(vibe.hotkey, d.vibe.hotkey),
     },
   };
 }
