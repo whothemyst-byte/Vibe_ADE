@@ -20,6 +20,7 @@ import { usePresetStore } from "./presetStore";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
+const THUMB_INTERVAL_MS = 20_000;
 
 function applyScene(
   api: ExcalidrawImperativeAPI,
@@ -50,6 +51,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
 
   const saveTimer = useRef<number | null>(null);
   const savesEnabled = useRef(false);
+  const lastThumbAt = useRef(0);
 
   const buildDoc = (): WallDoc | null => {
     const api = apiRef.current;
@@ -67,21 +69,27 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     };
   };
 
-  const doSave = async () => {
+  const doSave = async (opts?: { thumbnail?: boolean }) => {
     const api = apiRef.current;
     const doc = buildDoc();
     if (!api || !doc) return;
     await saveWall(wallId, doc);
-    try {
-      const blob = await exportToBlob({
-        elements: [...api.getSceneElements()] as readonly ExcalidrawElement[],
-        appState: { ...api.getAppState(), exportBackground: false },
-        files: api.getFiles(),
-        mimeType: "image/png",
-        maxWidthOrHeight: 480,
-      });
-      await saveThumbnail(wallId, new Uint8Array(await blob.arrayBuffer()));
-    } catch { /* thumbnail is best-effort */ }
+    // exportToBlob renders the whole scene - too expensive for every debounced
+    // save, so throttle it (and force it once on exit).
+    const wantThumb = opts?.thumbnail ?? Date.now() - lastThumbAt.current > THUMB_INTERVAL_MS;
+    if (wantThumb) {
+      lastThumbAt.current = Date.now();
+      try {
+        const blob = await exportToBlob({
+          elements: [...api.getSceneElements()] as readonly ExcalidrawElement[],
+          appState: { ...api.getAppState(), exportBackground: false },
+          files: api.getFiles(),
+          mimeType: "image/png",
+          maxWidthOrHeight: 480,
+        });
+        await saveThumbnail(wallId, new Uint8Array(await blob.arrayBuffer()));
+      } catch { /* thumbnail is best-effort */ }
+    }
     const index = await loadIndex();
     await saveIndex(index.map((w) => (w.id === wallId ? { ...w, updatedAt: Date.now() } : w)));
   };
@@ -164,6 +172,12 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
 
   const changeBg = (bg: Background) => { backgroundRef.current = bg; setBackground(bg); scheduleSave(); };
 
+  const exit = async () => {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    if (savesEnabled.current) await doSave({ thumbnail: true });
+    onExit();
+  };
+
   const selectTool = (tool: ToolDef) => {
     // tool.type is a literal union that includes "image"; assert to setActiveTool's exact
     // parameter union so the discriminated type checks (ExcalidrawImperativeAPI is already
@@ -177,7 +191,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
   return (
     <div className="wall-root">
       <WallBackground background={background} />
-      <Toolbar wallId={wallId} onBack={onExit} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onTasks={onTasks} />
+      <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onTasks={onTasks} />
       {gearOpen && (
         <BackgroundMenu background={background} onChange={changeBg} onClose={() => setGearOpen(false)} />
       )}
