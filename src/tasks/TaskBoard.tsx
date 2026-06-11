@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 
 import { useTaskStore, type Task, type TaskStatus } from "./taskStore";
 import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
+import { BackIcon, GridIcon } from "../wall/icons";
 
 const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "backlog", label: "Backlog", color: "var(--text-muted)" },
@@ -53,7 +54,7 @@ function TaskCard({
       <div className="tb-card-link">
         {linkedWall && (
           <button className="tb-chip" onClick={() => onOpenWall(linkedWall.id)} title="Open wall">
-            ▦ {linkedWall.name}
+            <GridIcon /> {linkedWall.name}
           </button>
         )}
         <select
@@ -107,8 +108,8 @@ export function TaskBoard({
   return (
     <div className="taskboard">
       <div className="tb-bar">
-        <button className="cnvs-btn" onClick={onBack} title="Back">←</button>
-        <span className="tb-title">▦ Taskboard</span>
+        <button className="cnvs-btn" onClick={onBack} title="Back"><BackIcon /></button>
+        <span className="tb-title"><GridIcon /> Taskboard</span>
         <span className="tb-total">{tasks.length} {tasks.length === 1 ? "task" : "tasks"}</span>
         <button className="tb-add" onClick={() => useTaskStore.getState().add("New task")}>+ Task</button>
       </div>

@@ -26,6 +26,23 @@ const activityRefs = new Map<string, { current: Activity }>();
 /** PTYs that exited while their wall wasn't open — dropped on the next wall load. */
 const deadIds = new Set<string>();
 
+/**
+ * Hidden in-DOM parking lot for detached terminals. Fully detached WebGL
+ * canvases can leave stale composited layers in WebView2 (rendering artifacts
+ * on other views); a display:none subtree is never composited, and xterm keeps
+ * its buffer, so this is the safe place to keep off-screen sessions.
+ */
+let park: HTMLDivElement | null = null;
+function parkEl(): HTMLDivElement {
+  if (!park) {
+    park = document.createElement("div");
+    park.style.display = "none";
+    park.setAttribute("aria-hidden", "true");
+    document.body.appendChild(park);
+  }
+  return park;
+}
+
 /** Stable per-terminal activity ref shared by the session and the StatusFooter. */
 export function getActivityRef(id: string): { current: Activity } {
   let ref = activityRefs.get(id);
@@ -133,15 +150,16 @@ export function ensureSession(opts: {
   })();
 }
 
-/** Unparents the host on unmount; the session keeps running off-screen. */
+/** Parks the host on unmount; the session keeps running off-screen. */
 export function detachSession(id: string): void {
-  sessions.get(id)?.host.remove();
+  const s = sessions.get(id);
+  if (s) parkEl().appendChild(s.host);
 }
 
-/** Refits xterm to its container and syncs the PTY size (no-op while detached). */
+/** Refits xterm to its container and syncs the PTY size (no-op while parked). */
 export function fitSession(id: string): void {
   const s = sessions.get(id);
-  if (!s || !s.host.isConnected) return;
+  if (!s || s.host.clientWidth === 0) return; // parked (display:none) or not laid out yet
   s.fit.fit();
   void resizePty(id, s.term.rows, s.term.cols);
 }

@@ -39,3 +39,15 @@
 
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
+
+/* Thin, warm scrollbars everywhere (WebView2 is Chromium). */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(243, 238, 229, .14);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: rgba(243, 238, 229, .28); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }

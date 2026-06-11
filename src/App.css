@@ -126,20 +126,26 @@
 }
 .cnvs-menu-item:hover { background: rgba(243, 238, 229, .06); color: var(--text); }
 .cnvs-menu-item.active { color: var(--accent); }
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
 .start-page {
   position: fixed; inset: 0; overflow: auto; padding: 40px 44px;
   background: radial-gradient(1100px 500px at 18% -8%, #1b1813 0%, var(--bg) 55%);
   color: var(--text); font-family: var(--font-ui);
+  animation: page-in .22s ease-out;
 }
 .start-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; }
 .start-headings { display: flex; flex-direction: column; gap: 2px; }
 .start-title { font-family: var(--font-display); font-size: 38px; font-weight: 400; line-height: 1; margin: 0; }
 .start-sub { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); letter-spacing: .02em; }
 .start-tasks {
-  display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--accent);
+  display: inline-flex; align-items: center; gap: 7px; background: transparent; color: var(--accent);
   border: 1px solid var(--accent-dim); border-radius: var(--radius-sm); cursor: pointer;
   padding: 8px 14px; font-size: 13px; font-family: var(--font-ui); transition: background .14s, border-color .14s;
 }
+.start-tasks svg { width: 13px; height: 13px; }
 .start-tasks:hover { background: var(--accent-soft); border-color: var(--accent); }
 .start-grid { display: flex; flex-wrap: wrap; gap: 18px; }
 .wall-card {
@@ -196,12 +202,14 @@
   position: fixed; inset: 0; display: flex; flex-direction: column;
   background: radial-gradient(1100px 520px at 50% -12%, #1b1813 0%, var(--bg) 56%);
   color: var(--text); font-family: var(--font-ui);
+  animation: page-in .22s ease-out;
 }
 .tb-bar {
   display: flex; align-items: center; gap: 14px; padding: 16px 20px;
   border-bottom: 1px solid var(--rule); background: var(--glass); backdrop-filter: blur(8px);
 }
-.tb-title { font-family: var(--font-display); font-size: 24px; font-weight: 400; }
+.tb-title { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 24px; font-weight: 400; }
+.tb-title svg { width: 17px; height: 17px; color: var(--accent); }
 .tb-total { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
 .tb-add {
   margin-left: auto; background: var(--accent); color: #20170a; border: none; border-radius: var(--radius-sm);
@@ -234,10 +242,11 @@
   background: color-mix(in srgb, var(--col) 16%, transparent);
   border-radius: 999px; min-width: 20px; text-align: center; padding: 1px 7px; font-size: 11px;
 }
-.tb-col-body { flex: 1; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+.tb-col-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
 .tb-empty {
   margin: auto; color: var(--text-faint); font-family: var(--font-mono); font-size: 11px;
-  border: 1px dashed var(--rule); border-radius: var(--radius-sm); padding: 16px 10px; width: 100%; text-align: center;
+  border: 1px dashed var(--rule); border-radius: var(--radius-sm); padding: 16px 10px;
+  width: 100%; box-sizing: border-box; text-align: center;
 }
 .tb-card {
   background: var(--surface-2); border: 1px solid var(--rule); border-left: 3px solid var(--col);
@@ -260,9 +269,10 @@
 .tb-card-desc::placeholder { color: var(--text-faint); }
 .tb-card-link { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .tb-chip {
-  display: inline-flex; align-items: center; gap: 4px; background: var(--accent-soft); color: var(--accent);
+  display: inline-flex; align-items: center; gap: 5px; background: var(--accent-soft); color: var(--accent);
   border: 1px solid var(--accent-dim); border-radius: 999px; cursor: pointer; padding: 3px 9px; font-size: 11px;
   font-family: var(--font-mono); transition: background .12s;
 }
+.tb-chip svg { width: 11px; height: 11px; }
 .tb-chip:hover { background: rgba(215, 154, 61, .22); }
 .tb-link-select { background: var(--bg); color: var(--text-muted); border: 1px solid var(--rule); border-radius: 7px; font-size: 11px; padding: 3px 6px; cursor: pointer; font-family: var(--font-ui); }

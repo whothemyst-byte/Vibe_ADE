@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { loadIndex, saveIndex, pickFolder, deleteWall, loadThumbnailUrl } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { relativeTime } from "./relativeTime";
+import { CloseIcon, GridIcon } from "../wall/icons";
 
 const basename = (p: string) => p.replace(/[/\\]+$/, "").split(/[/\\]/).pop() || "wall";
 
@@ -21,7 +22,7 @@ function WallCard({ meta, onOpen, onDelete }: { meta: WallMeta; onOpen: () => vo
         title="Delete"
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
       >
-        &times;
+        <CloseIcon />
       </button>
       <div className="wall-thumb">
         {thumb ? <img src={thumb} alt="" /> : <div className="wall-thumb-empty" />}
@@ -66,7 +67,7 @@ export function StartPage({ onOpen, onTasks }: { onOpen: (id: string) => void; o
           <h1 className="start-title">Walls</h1>
           <span className="start-sub">{walls.length} {walls.length === 1 ? "wall" : "walls"}</span>
         </div>
-        <button className="start-tasks" onClick={onTasks}>▦ Taskboard</button>
+        <button className="start-tasks" onClick={onTasks}><GridIcon /> Taskboard</button>
       </div>
       <div className="start-grid">
         {walls.map((w) => (
