@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { HEADER_H, type Camera } from "./transform";
 import { useTerminalStore, type TerminalState } from "./terminalStore";
@@ -30,6 +31,7 @@ function TerminalWindowInner({
     if (!started || !bodyRef.current) return;
     const term = new Terminal({
       fontSize: 13,
+      scrollback: 5000,
       fontFamily: '"Geist Mono", ui-monospace, monospace',
       theme: {
         background: "#12110f",
@@ -42,6 +44,14 @@ function TerminalWindowInner({
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(bodyRef.current);
+    try {
+      const webgl = new WebglAddon();
+      // On context loss, dispose the addon: xterm falls back to the DOM renderer.
+      webgl.onContextLoss(() => webgl.dispose());
+      term.loadAddon(webgl);
+    } catch {
+      // WebGL unavailable - DOM renderer fallback.
+    }
     fit.fit();
     termRef.current = term;
     fitRef.current = fit;
