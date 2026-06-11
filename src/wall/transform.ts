@@ -22,6 +22,18 @@ export function worldRectToScreen(rect: Rect, cam: Camera): ScreenRect {
   };
 }
 
+/** Height (world px) of the terminal card's status footer. */
+export const FOOTER_H = 22;
+
+/**
+ * CSS transform for the world-space terminal layer. Children positioned at raw
+ * world coordinates land at screen = (world + cam) * z, matching worldRectToScreen.
+ * (CSS applies transforms right-to-left: translate first, then scale.)
+ */
+export function layerTransform(cam: Camera): string {
+  return `scale(${cam.z}) translate(${cam.x}px, ${cam.y}px)`;
+}
+
 /** True if rects a and b overlap, treating `gap` px around each as occupied. */
 export function rectsOverlap(a: Rect, b: Rect, gap = 0): boolean {
   return (

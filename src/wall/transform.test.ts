@@ -3,6 +3,7 @@ import {
   worldRectToScreen,
   findSpawnPoint,
   rectsOverlap,
+  layerTransform,
   type Camera,
   type Rect,
 } from "./transform";
@@ -58,5 +59,18 @@ describe("findSpawnPoint", () => {
     const newRect: Rect = { x: got.x, y: got.y, w: size.w, h: size.h };
     expect(rectsOverlap(newRect, obstacles[0], 24)).toBe(false);
     expect(rectsOverlap(newRect, obstacles[1], 24)).toBe(false);
+  });
+});
+
+describe("layerTransform", () => {
+  it("scale-then-translate reproduces worldRectToScreen", () => {
+    const cam = { x: 120, y: -40, z: 1.5 };
+    expect(layerTransform(cam)).toBe("scale(1.5) translate(120px, -40px)");
+    // CSS right-to-left order: p -> translate -> scale = (p + cam) * z,
+    // which is exactly worldRectToScreen's mapping for the rect origin.
+    const r = { x: 10, y: 20, w: 100, h: 50 };
+    const screen = worldRectToScreen(r, cam);
+    expect((r.x + cam.x) * cam.z).toBe(screen.left);
+    expect((r.y + cam.y) * cam.z).toBe(screen.top);
   });
 });
