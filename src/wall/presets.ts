@@ -16,3 +16,23 @@ export const DEFAULT_PRESETS: Preset[] = [
 export function resolvePreset(presets: Preset[], id: string): Preset {
   return presets.find((p) => p.id === id) ?? presets[0] ?? DEFAULT_PRESETS[0];
 }
+
+/**
+ * Loose natural-language preset lookup ("a claude code terminal please").
+ * Empty phrase = no preference = first preset. No match = undefined, so the
+ * caller can report an error instead of silently opening the wrong preset.
+ */
+export function findPresetByPhrase(presets: Preset[], phrase: string): Preset | undefined {
+  const p = phrase.trim().toLowerCase();
+  if (!p) return presets[0];
+  const exact = presets.find((x) => x.id.toLowerCase() === p || x.label.toLowerCase() === p);
+  if (exact) return exact;
+  const contains = presets.find(
+    (x) => p.includes(x.label.toLowerCase()) || x.label.toLowerCase().includes(p)
+  );
+  if (contains) return contains;
+  const words = new Set(p.split(/\s+/));
+  return presets.find(
+    (x) => x.label.toLowerCase().split(/\s+/).some((w) => words.has(w)) || words.has(x.id.toLowerCase())
+  );
+}

@@ -21,6 +21,8 @@ import { usePresetStore } from "./presetStore";
 import { pickAgentName } from "./agentNames";
 import { wasSessionDead } from "./sessions";
 import { useVibeCommand } from "../vibe/commands";
+import { findPresetByPhrase } from "./presets";
+import { THEMES } from "../settings/themes";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
@@ -193,19 +195,43 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
   useVibeCommand({
     name: "open_terminal",
     description:
-      "Spawn a new agent terminal on this wall. Optional preset label, e.g. 'Claude Code', 'Codex', or 'Plain shell'.",
+      `Spawn a new agent terminal on this wall. Available presets: ${presets.map((p) => p.label).join(", ")}. Omit preset for a plain shell.`,
     parameters: {
       type: "object",
-      properties: { preset: { type: "string", description: "Preset label (fuzzy matched)" } },
+      properties: { preset: { type: "string", description: "Preset name (fuzzy matched)" } },
     },
     run: async (args) => {
-      const wanted = String(args.preset ?? "").toLowerCase();
-      const preset =
-        presets.find((p) => p.label.toLowerCase().includes(wanted)) ?? presets[0];
+      const wanted = String(args.preset ?? "");
+      const preset = findPresetByPhrase(presets, wanted);
+      if (!preset) {
+        return `Error: no preset matches "${wanted}". Available presets: ${presets.map((p) => p.label).join(", ")}.`;
+      }
       await addTerminal(preset.id);
       const all = useTerminalStore.getState().terminals;
       const name = all[all.length - 1]?.name;
       return `Opened a ${preset.label} terminal named ${name}.`;
+    },
+  });
+
+  useVibeCommand({
+    name: "apply_theme",
+    description:
+      `Apply a pre-made theme to this wall. Themes: ${THEMES.map((t) => t.name).join(", ")}.`,
+    parameters: {
+      type: "object",
+      properties: { name: { type: "string", description: "Theme name" } },
+      required: ["name"],
+    },
+    run: (args) => {
+      const wanted = String(args.name ?? "").trim().toLowerCase();
+      const theme = THEMES.find(
+        (t) => t.name.toLowerCase() === wanted || t.name.toLowerCase().includes(wanted) || wanted.includes(t.name.toLowerCase())
+      );
+      if (!theme) {
+        return `Error: no theme matches "${args.name}". Themes: ${THEMES.map((t) => t.name).join(", ")}.`;
+      }
+      changeBg(theme.background);
+      return `Applied the ${theme.name} theme (${theme.tagline}).`;
     },
   });
 
