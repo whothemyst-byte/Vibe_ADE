@@ -1,4 +1,4 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -9,7 +9,7 @@ import { usePresetStore } from "./presetStore";
 import { resolvePreset } from "./presets";
 import { presetTierColor } from "./presetTier";
 
-export function TerminalWindow({
+function TerminalWindowInner({
   terminal,
   cameraRef,
 }: {
@@ -88,17 +88,25 @@ export function TerminalWindow({
   const start = () => update(id, { started: true });
   const close = (e: ReactPointerEvent) => { e.stopPropagation(); remove(id); };
 
+  // Gestures mutate the wrapper element directly; the store gets ONE commit on
+  // release (one autosave, no per-frame React work).
   const beginDrag = (e: ReactPointerEvent) => {
     e.stopPropagation();
     // Camera can't change mid-gesture: the pointer is captured by the window, not the canvas.
     const z = cameraRef.current.z;
     const sx = e.clientX, sy = e.clientY;
     const ox = terminal.x, oy = terminal.y;
-    const onMove = (ev: PointerEvent) =>
-      update(id, { x: ox + (ev.clientX - sx) / z, y: oy + (ev.clientY - sy) / z });
+    let nx = ox, ny = oy;
+    const onMove = (ev: PointerEvent) => {
+      nx = ox + (ev.clientX - sx) / z;
+      ny = oy + (ev.clientY - sy) / z;
+      const el = wrapRef.current;
+      if (el) el.style.transform = `translate(${nx}px, ${ny}px)`;
+    };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      update(id, { x: nx, y: ny });
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -109,14 +117,17 @@ export function TerminalWindow({
     const z = cameraRef.current.z;
     const sx = e.clientX, sy = e.clientY;
     const ow = terminal.w, oh = terminal.h;
-    const onMove = (ev: PointerEvent) =>
-      update(id, {
-        w: Math.max(220, ow + (ev.clientX - sx) / z),
-        h: Math.max(140, oh + (ev.clientY - sy) / z),
-      });
+    let nw = ow, nh = oh;
+    const onMove = (ev: PointerEvent) => {
+      nw = Math.max(220, ow + (ev.clientX - sx) / z);
+      nh = Math.max(140, oh + (ev.clientY - sy) / z);
+      const el = wrapRef.current;
+      if (el) { el.style.width = `${nw}px`; el.style.height = `${nh}px`; }
+    };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      update(id, { w: nw, h: nh }); // commit refits xterm via the w/h effect
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -150,3 +161,7 @@ export function TerminalWindow({
     </div>
   );
 }
+
+// Shallow compare is correct: the store's update() replaces only the changed
+// terminal's object, so untouched windows keep referential equality and skip rendering.
+export const TerminalWindow = memo(TerminalWindowInner);
