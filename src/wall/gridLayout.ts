@@ -29,3 +29,21 @@ export function gridShape(n: number, aspect: number): { cols: number; rows: numb
   }
   return best;
 }
+
+/** Top-left points for n cells in reading order, grid centered on `anchor`. */
+export function gridPositions(n: number, aspect: number, anchor: Point): Point[] {
+  const { cols } = gridShape(n, aspect);
+  const bbox = gridBBox(n, aspect, anchor);
+  return Array.from({ length: n }, (_, i) => ({
+    x: bbox.x + (i % cols) * (CELL.w + GUTTER),
+    y: bbox.y + Math.floor(i / cols) * (CELL.h + GUTTER),
+  }));
+}
+
+/** Bounding box of the n-cell grid centered on `anchor`. */
+export function gridBBox(n: number, aspect: number, anchor: Point): Rect {
+  const { cols, rows } = gridShape(n, aspect);
+  const w = cols * CELL.w + (cols - 1) * GUTTER;
+  const h = rows * CELL.h + (rows - 1) * GUTTER;
+  return { x: anchor.x - w / 2, y: anchor.y - h / 2, w, h };
+}
