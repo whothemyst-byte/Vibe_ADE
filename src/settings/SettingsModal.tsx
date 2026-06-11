@@ -8,13 +8,14 @@ import type { Background } from "../store/types";
 import { CloseIcon, EllipseIcon, GearIcon, ImageIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon } from "../wall/icons";
 import { THEMES, isThemeActive } from "./themes";
 
-type Section = "agents" | "terminal" | "themes" | "canvas" | "about";
+type Section = "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about";
 
 const SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[] = [
   { key: "agents", label: "Agents", icon: SelectIcon },
   { key: "terminal", label: "Terminal", icon: RectangleIcon },
   { key: "themes", label: "Themes", icon: PaletteIcon },
   { key: "canvas", label: "Canvas", icon: ImageIcon },
+  { key: "vibe", label: "Vibe", icon: EllipseIcon },
   { key: "about", label: "About", icon: EllipseIcon },
 ];
 
@@ -153,6 +154,59 @@ function TerminalPane() {
   );
 }
 
+function VibePane() {
+  const settings = useSettingsStore((s) => s.settings);
+  const save = useSettingsStore((s) => s.save);
+  const v = settings.vibe;
+  const setVibe = (patch: Partial<typeof v>) =>
+    save({ ...settings, vibe: { ...v, ...patch } });
+
+  return (
+    <>
+      <h2 className="set-title">Vibe</h2>
+      <p className="set-sub">
+        Voice companion. Needs a free Groq API key (console.groq.com) for speech
+        recognition and the brain, and a free Picovoice AccessKey (console.picovoice.ai)
+        for the "Vibe" wake word. Without the Picovoice key, the hotkey still works.
+      </p>
+      <div className="set-row">
+        <span className="set-label">Enable Vibe</span>
+        <input
+          type="checkbox"
+          checked={v.enabled}
+          onChange={(e) => setVibe({ enabled: e.target.checked })}
+        />
+      </div>
+      <div className="set-row">
+        <span className="set-label">Groq API key</span>
+        <input
+          className="set-input set-mono"
+          type="password"
+          value={v.groqApiKey}
+          onChange={(e) => setVibe({ groqApiKey: e.target.value.trim() })}
+        />
+      </div>
+      <div className="set-row">
+        <span className="set-label">Picovoice AccessKey</span>
+        <input
+          className="set-input set-mono"
+          type="password"
+          value={v.picovoiceAccessKey}
+          onChange={(e) => setVibe({ picovoiceAccessKey: e.target.value.trim() })}
+        />
+      </div>
+      <div className="set-row">
+        <span className="set-label">Push-to-talk hotkey</span>
+        <input
+          className="set-input set-mono"
+          value={v.hotkey}
+          onChange={(e) => setVibe({ hotkey: e.target.value || "Ctrl+Shift+V" })}
+        />
+      </div>
+    </>
+  );
+}
+
 function ThemesPane({ background, onChangeBackground }: {
   background: Background;
   onChangeBackground: (bg: Background) => void;
@@ -264,6 +318,7 @@ export function SettingsModal({ background, onChangeBackground, onClose }: {
           {section === "terminal" && <TerminalPane />}
           {section === "themes" && <ThemesPane background={background} onChangeBackground={onChangeBackground} />}
           {section === "canvas" && <CanvasPane />}
+          {section === "vibe" && <VibePane />}
           {section === "about" && <AboutPane />}
         </section>
       </div>
