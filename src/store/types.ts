@@ -25,6 +25,8 @@ export type WallDoc = {
   scene: WallScene;
   terminals: SavedTerminal[];
   background: Background;
+  /** World-space center of the managed terminal grid. */
+  gridAnchor?: { x: number; y: number };
 };
 
 export const DEFAULT_BACKGROUND: Background = { kind: "color", color: "#12110f" };

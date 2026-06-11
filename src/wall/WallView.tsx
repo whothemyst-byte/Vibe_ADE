@@ -7,7 +7,8 @@ import "./excalidraw-skin.css";
 import { Toolbar } from "./Toolbar";
 import { TerminalOverlay } from "./TerminalOverlay";
 import { useTerminalStore } from "./terminalStore";
-import { findSpawnPoint, layerTransform, type Camera, type Rect } from "./transform";
+import { layerTransform, type Camera } from "./transform";
+import { CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
@@ -24,7 +25,6 @@ import { useVibeCommand } from "../vibe/commands";
 import { findPresetByPhrase } from "./presets";
 import { THEMES } from "../settings/themes";
 
-const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
 const THUMB_INTERVAL_MS = 20_000;
 
@@ -72,6 +72,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
         id, x, y, w, h, presetId, cwd, name,
       })),
       background: backgroundRef.current,
+      gridAnchor: useTerminalStore.getState().anchor ?? undefined,
     };
   };
 
@@ -120,6 +121,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       // Terminals whose PTY died while this wall was closed are dropped.
       const names: string[] = [];
       useTerminalStore.setState({
+        anchor: doc?.gridAnchor ?? null,
         terminals: (doc?.terminals ?? [])
           .filter((t) => !wasSessionDead(t.id))
           .map((t) => {
@@ -159,6 +161,53 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     });
   }, []);
 
+  /**
+   * Lays the managed grid out around the stable anchor and fits the camera
+   * (zoom-out only). Writes only x/y/w/h, so the signature subscriber that
+   * calls this never re-fires for layout writes.
+   */
+  const layoutGrid = useCallback(() => {
+    const { terminals, anchor } = useTerminalStore.getState();
+    if (terminals.length === 0) return;
+    const api = apiRef.current;
+    const st = api?.getAppState() as AppStateLike | undefined;
+    const screen = { w: st?.width ?? window.innerWidth, h: st?.height ?? window.innerHeight };
+    const aspect = screen.w / screen.h;
+    let a = anchor;
+    if (!a) {
+      // First layout on this wall: anchor the grid at the current viewport center.
+      const vp = st ? excalidrawViewport(st) : { x: 0, y: 0, w: screen.w, h: screen.h };
+      a = { x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 };
+      useTerminalStore.setState({ anchor: a });
+    }
+    const pos = gridPositions(terminals.length, aspect, a);
+    useTerminalStore.setState({
+      terminals: terminals.map((t, i) =>
+        t.x === pos[i].x && t.y === pos[i].y && t.w === CELL.w && t.h === CELL.h
+          ? t // keep referential equality so unmoved windows skip re-rendering
+          : { ...t, x: pos[i].x, y: pos[i].y, w: CELL.w, h: CELL.h }
+      ),
+    });
+    if (api && st) {
+      const cam = fitCamera(gridBBox(terminals.length, aspect, a), screen);
+      api.updateScene({
+        appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
+      });
+      applyCamera(cam);
+    }
+  }, [applyCamera]);
+
+  // Re-layout whenever terminal membership or order changes, from any source.
+  useEffect(() => {
+    let prevSig = useTerminalStore.getState().terminals.map((t) => t.id).join("|");
+    return useTerminalStore.subscribe((s) => {
+      const sig = s.terminals.map((t) => t.id).join("|");
+      if (sig === prevSig) return;
+      prevSig = sig;
+      layoutGrid();
+    });
+  }, [layoutGrid]);
+
   const onChange = useCallback((_els: readonly unknown[], appState: AppStateLike) => {
     const tool = (appState as { activeTool?: { type?: string } }).activeTool?.type;
     if (tool) setActiveType(tool);
@@ -167,12 +216,6 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
   }, [applyCamera, scheduleSave]);
 
   const addTerminal = async (presetId: string) => {
-    const api = apiRef.current;
-    const appState = api?.getAppState() as AppStateLike | undefined;
-    const viewport: Rect = appState ? excalidrawViewport(appState) : { x: 0, y: 0, w: 1200, h: 800 };
-    const drawn: Rect[] = (api?.getSceneElements() ?? []).map((e) => ({ x: e.x, y: e.y, w: e.width, h: e.height }));
-    const terms: Rect[] = useTerminalStore.getState().terminals.map((t) => ({ x: t.x, y: t.y, w: t.w, h: t.h }));
-    const { x, y } = findSpawnPoint(viewport, [...drawn, ...terms], TERMINAL_SIZE);
     // Default cwd to the wall folder. If the path hasn't resolved yet (click during
     // the initial load), look it up on demand so agents never start in the wrong dir.
     let cwd = wallPath;
@@ -180,7 +223,8 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     useTerminalStore.getState().add({
       id: crypto.randomUUID(),
       name: pickAgentName(useTerminalStore.getState().terminals.map((t) => t.name)),
-      x, y, w: TERMINAL_SIZE.w, h: TERMINAL_SIZE.h, presetId, cwd,
+      x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
+      presetId, cwd,
     });
   };
 
@@ -258,7 +302,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
 
   useVibeCommand({
     name: "focus_terminal",
-    description: "Bring a terminal to the front by its agent name.",
+    description: "Center the view on a terminal by its agent name.",
     parameters: {
       type: "object",
       properties: { name: { type: "string", description: "Agent name shown on the terminal" } },
@@ -272,11 +316,22 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
         const names = terminals.map((t) => t.name).join(", ") || "none";
         return `Error: no terminal matches "${args.name}". Open terminals: ${names}.`;
       }
-      // Terminals render in array order; last = on top.
-      useTerminalStore.setState({
-        terminals: [...terminals.filter((x) => x.id !== t.id), t],
-      });
-      return `Terminal ${t.name} is now in front.`;
+      const api = apiRef.current;
+      const st = api?.getAppState() as AppStateLike | undefined;
+      if (api && st) {
+        // Center on the terminal at the current zoom (zooming out if it doesn't fit).
+        const cam = fitCamera(
+          { x: t.x, y: t.y, w: t.w, h: t.h },
+          { w: st.width, h: st.height },
+          48,
+          st.zoom.value
+        );
+        api.updateScene({
+          appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
+        });
+        applyCamera(cam);
+      }
+      return `Centered on terminal ${t.name}.`;
     },
   });
 
