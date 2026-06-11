@@ -4,7 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { HEADER_H } from "./transform";
 import { useTerminalStore, type TerminalState } from "./terminalStore";
-import { spawnPty, writePty, resizePty, killPty, onPtyData, onPtyExit } from "../pty/client";
+import { spawnPty, writePty, resizePty, killPty, onPtyExit } from "../pty/client";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset } from "./presets";
 import { presetTierColor } from "./presetTier";
@@ -45,10 +45,6 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
     const dataSub = term.onData((d) => writePty(id, new TextEncoder().encode(d)));
 
     (async () => {
-      const uData = await onPtyData(id, (bytes) => term.write(bytes));
-      if (disposed) { uData(); return; }
-      unlisteners.push(uData);
-
       const uExit = await onPtyExit(id, () => { if (!disposed) remove(id); });
       if (disposed) { uExit(); return; }
       unlisteners.push(uExit);
@@ -60,6 +56,7 @@ export function TerminalWindow({ terminal, zoom }: { terminal: TerminalState; zo
         rows: term.rows,
         cols: term.cols,
         command: preset.command,
+        onData: (bytes) => { if (!disposed) term.write(bytes); },
       });
     })();
 
