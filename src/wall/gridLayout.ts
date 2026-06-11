@@ -47,3 +47,38 @@ export function gridBBox(n: number, aspect: number, anchor: Point): Rect {
   const h = rows * CELL.h + (rows - 1) * GUTTER;
   return { x: anchor.x - w / 2, y: anchor.y - h / 2, w, h };
 }
+
+/**
+ * Camera that centers `bbox` on a screen of CSS px size `screen`, zoomed out
+ * just enough to fit it with `pad` world-px padding — never zoomed in beyond
+ * `maxZoom`. Excalidraw convention: screen = (world + cam.xy) * cam.z.
+ */
+export function fitCamera(
+  bbox: Rect,
+  screen: { w: number; h: number },
+  pad = 48,
+  maxZoom = 1
+): Camera {
+  const z = Math.min(maxZoom, screen.w / (bbox.w + 2 * pad), screen.h / (bbox.h + 2 * pad));
+  return {
+    x: screen.w / (2 * z) - (bbox.x + bbox.w / 2),
+    y: screen.h / (2 * z) - (bbox.y + bbox.h / 2),
+    z,
+  };
+}
+
+/** Index of the rect whose center is nearest to `p` (drop-target slot); -1 if none. */
+export function nearestSlotIndex(p: Point, rects: Rect[]): number {
+  let best = -1;
+  let bestD = Infinity;
+  rects.forEach((r, i) => {
+    const dx = r.x + r.w / 2 - p.x;
+    const dy = r.y + r.h / 2 - p.y;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}

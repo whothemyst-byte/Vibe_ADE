@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { gridShape, gridPositions, gridBBox, CELL, GUTTER } from "./gridLayout";
+import {
+  gridShape,
+  gridPositions,
+  gridBBox,
+  fitCamera,
+  nearestSlotIndex,
+  CELL,
+  GUTTER,
+} from "./gridLayout";
 
 const LANDSCAPE = 16 / 9;
 
@@ -69,5 +77,49 @@ describe("gridBBox", () => {
     expect(bbox.y).toBe(Math.min(...pos.map((p) => p.y)));
     expect(bbox.w).toBe(3 * CELL.w + 2 * GUTTER);
     expect(bbox.h).toBe(2 * CELL.h + GUTTER);
+  });
+});
+
+describe("fitCamera", () => {
+  const screen = { w: 1600, h: 900 };
+
+  it("keeps zoom at 1 when the bbox fits, and centers it", () => {
+    const bbox = { x: 0, y: 0, w: 420, h: 260 };
+    const cam = fitCamera(bbox, screen);
+    expect(cam.z).toBe(1);
+    // world center of bbox maps to screen center: (cx + cam.x) * z = screenW/2
+    expect((bbox.x + bbox.w / 2 + cam.x) * cam.z).toBeCloseTo(screen.w / 2);
+    expect((bbox.y + bbox.h / 2 + cam.y) * cam.z).toBeCloseTo(screen.h / 2);
+  });
+
+  it("zooms out (z < 1) when the padded bbox exceeds the screen", () => {
+    const bbox = { x: -1000, y: -600, w: 2000, h: 1200 };
+    const cam = fitCamera(bbox, screen);
+    expect(cam.z).toBeLessThan(1);
+    expect(cam.z).toBeCloseTo(Math.min(1600 / (2000 + 96), 900 / (1200 + 96)));
+    expect((bbox.x + bbox.w / 2 + cam.x) * cam.z).toBeCloseTo(screen.w / 2);
+  });
+
+  it("respects a custom maxZoom cap", () => {
+    const cam = fitCamera({ x: 0, y: 0, w: 100, h: 100 }, screen, 48, 0.5);
+    expect(cam.z).toBe(0.5);
+  });
+});
+
+describe("nearestSlotIndex", () => {
+  const rects = [
+    { x: 0, y: 0, w: 420, h: 260 },
+    { x: 444, y: 0, w: 420, h: 260 },
+    { x: 0, y: 284, w: 420, h: 260 },
+  ];
+
+  it("returns the index of the rect whose center is nearest", () => {
+    expect(nearestSlotIndex({ x: 210, y: 130 }, rects)).toBe(0);
+    expect(nearestSlotIndex({ x: 700, y: 100 }, rects)).toBe(1);
+    expect(nearestSlotIndex({ x: 150, y: 500 }, rects)).toBe(2);
+  });
+
+  it("returns -1 for an empty list", () => {
+    expect(nearestSlotIndex({ x: 0, y: 0 }, [])).toBe(-1);
   });
 });
