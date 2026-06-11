@@ -20,6 +20,7 @@ import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
 import { pickAgentName } from "./agentNames";
 import { wasSessionDead } from "./sessions";
+import { useVibeCommand } from "../vibe/commands";
 
 const TERMINAL_SIZE = { w: 420, h: 260 };
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
@@ -188,6 +189,104 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     if (savesEnabled.current) await doSave({ thumbnail: true });
     onExit();
   };
+
+  useVibeCommand({
+    name: "open_terminal",
+    description:
+      "Spawn a new agent terminal on this wall. Optional preset label, e.g. 'Claude Code', 'Codex', or 'Plain shell'.",
+    parameters: {
+      type: "object",
+      properties: { preset: { type: "string", description: "Preset label (fuzzy matched)" } },
+    },
+    run: async (args) => {
+      const wanted = String(args.preset ?? "").toLowerCase();
+      const preset =
+        presets.find((p) => p.label.toLowerCase().includes(wanted)) ?? presets[0];
+      await addTerminal(preset.id);
+      const all = useTerminalStore.getState().terminals;
+      const name = all[all.length - 1]?.name;
+      return `Opened a ${preset.label} terminal named ${name}.`;
+    },
+  });
+
+  useVibeCommand({
+    name: "close_terminal",
+    description: "Close a terminal on this wall by its agent name (e.g. 'Ada').",
+    parameters: {
+      type: "object",
+      properties: { name: { type: "string", description: "Agent name shown on the terminal" } },
+      required: ["name"],
+    },
+    run: (args) => {
+      const wanted = String(args.name ?? "").toLowerCase();
+      const { terminals, remove } = useTerminalStore.getState();
+      const t = terminals.find((t) => t.name.toLowerCase().includes(wanted));
+      if (!t) {
+        const names = terminals.map((t) => t.name).join(", ") || "none";
+        return `Error: no terminal matches "${args.name}". Open terminals: ${names}.`;
+      }
+      remove(t.id);
+      return `Closed terminal ${t.name}.`;
+    },
+  });
+
+  useVibeCommand({
+    name: "focus_terminal",
+    description: "Bring a terminal to the front by its agent name.",
+    parameters: {
+      type: "object",
+      properties: { name: { type: "string", description: "Agent name shown on the terminal" } },
+      required: ["name"],
+    },
+    run: (args) => {
+      const wanted = String(args.name ?? "").toLowerCase();
+      const { terminals } = useTerminalStore.getState();
+      const t = terminals.find((t) => t.name.toLowerCase().includes(wanted));
+      if (!t) {
+        const names = terminals.map((t) => t.name).join(", ") || "none";
+        return `Error: no terminal matches "${args.name}". Open terminals: ${names}.`;
+      }
+      // Terminals render in array order; last = on top.
+      useTerminalStore.setState({
+        terminals: [...terminals.filter((x) => x.id !== t.id), t],
+      });
+      return `Terminal ${t.name} is now in front.`;
+    },
+  });
+
+  useVibeCommand({
+    name: "change_background",
+    description:
+      "Set this wall's background to a solid color. Accepts a CSS color like 'dark green', '#12110f', 'black'.",
+    parameters: {
+      type: "object",
+      properties: { color: { type: "string", description: "CSS color value" } },
+      required: ["color"],
+    },
+    run: (args) => {
+      const color = String(args.color ?? "").trim();
+      const probe = new Option().style;
+      probe.color = color;
+      if (!probe.color) return `Error: "${color}" is not a CSS color I understand.`;
+      changeBg({ kind: "color", color });
+      return `Background changed to ${color}.`;
+    },
+  });
+
+  useVibeCommand({
+    name: "zoom_to_fit",
+    description: "Zoom and scroll the canvas so all drawn content is visible.",
+    run: () => {
+      apiRef.current?.scrollToContent(undefined, { fitToContent: true });
+      return "Zoomed to fit the canvas content.";
+    },
+  });
+
+  useVibeCommand({
+    name: "exit_wall",
+    description: "Leave this wall and return to the start page (saves first).",
+    run: async () => { await exit(); return "Left the wall."; },
+  });
 
   const selectTool = (tool: ToolDef) => {
     // tool.type is a literal union that includes "image"; assert to setActiveTool's exact
