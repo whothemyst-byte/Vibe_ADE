@@ -12,7 +12,7 @@ import { useBlocksBrowser } from "./browserVisibility";
 import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserActions";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
-import { CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
+import { browserLayout, CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
@@ -199,16 +199,32 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       a = { x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 };
       useCardStore.setState({ anchor: a });
     }
-    const pos = gridPositions(cards.length, aspect, a);
+    // With a browser open it becomes the dominant left pane and terminals
+    // stack in columns of two beside it; otherwise the uniform grid applies.
+    const hasBrowser = cards.some((c) => c.kind === "browser");
+    const bl = hasBrowser ? browserLayout(cards.length - 1, a) : null;
+    const pos = bl ? null : gridPositions(cards.length, aspect, a);
+    let ti = 0;
+    const rectOf = (c: Card, i: number): { x: number; y: number; w: number; h: number } => {
+      if (bl) {
+        if (c.kind === "browser") return bl.browser;
+        const p = bl.terminals[ti++];
+        return { x: p.x, y: p.y, w: CELL.w, h: CELL.h };
+      }
+      const p = pos![i];
+      return { x: p.x, y: p.y, w: CELL.w, h: CELL.h };
+    };
     useCardStore.setState({
-      cards: cards.map((c, i) =>
-        c.x === pos[i].x && c.y === pos[i].y && c.w === CELL.w && c.h === CELL.h
+      cards: cards.map((c, i) => {
+        const r = rectOf(c, i);
+        return c.x === r.x && c.y === r.y && c.w === r.w && c.h === r.h
           ? c // keep referential equality so unmoved windows skip re-rendering
-          : { ...c, x: pos[i].x, y: pos[i].y, w: CELL.w, h: CELL.h }
-      ),
+          : { ...c, ...r };
+      }),
     });
     if (api && st) {
-      const cam = fitCamera(gridBBox(cards.length, aspect, a), screen);
+      const bbox = bl ? bl.bbox : gridBBox(cards.length, aspect, a);
+      const cam = fitCamera(bbox, screen);
       api.updateScene({
         appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
       });

@@ -55,6 +55,12 @@ camera fitting, and drag-reordering with no new layout code.
 `TerminalOverlay` renders `TerminalWindow` for terminal cards and a new
 `BrowserWindow` for the browser card.
 
+**Amendment (2026-06-12, user reference image):** when a browser is open it
+does not take a uniform cell — it becomes the dominant pane: a 2×2-cell block
+(`BROWSER_PANE`) on the left, with terminals stacked beside it in columns of
+two (column-major, tops aligned). `browserLayout()` in `gridLayout.ts`
+computes this; walls without a browser keep the original uniform grid.
+
 ### BrowserWindow component (chrome only)
 
 Renders the card chrome in the same visual skin as terminal cards:

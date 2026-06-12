@@ -5,6 +5,8 @@ import {
   gridBBox,
   fitCamera,
   nearestSlotIndex,
+  browserLayout,
+  BROWSER_PANE,
   CELL,
   GUTTER,
 } from "./gridLayout";
@@ -103,6 +105,50 @@ describe("fitCamera", () => {
   it("respects a custom maxZoom cap", () => {
     const cam = fitCamera({ x: 0, y: 0, w: 100, h: 100 }, screen, 48, 0.5);
     expect(cam.z).toBe(0.5);
+  });
+});
+
+describe("browserLayout", () => {
+  it("spans the browser pane over a 2x2 cell block", () => {
+    expect(BROWSER_PANE.w).toBe(2 * CELL.w + GUTTER);
+    expect(BROWSER_PANE.h).toBe(2 * CELL.h + GUTTER);
+  });
+
+  it("centers a lone browser on the anchor", () => {
+    const L = browserLayout(0, { x: 0, y: 0 });
+    expect(L.browser).toEqual({
+      x: -BROWSER_PANE.w / 2,
+      y: -BROWSER_PANE.h / 2,
+      w: BROWSER_PANE.w,
+      h: BROWSER_PANE.h,
+    });
+    expect(L.terminals).toEqual([]);
+    expect(L.bbox).toEqual(L.browser);
+  });
+
+  it("stacks two terminals in a column right of the browser, tops aligned", () => {
+    const L = browserLayout(2, { x: 0, y: 0 });
+    const colX = L.browser.x + L.browser.w + GUTTER;
+    expect(L.terminals[0]).toEqual({ x: colX, y: L.browser.y });
+    expect(L.terminals[1]).toEqual({ x: colX, y: L.browser.y + CELL.h + GUTTER });
+    // Column bottom flush with the browser bottom (2 cells + gutter = pane height).
+    expect(L.terminals[1].y + CELL.h).toBe(L.browser.y + L.browser.h);
+  });
+
+  it("overflows into further columns of two, column-major", () => {
+    const L = browserLayout(5, { x: 0, y: 0 });
+    const colX = (i: number) => L.browser.x + L.browser.w + GUTTER + i * (CELL.w + GUTTER);
+    expect(L.terminals[2].x).toBe(colX(1)); // third terminal starts column 2
+    expect(L.terminals[2].y).toBe(L.browser.y);
+    expect(L.terminals[4].x).toBe(colX(2)); // fifth starts column 3
+    expect(L.bbox.w).toBe(BROWSER_PANE.w + 3 * (CELL.w + GUTTER));
+  });
+
+  it("centers the whole block on the anchor", () => {
+    const anchor = { x: 100, y: -50 };
+    const L = browserLayout(2, anchor);
+    expect(L.bbox.x + L.bbox.w / 2).toBeCloseTo(anchor.x);
+    expect(L.bbox.y + L.bbox.h / 2).toBeCloseTo(anchor.y);
   });
 });
 

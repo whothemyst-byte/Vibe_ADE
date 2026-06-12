@@ -67,6 +67,35 @@ export function fitCamera(
   };
 }
 
+/** Browser pane: spans a 2x2 block of the terminal cell grid. */
+export const BROWSER_PANE = {
+  w: 2 * CELL.w + GUTTER,
+  h: 2 * CELL.h + GUTTER,
+};
+
+/**
+ * Layout when a browser is open: the browser is the dominant pane on the
+ * left; terminals stack right of it in columns of two (column-major), tops
+ * aligned, so a full column sits flush with the pane. The whole block is
+ * centered on `anchor`.
+ */
+export function browserLayout(
+  nTerminals: number,
+  anchor: Point
+): { browser: Rect; terminals: Point[]; bbox: Rect } {
+  const cols = Math.ceil(nTerminals / 2);
+  const w = BROWSER_PANE.w + cols * (CELL.w + GUTTER);
+  const h = BROWSER_PANE.h;
+  const x = anchor.x - w / 2;
+  const y = anchor.y - h / 2;
+  const browser = { x, y, w: BROWSER_PANE.w, h: BROWSER_PANE.h };
+  const terminals = Array.from({ length: nTerminals }, (_, i) => ({
+    x: x + BROWSER_PANE.w + GUTTER + Math.floor(i / 2) * (CELL.w + GUTTER),
+    y: y + (i % 2) * (CELL.h + GUTTER),
+  }));
+  return { browser, terminals, bbox: { x, y, w, h } };
+}
+
 /** Index of the rect whose center is nearest to `p` (drop-target slot); -1 if none. */
 export function nearestSlotIndex(p: Point, rects: Rect[]): number {
   let best = -1;
