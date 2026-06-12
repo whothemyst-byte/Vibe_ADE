@@ -125,7 +125,7 @@ always returns to idle. New paths:
 | Model calls `ask_user` after follow-up cap | Tool not offered, so cannot happen; defensive: treat as plain reply |
 | Model calls tools on final round | Speak last assistant content, else fallback string |
 | Calibration window all silence | Threshold falls back to current constant |
-| Eval script without `GROQ_API_KEY` | Friendly exit message, non-zero status |
+| Eval script without `GROQ_API_KEY` | Friendly message, suite skipped (zero status) |
 
 ## Testing
 
