@@ -86,9 +86,9 @@ StrictMode-safe register/cleanup semantics as `useVibeCommand`.
 - **Whisper vocabulary biasing.** `transcribe()` gains a `prompt` form field
   (Whisper biasing context, supported by Groq's transcription endpoint and
   passed through by the proxy untouched). The prompt is built per capture
-  from live app nouns: registered command names re-worded as natural phrases,
-  plus wall / terminal / preset / theme names taken from the §2 context
-  registry. Capped at ~200 characters (Whisper uses only the final tokens).
+  from live app nouns: registered command names with underscores replaced by
+  spaces ("open terminal, close terminal, …"), plus wall / terminal / preset /
+  theme names taken from the §2 context registry. Capped at ~200 characters (Whisper uses only the final tokens).
 - **Capture tuning** in `silence.ts`, which stays a pure, unit-tested
   function:
   - require a minimum amount of above-threshold speech (~300 ms cumulative)
