@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runAgent } from "./agentLoop";
 import { registerVibeCommand, _clearRegistryForTests } from "./commands";
+import { registerVibeContext, _clearContextForTests } from "./context";
 import type { AssistantMessage, ChatMessage, ToolCall } from "./groq";
 
 const toolCall = (name: string, args: object, id = "c1"): ToolCall => ({
@@ -11,7 +12,10 @@ const call = (...tcs: ToolCall[]): AssistantMessage => ({
   role: "assistant", content: null, tool_calls: tcs,
 });
 
-beforeEach(() => _clearRegistryForTests());
+beforeEach(() => {
+  _clearRegistryForTests();
+  _clearContextForTests();
+});
 
 describe("runAgent", () => {
   it("returns plain text when the model calls no tools", async () => {
@@ -72,6 +76,29 @@ describe("runAgent", () => {
     // full history: system, user, assistant question, follow-up user answer
     expect(sent.map((m) => m.role)).toEqual(["system", "user", "assistant", "user"]);
     expect(sent[3]).toEqual({ role: "user", content: "in my projects folder on d drive" });
+  });
+
+  it("appends the current app state to the system prompt", async () => {
+    registerVibeContext("app", () => "view: wall \"design\"");
+    const chat = vi.fn().mockResolvedValue(say("Hi!"));
+    await runAgent("hello", chat);
+    const system: ChatMessage = chat.mock.calls[0][0][0];
+    expect(system.role).toBe("system");
+    expect(system.content).toContain("Current app state:");
+    expect(system.content).toContain('- app: view: wall "design"');
+  });
+
+  it("refreshes the app state on continuation turns", async () => {
+    let view = "start page";
+    registerVibeContext("app", () => `view: ${view}`);
+    const first = vi.fn().mockResolvedValue(say("Which wall?"));
+    const prior = (await runAgent("open a wall", first)).messages;
+
+    view = "wall \"design\"";
+    const second = vi.fn().mockResolvedValue(say("Done."));
+    await runAgent("the design one", second, prior);
+    const system: ChatMessage = second.mock.calls[0][0][0];
+    expect(system.content).toContain('wall "design"');
   });
 
   it("handles malformed tool arguments gracefully", async () => {

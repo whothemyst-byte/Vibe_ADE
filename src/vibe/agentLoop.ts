@@ -1,4 +1,5 @@
 import { getToolDefs, runVibeCommand, type ToolDef } from "./commands";
+import { getContextBlock } from "./context";
 import type { AssistantMessage, ChatMessage } from "./groq";
 
 export const MAX_TOOL_ROUNDS = 3;
@@ -12,6 +13,11 @@ reply with ONE short question ending in "?" and the user's spoken answer will
 arrive as the next message. If no tool fits, answer conversationally and
 briefly. If asked what you can do, summarize your current tools in plain
 words. Never invent tools, never output code or markdown.`;
+
+function systemPrompt(): string {
+  const ctx = getContextBlock();
+  return ctx ? `${SYSTEM_PROMPT}\n\nCurrent app state:\n${ctx}` : SYSTEM_PROMPT;
+}
 
 export type ChatFn = (
   messages: ChatMessage[],
@@ -38,9 +44,11 @@ export async function runAgent(
   const messages: ChatMessage[] = prior
     ? [...prior, { role: "user", content: transcript }]
     : [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt() },
         { role: "user", content: transcript },
       ];
+  // Continuation turns refresh the state block (tools may have changed the app).
+  if (prior) messages[0] = { role: "system", content: systemPrompt() };
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const msg = await chatFn([...messages], getToolDefs());
     if (!msg.tool_calls || msg.tool_calls.length === 0) {

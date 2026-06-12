@@ -1,10 +1,11 @@
-import { useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import "./App.css";
 import { StartPage } from "./start/StartPage";
 import { WallView } from "./wall/WallView";
 import { TaskBoard } from "./tasks/TaskBoard";
 import { VibeAgent } from "./vibe/VibeAgent";
 import { useVibeCommand } from "./vibe/commands";
+import { useVibeContext } from "./vibe/context";
 import { loadIndex, saveIndex, pickFolder } from "./store/persistence";
 import type { WallMeta } from "./store/types";
 
@@ -12,6 +13,19 @@ type View = { kind: "start" } | { kind: "wall"; id: string } | { kind: "tasks"; 
 
 export default function App() {
   const [view, setView] = useState<View>({ kind: "start" });
+
+  const wallsRef = useRef<WallMeta[]>([]);
+  useEffect(() => {
+    void loadIndex().then((i) => { wallsRef.current = i; });
+  }, [view]);
+  useVibeContext("app", () => {
+    const where =
+      view.kind === "start" ? "start page"
+      : view.kind === "tasks" ? "task board"
+      : `wall "${wallsRef.current.find((w) => w.id === view.id)?.name ?? "unknown"}"`;
+    const names = wallsRef.current.map((w) => w.name).join(", ") || "none yet";
+    return `current view: ${where}; existing walls: ${names}`;
+  });
 
   useVibeCommand({
     name: "go_to_start_page",

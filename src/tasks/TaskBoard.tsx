@@ -4,6 +4,7 @@ import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { BackIcon, GridIcon } from "../wall/icons";
 import { useVibeCommand } from "../vibe/commands";
+import { useVibeContext } from "../vibe/context";
 
 const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "backlog", label: "Backlog", color: "var(--text-muted)" },
@@ -100,6 +101,14 @@ export function TaskBoard({
     });
     return () => { unsub(); if (saveTimer.current) window.clearTimeout(saveTimer.current); };
   }, []);
+
+  useVibeContext("tasks", () => {
+    const all = useTaskStore.getState().tasks;
+    return COLUMNS.map((c) => {
+      const titles = all.filter((t) => t.status === c.key).map((t) => t.title || "untitled");
+      return `${c.label}: ${titles.join(", ") || "(empty)"}`;
+    }).join(" | ");
+  });
 
   useVibeCommand({
     name: "create_task",

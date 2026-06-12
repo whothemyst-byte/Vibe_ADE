@@ -27,6 +27,7 @@ import { usePresetStore } from "./presetStore";
 import { pickAgentName } from "./agentNames";
 import { wasSessionDead, sendToSession, focusSession } from "./sessions";
 import { useVibeCommand } from "../vibe/commands";
+import { useVibeContext } from "../vibe/context";
 import { findPresetByPhrase } from "./presets";
 import { THEMES } from "../settings/themes";
 
@@ -272,6 +273,19 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     if (savesEnabled.current) await doSave({ thumbnail: true });
     onExit();
   };
+
+  useVibeContext("wall", () => {
+    const cards = useCardStore.getState().cards;
+    const terms = terminalsOf(cards).map((t) => {
+      const preset = presets.find((p) => p.id === t.presetId);
+      return preset ? `${t.name} (${preset.label})` : t.name;
+    });
+    const theme = THEMES.find(
+      (t) => JSON.stringify(t.background) === JSON.stringify(backgroundRef.current)
+    )?.name ?? "custom";
+    const browser = cards.some((c) => c.kind === "browser") ? "; browser card open" : "";
+    return `open terminals: ${terms.join(", ") || "none"}${browser}; theme: ${theme}; terminal presets: ${presets.map((p) => p.label).join(", ")}`;
+  });
 
   useVibeCommand({
     name: "open_terminal",

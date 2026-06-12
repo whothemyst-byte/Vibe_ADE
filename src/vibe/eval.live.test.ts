@@ -3,6 +3,9 @@ import { runAgent } from "./agentLoop";
 import { registerVibeCommand, _clearRegistryForTests, type ToolDef } from "./commands";
 import { chat, type ChatMessage } from "./groq";
 
+// This file runs under Node (vitest), but the project tsconfig is webview/DOM-only.
+declare const process: { env: Record<string, string | undefined> };
+
 const KEY = process.env.GROQ_API_KEY;
 if (!KEY) console.warn("[vibe:eval] GROQ_API_KEY not set — eval suite skipped.");
 
