@@ -149,4 +149,10 @@ describe.runIf(KEY)("vibe agent eval (live Groq)", { retry: 1 }, () => {
     expect(calls).toHaveLength(0);
     expect(out.text.length).toBeGreaterThan(0);
   });
+
+  it("asks instead of guessing when a required detail is missing", async () => {
+    const out = await runAgent("make me a new wall", liveChat);
+    expect(out.kind).toBe("question");
+    expect(calls.find((c) => c.name === "create_wall")).toBeUndefined();
+  });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runAgent } from "./agentLoop";
+import type { ToolDef } from "./commands";
 import { registerVibeCommand, _clearRegistryForTests } from "./commands";
 import { registerVibeContext, _clearContextForTests } from "./context";
 import type { AssistantMessage, ChatMessage, ToolCall } from "./groq";
@@ -39,12 +40,17 @@ describe("runAgent", () => {
     expect(toolMsg).toMatchObject({ content: "terminal Ada opened", tool_call_id: "c1" });
   });
 
-  it("stops after 3 tool rounds even if the model keeps calling", async () => {
+  it("caps tool rounds: 4 with tools, then a final no-tools summary call", async () => {
     registerVibeCommand({ name: "noop", description: "d", run: () => "ok" });
-    const chat = vi.fn().mockResolvedValue(call(toolCall("noop", {})));
+    const chat = vi.fn().mockImplementation((_msgs: ChatMessage[], tools: ToolDef[]) =>
+      Promise.resolve(tools.length > 0 ? call(toolCall("noop", {})) : say("I did a few things!"))
+    );
     const out = await runAgent("loop forever", chat);
-    expect(chat).toHaveBeenCalledTimes(3);
-    expect(out.text).toMatch(/./); // still returns something speakable
+    expect(chat).toHaveBeenCalledTimes(5);
+    expect(chat.mock.calls[4][1]).toEqual([]); // final round offers no tools
+    const finalMessages: ChatMessage[] = chat.mock.calls[4][0];
+    expect(finalMessages[finalMessages.length - 1]?.content).toMatch(/no more tool calls/i);
+    expect(out).toMatchObject({ kind: "reply", text: "I did a few things!" });
   });
 
   it("feeds unknown-command errors back to the model instead of crashing", async () => {
@@ -70,7 +76,7 @@ describe("runAgent", () => {
     const prior = (await runAgent("open a new wall", first)).messages;
 
     const second = vi.fn().mockResolvedValue(say("Opening it in D:/projects."));
-    const out = await runAgent("in my projects folder on d drive", second, prior);
+    const out = await runAgent("in my projects folder on d drive", second, { prior });
     expect(out.text).toBe("Opening it in D:/projects.");
     const sent: ChatMessage[] = second.mock.calls[0][0];
     // full history: system, user, assistant question, follow-up user answer
@@ -96,18 +102,46 @@ describe("runAgent", () => {
 
     view = "wall \"design\"";
     const second = vi.fn().mockResolvedValue(say("Done."));
-    await runAgent("the design one", second, prior);
+    await runAgent("the design one", second, { prior });
     const system: ChatMessage = second.mock.calls[0][0][0];
     expect(system.content).toContain('wall "design"');
   });
 
-  it("handles malformed tool arguments gracefully", async () => {
+  it("feeds bad tool JSON back as an error instead of running with empty args", async () => {
     const run = vi.fn().mockReturnValue("ok");
     registerVibeCommand({ name: "open_terminal", description: "d", run });
     const chat = vi.fn()
       .mockResolvedValueOnce(call({ id: "c1", type: "function", function: { name: "open_terminal", arguments: "{not json" } }))
-      .mockResolvedValueOnce(say("Done."));
+      .mockResolvedValueOnce(say("Sorry, let me try again."));
     await runAgent("open", chat);
-    expect(run).toHaveBeenCalledWith({}); // bad JSON degrades to empty args
+    expect(run).not.toHaveBeenCalled();
+    const second: ChatMessage[] = chat.mock.calls[1][0];
+    const toolMsg = second.find((m) => m.role === "tool");
+    expect(toolMsg?.content).toMatch(/not valid JSON/i);
+  });
+
+  it("offers ask_user and returns kind question when the model calls it", async () => {
+    const chat = vi.fn().mockResolvedValue(
+      call(toolCall("ask_user", { question: "Where should I create it?" }))
+    );
+    const out = await runAgent("make a new wall", chat);
+    expect(out.kind).toBe("question");
+    expect(out.text).toBe("Where should I create it?");
+    const tools: ToolDef[] = chat.mock.calls[0][1];
+    expect(tools.map((t) => t.function.name)).toContain("ask_user");
+    // the tool call got a result so the conversation can legally continue
+    expect(out.messages[out.messages.length - 1]).toMatchObject({ role: "tool", tool_call_id: "c1" });
+  });
+
+  it("omits ask_user when allowAskUser is false", async () => {
+    const chat = vi.fn().mockResolvedValue(say("Done."));
+    await runAgent("hello", chat, { allowAskUser: false });
+    const tools: ToolDef[] = chat.mock.calls[0][1];
+    expect(tools.map((t) => t.function.name)).not.toContain("ask_user");
+  });
+
+  it("plain replies report kind reply", async () => {
+    const chat = vi.fn().mockResolvedValue(say("Hi there!"));
+    expect((await runAgent("hi", chat)).kind).toBe("reply");
   });
 });

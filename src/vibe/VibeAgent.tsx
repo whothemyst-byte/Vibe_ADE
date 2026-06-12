@@ -83,10 +83,13 @@ export function VibeAgent() {
     setState("thinking");
     showCaption(`"${transcript}"`);
     try {
-      const { text, messages } = await runAgent(
+      const { kind, text, messages } = await runAgent(
         transcript,
         (msgs: ChatMessage[], tools: ToolDef[]) => chat(msgs, tools, auth),
-        conversation.current ?? undefined
+        {
+          prior: conversation.current ?? undefined,
+          allowAskUser: followUps.current < MAX_FOLLOW_UPS,
+        }
       );
 
       if (sleepRequested.current) {
@@ -96,7 +99,7 @@ export function VibeAgent() {
         return;
       }
 
-      const isQuestion = text.trim().endsWith("?") && followUps.current < MAX_FOLLOW_UPS;
+      const isQuestion = kind === "question";
       setState("speaking");
       if (!isQuestion) {
         setCelebrating(true);
