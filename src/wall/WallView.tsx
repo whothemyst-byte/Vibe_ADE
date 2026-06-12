@@ -9,6 +9,8 @@ import { TerminalOverlay } from "./TerminalOverlay";
 import { useCardStore, terminalsOf, type Card } from "./cardStore";
 import { syncBrowserRect } from "./browserSync";
 import { useBlocksBrowser } from "./browserVisibility";
+import { browserCard, closeBrowser, openBrowser } from "./browserActions";
+import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
 import { CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
@@ -376,6 +378,69 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
         return `Error: terminal ${t.name} has no live session.`;
       }
       return submit ? `Sent to ${t.name}: "${text}".` : `Typed into ${t.name} without pressing Enter: "${text}".`;
+    },
+  });
+
+  useVibeCommand({
+    name: "open_browser",
+    description:
+      "Open the wall's browser at a URL, or navigate it if already open. Use when the user asks to open a website or preview a local dev server.",
+    parameters: {
+      type: "object",
+      properties: { url: { type: "string", description: "URL to open; scheme optional" } },
+    },
+    run: (args) => openBrowser(args.url ? String(args.url) : undefined),
+  });
+
+  useVibeCommand({
+    name: "close_browser",
+    description: "Close the wall's browser window.",
+    run: () => closeBrowser(),
+  });
+
+  useVibeCommand({
+    name: "browser_back",
+    description: "Go back one page in the wall browser's history.",
+    run: async () => {
+      if (!browserCard()) return "Error: the browser is not open.";
+      await browserBack();
+      return "Went back a page.";
+    },
+  });
+
+  useVibeCommand({
+    name: "read_browser",
+    description:
+      "Read the current page in the wall's browser. Returns the page title and visible text so you can answer questions about what's on screen.",
+    run: async () => {
+      if (!browserCard()) return "Error: the browser is not open.";
+      const { title, text } = await browserRead();
+      return `Page "${title}":\n${text}`;
+    },
+  });
+
+  useVibeCommand({
+    name: "focus_browser",
+    description:
+      "Zoom the camera in on the browser window. Use when the user says 'focus the browser' or wants to look at the page.",
+    run: () => {
+      const c = browserCard();
+      if (!c) return "Error: the browser is not open.";
+      const api = apiRef.current;
+      const st = api?.getAppState() as AppStateLike | undefined;
+      if (api && st) {
+        const cam = fitCamera(
+          { x: c.x, y: c.y, w: c.w, h: c.h },
+          { w: st.width, h: st.height },
+          48,
+          FOCUS_MAX_ZOOM
+        );
+        api.updateScene({
+          appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
+        });
+        applyCamera(cam);
+      }
+      return "Focused on the browser.";
     },
   });
 
