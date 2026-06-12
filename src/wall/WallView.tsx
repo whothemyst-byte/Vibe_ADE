@@ -9,7 +9,7 @@ import { TerminalOverlay } from "./TerminalOverlay";
 import { useCardStore, terminalsOf, type Card } from "./cardStore";
 import { syncBrowserRect } from "./browserSync";
 import { useBlocksBrowser } from "./browserVisibility";
-import { browserCard, closeBrowser, openBrowser } from "./browserActions";
+import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserActions";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
 import { CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
@@ -71,16 +71,19 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     const api = apiRef.current;
     if (!api) return null;
     const st = api.getAppState();
+    const cards = useCardStore.getState().cards;
+    const browser = cards.find((c) => c.kind === "browser");
     return {
       scene: {
         elements: [...api.getSceneElements()],
         appState: { scrollX: st.scrollX, scrollY: st.scrollY, zoom: st.zoom },
       },
-      terminals: terminalsOf(useCardStore.getState().cards).map(({ id, x, y, w, h, presetId, cwd, name }) => ({
+      terminals: terminalsOf(cards).map(({ id, x, y, w, h, presetId, cwd, name }) => ({
         id, x, y, w, h, presetId, cwd, name,
       })),
       background: backgroundRef.current,
       gridAnchor: useCardStore.getState().anchor ?? undefined,
+      browser: browser ? { url: browser.url, gridIndex: cards.indexOf(browser) } : undefined,
     };
   };
 
@@ -135,6 +138,15 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
           names.push(name);
           return { ...t, kind: "terminal" as const, name };
         });
+      if (doc?.browser) {
+        const i = Math.max(0, Math.min(doc.browser.gridIndex, cards.length));
+        cards.splice(i, 0, {
+          kind: "browser",
+          id: BROWSER_ID,
+          url: doc.browser.url,
+          x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
+        });
+      }
       useCardStore.setState({ anchor: doc?.gridAnchor ?? null, cards });
       pendingScene.current = doc
         ? { elements: doc.scene.elements, appState: doc.scene.appState as AppStateLike }
@@ -516,7 +528,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
         onChange={onChange as Parameters<typeof Excalidraw>[0]["onChange"]}
         initialData={{ appState: { viewBackgroundColor: "transparent" } }}
       />
-      <LaunchMenu presets={presets} onLaunch={addTerminal} />
+      <LaunchMenu presets={presets} onLaunch={addTerminal} onLaunchBrowser={() => { void openBrowser(); }} />
       <ToolsIsland activeType={activeType} onSelect={selectTool} />
       <TerminalOverlay layerRef={layerRef} cameraRef={cameraRef} />
     </div>
