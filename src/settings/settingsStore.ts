@@ -13,7 +13,14 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   settings: DEFAULT_SETTINGS,
   load: async () => {
     try {
-      set({ settings: await loadSettings() });
+      const loaded = await loadSettings();
+      // First run (or pre-deviceId settings file): mint a stable anonymous id
+      // for the Groq proxy quota and persist it.
+      if (!loaded.vibe.deviceId) {
+        loaded.vibe.deviceId = crypto.randomUUID();
+        void saveSettings(loaded).catch(() => {});
+      }
+      set({ settings: loaded });
     } catch {
       /* keep defaults if the backend isn't reachable */
     }
