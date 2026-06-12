@@ -35,6 +35,8 @@ pub fn run() {
             browser::commands::browser_set_rect,
             browser::commands::browser_set_visible,
             browser::commands::browser_close,
+            browser::commands::browser_read,
+            browser::commands::browser_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

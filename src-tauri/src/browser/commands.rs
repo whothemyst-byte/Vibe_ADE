@@ -101,6 +101,69 @@ pub async fn browser_close(state: State<'_, BrowserState>) -> Result<(), String>
     Ok(())
 }
 
+const READ_JS: &str = r#"JSON.stringify({ title: document.title, text: document.body ? document.body.innerText.slice(0, 8000) : "" })"#;
+const STATUS_JS: &str = r#"JSON.stringify({ title: document.title, canGoBack: history.length > 1 })"#;
+
+#[derive(Serialize)]
+pub struct PageContent {
+    pub title: String,
+    pub text: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserStatus {
+    pub title: String,
+    pub can_go_back: bool,
+}
+
+/// Runs a JSON.stringify(...) script and decodes both JSON layers
+/// (ExecuteScript JSON-encodes the script's string result).
+#[cfg(windows)]
+async fn run_script(
+    state: &State<'_, BrowserState>,
+    js: &'static str,
+) -> Result<serde_json::Value, String> {
+    let wv = state.0.lock().clone().ok_or("no browser open")?;
+    let raw = super::read::execute_script(wv, js).await?;
+    let inner: String = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    serde_json::from_str(&inner).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn browser_read(state: State<'_, BrowserState>) -> Result<PageContent, String> {
+    #[cfg(windows)]
+    {
+        let v = run_script(&state, READ_JS).await?;
+        Ok(PageContent {
+            title: v["title"].as_str().unwrap_or_default().to_string(),
+            text: v["text"].as_str().unwrap_or_default().to_string(),
+        })
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = state;
+        Err("page reading requires WebView2 (Windows)".into())
+    }
+}
+
+#[tauri::command]
+pub async fn browser_status(state: State<'_, BrowserState>) -> Result<BrowserStatus, String> {
+    #[cfg(windows)]
+    {
+        let v = run_script(&state, STATUS_JS).await?;
+        Ok(BrowserStatus {
+            title: v["title"].as_str().unwrap_or_default().to_string(),
+            can_go_back: v["canGoBack"].as_bool().unwrap_or(false),
+        })
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = state;
+        Err("page reading requires WebView2 (Windows)".into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::parse_url;

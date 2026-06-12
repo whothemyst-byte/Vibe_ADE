@@ -1,4 +1,6 @@
 pub mod commands;
+#[cfg(windows)]
+pub mod read;
 
 use parking_lot::Mutex;
 use tauri::Webview;
