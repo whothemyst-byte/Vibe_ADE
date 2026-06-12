@@ -1,3 +1,4 @@
+mod browser;
 mod pty;
 mod store;
 
@@ -7,6 +8,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(pty::registry::PtyRegistry::new())
+        .manage(browser::BrowserState::default())
         .invoke_handler(tauri::generate_handler![
             pty::commands::pty_spawn,
             pty::commands::pty_write,
@@ -26,6 +28,13 @@ pub fn run() {
             store::commands::tasks_load,
             store::commands::tasks_save,
             store::backgrounds::import_background,
+            browser::commands::browser_open,
+            browser::commands::browser_navigate,
+            browser::commands::browser_back,
+            browser::commands::browser_reload,
+            browser::commands::browser_set_rect,
+            browser::commands::browser_set_visible,
+            browser::commands::browser_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
