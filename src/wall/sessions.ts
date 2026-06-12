@@ -179,6 +179,24 @@ useSettingsStore.subscribe((state) => {
   }
 });
 
+/**
+ * Types text into a terminal as if the user pasted it (bracketed paste keeps
+ * multi-line prompts intact in TUI agents), optionally pressing Enter.
+ * Returns false if no live session exists for the id.
+ */
+export function sendToSession(id: string, text: string, submit: boolean): boolean {
+  const s = sessions.get(id);
+  if (!s) return false;
+  if (text) s.term.paste(text);
+  if (submit) s.term.input("\r");
+  return true;
+}
+
+/** Moves keyboard focus into a terminal's xterm so keystrokes go there. */
+export function focusSession(id: string): void {
+  sessions.get(id)?.term.focus();
+}
+
 /** Kills the PTY and disposes the terminal (card closed or process exited). */
 export function destroySession(id: string): void {
   const s = sessions.get(id);

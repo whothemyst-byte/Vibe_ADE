@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import { useTaskStore, type Task, type TaskStatus } from "./taskStore";
 import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
@@ -12,7 +12,9 @@ const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "done", label: "Done", color: "var(--ok)" },
 ];
 
-function TaskCard({
+// Memoized: update() replaces only the edited task's object, so typing in one
+// card re-renders just that card instead of every card on the board.
+const TaskCard = memo(function TaskCard({
   task, walls, onOpenWall, onDragEndClear,
 }: {
   task: Task;
@@ -71,7 +73,7 @@ function TaskCard({
       </div>
     </div>
   );
-}
+});
 
 export function TaskBoard({
   onBack, onOpenWall,
@@ -145,6 +147,9 @@ export function TaskBoard({
     },
   });
 
+  // Stable reference so it never breaks TaskCard's memo.
+  const clearDragOver = useCallback(() => setDragOver(null), []);
+
   const onDrop = (status: TaskStatus) => (e: DragEvent) => {
     e.preventDefault();
     setDragOver(null);
@@ -186,7 +191,7 @@ export function TaskBoard({
                       task={t}
                       walls={walls}
                       onOpenWall={onOpenWall}
-                      onDragEndClear={() => setDragOver(null)}
+                      onDragEndClear={clearDragOver}
                     />
                   ))
                 )}

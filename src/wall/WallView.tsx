@@ -20,13 +20,16 @@ import { ToolsIsland } from "./ToolsIsland";
 import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
 import { pickAgentName } from "./agentNames";
-import { wasSessionDead } from "./sessions";
+import { wasSessionDead, sendToSession, focusSession } from "./sessions";
 import { useVibeCommand } from "../vibe/commands";
 import { findPresetByPhrase } from "./presets";
 import { THEMES } from "../settings/themes";
 
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
 const THUMB_INTERVAL_MS = 20_000;
+/** "Focus <agent>" zooms in until the terminal fills the screen, capped here
+    so xterm text doesn't scale into a blur. */
+const FOCUS_MAX_ZOOM = 2;
 
 function applyScene(
   api: ExcalidrawImperativeAPI,
@@ -302,7 +305,8 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
 
   useVibeCommand({
     name: "focus_terminal",
-    description: "Center the view on a terminal by its agent name.",
+    description:
+      "Zoom in on a terminal by its agent name and give it keyboard focus. Use when the user says 'focus <name>' or wants to look at / work in one terminal.",
     parameters: {
       type: "object",
       properties: { name: { type: "string", description: "Agent name shown on the terminal" } },
@@ -319,19 +323,55 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       const api = apiRef.current;
       const st = api?.getAppState() as AppStateLike | undefined;
       if (api && st) {
-        // Center on the terminal at the current zoom (zooming out if it doesn't fit).
+        // Zoom in until the terminal fills the screen (capped) and center it.
         const cam = fitCamera(
           { x: t.x, y: t.y, w: t.w, h: t.h },
           { w: st.width, h: st.height },
           48,
-          st.zoom.value
+          FOCUS_MAX_ZOOM
         );
         api.updateScene({
           appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
         });
         applyCamera(cam);
       }
-      return `Centered on terminal ${t.name}.`;
+      focusSession(t.id);
+      return `Focused on terminal ${t.name}.`;
+    },
+  });
+
+  useVibeCommand({
+    name: "send_to_terminal",
+    description:
+      "Type a prompt or command into a terminal on this wall and press Enter — use it to instruct agents like Claude or Codex, or to run shell commands. Pass the agent name shown on the terminal; it can be omitted when only one terminal is open.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Agent name shown on the terminal" },
+        text: { type: "string", description: "The prompt or command to type" },
+        submit: { type: "boolean", description: "Press Enter after typing (default true)" },
+      },
+      required: ["text"],
+    },
+    run: (args) => {
+      const text = String(args.text ?? "").trim();
+      if (!text) return "Error: nothing to send — give me the prompt or command text.";
+      const { terminals } = useTerminalStore.getState();
+      const wanted = String(args.name ?? "").toLowerCase().trim();
+      const t = wanted
+        ? terminals.find((t) => t.name.toLowerCase().includes(wanted))
+        : terminals.length === 1 ? terminals[0] : undefined;
+      if (!t) {
+        const names = terminals.map((t) => t.name).join(", ") || "none";
+        return wanted
+          ? `Error: no terminal matches "${args.name}". Open terminals: ${names}.`
+          : `Error: say which terminal to send this to. Open terminals: ${names}.`;
+      }
+      const submit = args.submit !== false;
+      if (!sendToSession(t.id, text, submit)) {
+        return `Error: terminal ${t.name} has no live session.`;
+      }
+      return submit ? `Sent to ${t.name}: "${text}".` : `Typed into ${t.name} without pressing Enter: "${text}".`;
     },
   });
 

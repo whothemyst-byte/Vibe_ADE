@@ -9,6 +9,11 @@ type SettingsStore = {
   save: (next: Settings) => void;
 };
 
+/* Persisting goes through Tauri IPC and a full file write; debounce it so
+   typing in a settings field doesn't hit the disk on every keystroke. */
+const PERSIST_DEBOUNCE_MS = 400;
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+
 export const useSettingsStore = create<SettingsStore>((set) => ({
   settings: DEFAULT_SETTINGS,
   load: async () => {
@@ -27,8 +32,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   },
   save: (next) => {
     set({ settings: next });
-    void saveSettings(next).catch(() => {
-      /* persisting is best-effort; state already updated */
-    });
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      void saveSettings(next).catch(() => {
+        /* persisting is best-effort; state already updated */
+      });
+    }, PERSIST_DEBOUNCE_MS);
   },
 }));
