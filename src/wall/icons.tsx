@@ -101,6 +101,16 @@ export const ChevronDownIcon = () => <Svg><path d="m6 9 6 6 6-6" /></Svg>;
 export const ChevronUpIcon = () => <Svg><path d="m18 15-6-6-6 6" /></Svg>;
 export const PlusIcon = () => <Svg><path d="M5 12h14" /><path d="M12 5v14" /></Svg>;
 export const CloseIcon = () => <Svg><path d="M18 6 6 18" /><path d="m6 6 12 12" /></Svg>;
+export const ReloadIcon = () => (
+  <Svg><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></Svg>
+);
+export const GlobeIcon = () => (
+  <Svg>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M2 12h20" />
+    <path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z" />
+  </Svg>
+);
 
 export const TOOL_ICONS: Record<ToolDef["type"], () => ReactElement> = {
   selection: SelectIcon,

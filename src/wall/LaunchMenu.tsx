@@ -2,11 +2,13 @@ import { useState } from "react";
 import type { Preset } from "./presets";
 import { presetTierColor } from "./presetTier";
 import { ChevronDownIcon, ChevronUpIcon, PlusIcon } from "./icons";
+import { useBlocksBrowser } from "./browserVisibility";
 
 export function LaunchMenu({
   presets, onLaunch,
 }: { presets: Preset[]; onLaunch: (presetId: string) => void }) {
   const [open, setOpen] = useState(false);
+  useBlocksBrowser(open);
   return (
     <div className="launch">
       <button className="launch-main" onPointerDown={() => onLaunch("plain")}>

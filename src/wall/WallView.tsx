@@ -7,6 +7,8 @@ import "./excalidraw-skin.css";
 import { Toolbar } from "./Toolbar";
 import { TerminalOverlay } from "./TerminalOverlay";
 import { useCardStore, terminalsOf, type Card } from "./cardStore";
+import { syncBrowserRect } from "./browserSync";
+import { useBlocksBrowser } from "./browserVisibility";
 import { layerTransform, type Camera } from "./transform";
 import { CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
@@ -54,6 +56,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
   const [background, setBackground] = useState<Background>(DEFAULT_BACKGROUND);
   const backgroundRef = useRef<Background>(DEFAULT_BACKGROUND);
   const [gearOpen, setGearOpen] = useState(false);
+  useBlocksBrowser(gearOpen);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
   const presets = usePresetStore((s) => s.presets);
   const [wallPath, setWallPath] = useState("");
@@ -159,6 +162,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       rafPending.current = false;
       const el = layerRef.current;
       if (el) el.style.transform = layerTransform(cameraRef.current);
+      syncBrowserRect();
     });
   }, []);
 

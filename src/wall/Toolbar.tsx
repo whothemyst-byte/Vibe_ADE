@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { BackIcon, ChevronDownIcon, GearIcon, GridIcon } from "./icons";
+import { useBlocksBrowser } from "./browserVisibility";
 
 export function Toolbar({
   wallId, onBack, onSwitch, onGear, onTasks,
 }: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void; onTasks: () => void }) {
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [open, setOpen] = useState(false);
+  useBlocksBrowser(open);
   useEffect(() => { loadIndex().then(setWalls).catch(() => setWalls([])); }, [wallId]);
   const current = walls.find((w) => w.id === wallId);
 

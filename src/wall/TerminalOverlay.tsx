@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import { useCardStore } from "./cardStore";
 import { layerTransform, type Camera } from "./transform";
 import { TerminalWindow } from "./TerminalWindow";
+import { BrowserWindow } from "./BrowserWindow";
 
 export function TerminalOverlay({
   layerRef,
@@ -23,7 +24,9 @@ export function TerminalOverlay({
         {cards.map((c) =>
           c.kind === "terminal" ? (
             <TerminalWindow key={c.id} terminal={c} cameraRef={cameraRef} />
-          ) : null /* BrowserWindow lands with the browser card feature */
+          ) : (
+            <BrowserWindow key={c.id} card={c} cameraRef={cameraRef} />
+          )
         )}
       </div>
     </div>
