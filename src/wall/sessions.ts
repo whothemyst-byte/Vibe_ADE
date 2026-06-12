@@ -8,6 +8,7 @@ import { useCardStore } from "./cardStore";
 import { useSettingsStore } from "../settings/settingsStore";
 import { createUrlScanner } from "./urlScanner";
 import { autoOpenFromTerminal } from "./browserActions";
+import { removeCardWithFade } from "./removeCard";
 
 /**
  * Terminal sessions live OUTSIDE the React tree. A session (xterm instance, its
@@ -133,7 +134,7 @@ export function ensureSession(opts: {
       // filter it out on the next wall load.
       destroySession(id);
       const store = useCardStore.getState();
-      if (store.cards.some((c) => c.id === id)) store.remove(id);
+      if (store.cards.some((c) => c.id === id)) removeCardWithFade(id);
       else deadIds.add(id);
     });
     if (disposed) {

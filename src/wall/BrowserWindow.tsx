@@ -27,6 +27,7 @@ function BrowserWindowInner({
   const [urlInput, setUrlInput] = useState(card.url);
   const [title, setTitle] = useState("Browser");
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const blockers = useBrowserBlockers((s) => s.count);
   /** Hide reasons beyond blockers (currently: while dragging the card). */
   const hiddenRef = useRef(false);
@@ -83,6 +84,7 @@ function BrowserWindowInner({
         useCardStore.getState().update(BROWSER_ID, { url });
         setUrlInput(url);
         setError(null);
+        setLoaded(true);
         // The title settles after load; best-effort fetch shortly after.
         window.setTimeout(() => {
           void client
@@ -120,10 +122,24 @@ function BrowserWindowInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reposition when the grid moves the card or an overlay opens/closes.
+  // The chrome glides to its new grid slot (CSS transition) but the native
+  // webview can only teleport — hide it for the glide, reveal at the target.
+  const moveTimer = useRef(0);
+  useEffect(() => {
+    hiddenRef.current = true;
+    syncBrowserRect();
+    window.clearTimeout(moveTimer.current);
+    moveTimer.current = window.setTimeout(() => {
+      hiddenRef.current = false;
+      syncBrowserRect();
+    }, 320);
+    return () => window.clearTimeout(moveTimer.current);
+  }, [card.x, card.y, card.w, card.h]);
+
+  // Overlay open/close only toggles visibility; no glide involved.
   useEffect(() => {
     syncBrowserRect();
-  }, [card.x, card.y, card.w, card.h, blockers]);
+  }, [blockers]);
 
   const commitUrl = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
@@ -145,6 +161,8 @@ function BrowserWindowInner({
     e.stopPropagation();
     hiddenRef.current = true;
     syncBrowserRect();
+    // The cursor must lead 1:1 — suspend the re-flow glide for the gesture.
+    if (wrapRef.current) wrapRef.current.style.transition = "none";
     const z = cameraRef.current.z;
     const sx = e.clientX, sy = e.clientY;
     const ox = card.x, oy = card.y;
@@ -159,7 +177,10 @@ function BrowserWindowInner({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       const el = wrapRef.current;
-      if (el) el.style.transform = `translate(${card.x}px, ${card.y}px)`;
+      if (el) {
+        el.style.transition = "";
+        el.style.transform = `translate(${card.x}px, ${card.y}px)`;
+      }
       const { cards, moveToIndex } = useCardStore.getState();
       const slot = nearestSlotIndex(
         { x: nx + card.w / 2, y: ny + card.h / 2 },
@@ -178,6 +199,7 @@ function BrowserWindowInner({
     <div
       ref={wrapRef}
       className="terminal-window"
+      data-card-id={card.id}
       style={{ transform: `translate(${card.x}px, ${card.y}px)`, width: card.w, height: card.h }}
     >
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
@@ -217,7 +239,7 @@ function BrowserWindowInner({
       {/* The native webview paints above this body; the hint shows through
           before the first load and whenever the webview is hidden. */}
       <div className="terminal-body" style={{ top: HEADER_H, bottom: 0 }}>
-        <div className="browser-body-hint">{error ?? "loading…"}</div>
+        <div className="browser-body-hint">{error ?? (loaded ? "" : "loading…")}</div>
       </div>
     </div>
   );

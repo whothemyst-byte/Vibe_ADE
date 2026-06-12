@@ -10,6 +10,7 @@ import { useCardStore, terminalsOf, type Card } from "./cardStore";
 import { syncBrowserRect } from "./browserSync";
 import { useBlocksBrowser } from "./browserVisibility";
 import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserActions";
+import { removeCardWithFade } from "./removeCard";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
 import { browserLayout, CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
@@ -325,14 +326,13 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     },
     run: (args) => {
       const wanted = String(args.name ?? "").toLowerCase();
-      const { cards, remove } = useCardStore.getState();
-      const terminals = terminalsOf(cards);
+      const terminals = terminalsOf(useCardStore.getState().cards);
       const t = terminals.find((t) => t.name.toLowerCase().includes(wanted));
       if (!t) {
         const names = terminals.map((t) => t.name).join(", ") || "none";
         return `Error: no terminal matches "${args.name}". Open terminals: ${names}.`;
       }
-      remove(t.id);
+      removeCardWithFade(t.id);
       return `Closed terminal ${t.name}.`;
     },
   });

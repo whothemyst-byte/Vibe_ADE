@@ -7,6 +7,7 @@ import { StatusFooter } from "./StatusFooter";
 import { CloseIcon } from "./icons";
 import { ensureSession, detachSession, destroySession, fitSession, getActivityRef } from "./sessions";
 import { nearestSlotIndex } from "./gridLayout";
+import { removeCardWithFade } from "./removeCard";
 
 function TerminalWindowInner({
   terminal,
@@ -17,7 +18,6 @@ function TerminalWindowInner({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const remove = useCardStore((s) => s.remove);
   const { id, w, h, cwd } = terminal;
   const presets = usePresetStore((s) => s.presets);
   const preset = resolvePreset(presets, terminal.presetId);
@@ -38,8 +38,7 @@ function TerminalWindowInner({
 
   const close = (e: ReactPointerEvent) => {
     e.stopPropagation();
-    destroySession(id);
-    remove(id);
+    removeCardWithFade(id, () => destroySession(id));
   };
 
   // Dragging follows the cursor (DOM-only, no per-frame React work); on release
@@ -47,6 +46,8 @@ function TerminalWindowInner({
   // which triggers WallView's layout pass.
   const beginDrag = (e: ReactPointerEvent) => {
     e.stopPropagation();
+    // The cursor must lead 1:1 — suspend the re-flow glide for the gesture.
+    if (wrapRef.current) wrapRef.current.style.transition = "none";
     // Camera can't change mid-gesture: the pointer is captured by the window, not the canvas.
     const z = cameraRef.current.z;
     const sx = e.clientX, sy = e.clientY;
@@ -62,8 +63,12 @@ function TerminalWindowInner({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       // Snap the element back first; a reorder re-renders with new positions anyway.
+      // Transition restored first so the snap-back (or re-flow) glides.
       const el = wrapRef.current;
-      if (el) el.style.transform = `translate(${terminal.x}px, ${terminal.y}px)`;
+      if (el) {
+        el.style.transition = "";
+        el.style.transform = `translate(${terminal.x}px, ${terminal.y}px)`;
+      }
       const { cards, moveToIndex } = useCardStore.getState();
       const slot = nearestSlotIndex(
         { x: nx + terminal.w / 2, y: ny + terminal.h / 2 },
@@ -80,6 +85,7 @@ function TerminalWindowInner({
     <div
       ref={wrapRef}
       className="terminal-window"
+      data-card-id={id}
       style={{
         transform: `translate(${terminal.x}px, ${terminal.y}px)`,
         width: terminal.w,
