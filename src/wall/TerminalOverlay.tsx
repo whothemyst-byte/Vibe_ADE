@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { useTerminalStore } from "./terminalStore";
+import { useCardStore } from "./cardStore";
 import { layerTransform, type Camera } from "./transform";
 import { TerminalWindow } from "./TerminalWindow";
 
@@ -10,7 +10,7 @@ export function TerminalOverlay({
   layerRef: RefObject<HTMLDivElement | null>;
   cameraRef: RefObject<Camera>;
 }) {
-  const terminals = useTerminalStore((s) => s.terminals);
+  const cards = useCardStore((s) => s.cards);
   return (
     <div className="terminal-overlay">
       {/* Pan/zoom only touches this layer's transform (set imperatively via rAF
@@ -20,9 +20,11 @@ export function TerminalOverlay({
         className="terminal-layer"
         style={{ transform: layerTransform(cameraRef.current) }}
       >
-        {terminals.map((t) => (
-          <TerminalWindow key={t.id} terminal={t} cameraRef={cameraRef} />
-        ))}
+        {cards.map((c) =>
+          c.kind === "terminal" ? (
+            <TerminalWindow key={c.id} terminal={c} cameraRef={cameraRef} />
+          ) : null /* BrowserWindow lands with the browser card feature */
+        )}
       </div>
     </div>
   );

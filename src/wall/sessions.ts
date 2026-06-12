@@ -4,7 +4,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { spawnPty, writePty, resizePty, killPty, onPtyExit } from "../pty/client";
 import { newActivity, recordOutput, type Activity } from "./agentStatus";
-import { useTerminalStore } from "./terminalStore";
+import { useCardStore } from "./cardStore";
 import { useSettingsStore } from "../settings/settingsStore";
 
 /**
@@ -127,8 +127,8 @@ export function ensureSession(opts: {
       // wall isn't open the store remove is a no-op, so remember the id and
       // filter it out on the next wall load.
       destroySession(id);
-      const store = useTerminalStore.getState();
-      if (store.terminals.some((t) => t.id === id)) store.remove(id);
+      const store = useCardStore.getState();
+      if (store.cards.some((c) => c.id === id)) store.remove(id);
       else deadIds.add(id);
     });
     if (disposed) {

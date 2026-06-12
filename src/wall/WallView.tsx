@@ -6,7 +6,7 @@ import "@excalidraw/excalidraw/index.css";
 import "./excalidraw-skin.css";
 import { Toolbar } from "./Toolbar";
 import { TerminalOverlay } from "./TerminalOverlay";
-import { useTerminalStore } from "./terminalStore";
+import { useCardStore, terminalsOf, type Card } from "./cardStore";
 import { layerTransform, type Camera } from "./transform";
 import { CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
@@ -71,11 +71,11 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
         elements: [...api.getSceneElements()],
         appState: { scrollX: st.scrollX, scrollY: st.scrollY, zoom: st.zoom },
       },
-      terminals: useTerminalStore.getState().terminals.map(({ id, x, y, w, h, presetId, cwd, name }) => ({
+      terminals: terminalsOf(useCardStore.getState().cards).map(({ id, x, y, w, h, presetId, cwd, name }) => ({
         id, x, y, w, h, presetId, cwd, name,
       })),
       background: backgroundRef.current,
-      gridAnchor: useTerminalStore.getState().anchor ?? undefined,
+      gridAnchor: useCardStore.getState().anchor ?? undefined,
     };
   };
 
@@ -123,16 +123,14 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       // Docs saved before agent names existed lack `name` - assign unique ones.
       // Terminals whose PTY died while this wall was closed are dropped.
       const names: string[] = [];
-      useTerminalStore.setState({
-        anchor: doc?.gridAnchor ?? null,
-        terminals: (doc?.terminals ?? [])
-          .filter((t) => !wasSessionDead(t.id))
-          .map((t) => {
-            const name = t.name ?? pickAgentName(names);
-            names.push(name);
-            return { ...t, name };
-          }),
-      });
+      const cards: Card[] = (doc?.terminals ?? [])
+        .filter((t) => !wasSessionDead(t.id))
+        .map((t) => {
+          const name = t.name ?? pickAgentName(names);
+          names.push(name);
+          return { ...t, kind: "terminal" as const, name };
+        });
+      useCardStore.setState({ anchor: doc?.gridAnchor ?? null, cards });
       pendingScene.current = doc
         ? { elements: doc.scene.elements, appState: doc.scene.appState as AppStateLike }
         : null;
@@ -146,7 +144,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     return () => { cancelled = true; if (saveTimer.current) window.clearTimeout(saveTimer.current); };
   }, [wallId]);
 
-  useEffect(() => useTerminalStore.subscribe(scheduleSave), [scheduleSave]);
+  useEffect(() => useCardStore.subscribe(scheduleSave), [scheduleSave]);
 
   // Pan/zoom never goes through React state: write the camera to a ref and patch
   // the overlay layer's transform in one rAF. Terminals re-render only when the
@@ -170,8 +168,8 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
    * calls this never re-fires for layout writes.
    */
   const layoutGrid = useCallback(() => {
-    const { terminals, anchor } = useTerminalStore.getState();
-    if (terminals.length === 0) return;
+    const { cards, anchor } = useCardStore.getState();
+    if (cards.length === 0) return;
     const api = apiRef.current;
     const st = api?.getAppState() as AppStateLike | undefined;
     const screen = { w: st?.width ?? window.innerWidth, h: st?.height ?? window.innerHeight };
@@ -181,18 +179,18 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       // First layout on this wall: anchor the grid at the current viewport center.
       const vp = st ? excalidrawViewport(st) : { x: 0, y: 0, w: screen.w, h: screen.h };
       a = { x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 };
-      useTerminalStore.setState({ anchor: a });
+      useCardStore.setState({ anchor: a });
     }
-    const pos = gridPositions(terminals.length, aspect, a);
-    useTerminalStore.setState({
-      terminals: terminals.map((t, i) =>
-        t.x === pos[i].x && t.y === pos[i].y && t.w === CELL.w && t.h === CELL.h
-          ? t // keep referential equality so unmoved windows skip re-rendering
-          : { ...t, x: pos[i].x, y: pos[i].y, w: CELL.w, h: CELL.h }
+    const pos = gridPositions(cards.length, aspect, a);
+    useCardStore.setState({
+      cards: cards.map((c, i) =>
+        c.x === pos[i].x && c.y === pos[i].y && c.w === CELL.w && c.h === CELL.h
+          ? c // keep referential equality so unmoved windows skip re-rendering
+          : { ...c, x: pos[i].x, y: pos[i].y, w: CELL.w, h: CELL.h }
       ),
     });
     if (api && st) {
-      const cam = fitCamera(gridBBox(terminals.length, aspect, a), screen);
+      const cam = fitCamera(gridBBox(cards.length, aspect, a), screen);
       api.updateScene({
         appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
       });
@@ -202,9 +200,9 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
 
   // Re-layout whenever terminal membership or order changes, from any source.
   useEffect(() => {
-    let prevSig = useTerminalStore.getState().terminals.map((t) => t.id).join("|");
-    return useTerminalStore.subscribe((s) => {
-      const sig = s.terminals.map((t) => t.id).join("|");
+    let prevSig = useCardStore.getState().cards.map((c) => c.id).join("|");
+    return useCardStore.subscribe((s) => {
+      const sig = s.cards.map((c) => c.id).join("|");
       if (sig === prevSig) return;
       prevSig = sig;
       layoutGrid();
@@ -223,9 +221,10 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     // the initial load), look it up on demand so agents never start in the wrong dir.
     let cwd = wallPath;
     if (!cwd) cwd = (await loadIndex()).find((w) => w.id === wallId)?.path ?? "";
-    useTerminalStore.getState().add({
+    useCardStore.getState().add({
+      kind: "terminal",
       id: crypto.randomUUID(),
-      name: pickAgentName(useTerminalStore.getState().terminals.map((t) => t.name)),
+      name: pickAgentName(terminalsOf(useCardStore.getState().cards).map((t) => t.name)),
       x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
       presetId, cwd,
     });
@@ -254,7 +253,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
         return `Error: no preset matches "${wanted}". Available presets: ${presets.map((p) => p.label).join(", ")}.`;
       }
       await addTerminal(preset.id);
-      const all = useTerminalStore.getState().terminals;
+      const all = terminalsOf(useCardStore.getState().cards);
       const name = all[all.length - 1]?.name;
       return `Opened a ${preset.label} terminal named ${name}.`;
     },
@@ -292,7 +291,8 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     },
     run: (args) => {
       const wanted = String(args.name ?? "").toLowerCase();
-      const { terminals, remove } = useTerminalStore.getState();
+      const { cards, remove } = useCardStore.getState();
+      const terminals = terminalsOf(cards);
       const t = terminals.find((t) => t.name.toLowerCase().includes(wanted));
       if (!t) {
         const names = terminals.map((t) => t.name).join(", ") || "none";
@@ -314,7 +314,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     },
     run: (args) => {
       const wanted = String(args.name ?? "").toLowerCase();
-      const { terminals } = useTerminalStore.getState();
+      const terminals = terminalsOf(useCardStore.getState().cards);
       const t = terminals.find((t) => t.name.toLowerCase().includes(wanted));
       if (!t) {
         const names = terminals.map((t) => t.name).join(", ") || "none";
@@ -356,7 +356,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     run: (args) => {
       const text = String(args.text ?? "").trim();
       if (!text) return "Error: nothing to send — give me the prompt or command text.";
-      const { terminals } = useTerminalStore.getState();
+      const terminals = terminalsOf(useCardStore.getState().cards);
       const wanted = String(args.name ?? "").toLowerCase().trim();
       const t = wanted
         ? terminals.find((t) => t.name.toLowerCase().includes(wanted))

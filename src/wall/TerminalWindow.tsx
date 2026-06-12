@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { HEADER_H, FOOTER_H, type Camera } from "./transform";
-import { useTerminalStore, type TerminalState } from "./terminalStore";
+import { useCardStore, type TerminalCard } from "./cardStore";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset } from "./presets";
 import { StatusFooter } from "./StatusFooter";
@@ -12,12 +12,12 @@ function TerminalWindowInner({
   terminal,
   cameraRef,
 }: {
-  terminal: TerminalState;
+  terminal: TerminalCard;
   cameraRef: RefObject<Camera>;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const remove = useTerminalStore((s) => s.remove);
+  const remove = useCardStore((s) => s.remove);
   const { id, w, h, cwd } = terminal;
   const presets = usePresetStore((s) => s.presets);
   const preset = resolvePreset(presets, terminal.presetId);
@@ -64,12 +64,12 @@ function TerminalWindowInner({
       // Snap the element back first; a reorder re-renders with new positions anyway.
       const el = wrapRef.current;
       if (el) el.style.transform = `translate(${terminal.x}px, ${terminal.y}px)`;
-      const { terminals, moveToIndex } = useTerminalStore.getState();
+      const { cards, moveToIndex } = useCardStore.getState();
       const slot = nearestSlotIndex(
         { x: nx + terminal.w / 2, y: ny + terminal.h / 2 },
-        terminals.map((t) => ({ x: t.x, y: t.y, w: t.w, h: t.h }))
+        cards.map((c) => ({ x: c.x, y: c.y, w: c.w, h: c.h }))
       );
-      const from = terminals.findIndex((t) => t.id === id);
+      const from = cards.findIndex((c) => c.id === id);
       if (slot !== -1 && slot !== from) moveToIndex(id, slot);
     };
     window.addEventListener("pointermove", onMove);
