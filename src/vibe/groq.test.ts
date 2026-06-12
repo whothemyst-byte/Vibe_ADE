@@ -24,6 +24,20 @@ describe("transcribe (direct)", () => {
     expect((init.body as FormData).get("model")).toBe("whisper-large-v3-turbo");
   });
 
+  it("forwards a biasing prompt when given one", async () => {
+    const fetchMock = vi.fn().mockReturnValue(ok({ text: "hi" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await transcribe(new Blob(["x"]), direct, "open terminal, design wall");
+    expect((fetchMock.mock.calls[0][1].body as FormData).get("prompt")).toBe("open terminal, design wall");
+  });
+
+  it("omits the prompt field when not given one", async () => {
+    const fetchMock = vi.fn().mockReturnValue(ok({ text: "hi" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await transcribe(new Blob(["x"]), direct);
+    expect((fetchMock.mock.calls[0][1].body as FormData).get("prompt")).toBeNull();
+  });
+
   it("maps 401 to a missing-key message", async () => {
     vi.stubGlobal("fetch", vi.fn().mockReturnValue(fail(401)));
     await expect(transcribe(new Blob(), direct)).rejects.toThrow(/groq api key/i);

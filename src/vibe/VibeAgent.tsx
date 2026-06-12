@@ -6,6 +6,7 @@ import { runAgent } from "./agentLoop";
 import { transcribe, chat, type ChatMessage, type GroqAuth } from "./groq";
 import { useVibeCommand, type ToolDef } from "./commands";
 import { speak, cancelSpeech } from "./speech";
+import { buildSttPrompt } from "./vocab";
 
 const CAPTION_MS = 5000;
 /** Max chained "Vibe asks, user answers" rounds per conversation. */
@@ -129,7 +130,7 @@ export function VibeAgent() {
     const wav = await pipeline.capture();
     if (!wav) { setState("idle"); showCaption("I didn't catch that."); return null; }
     setState("thinking");
-    const transcript = await transcribe(wav, auth);
+    const transcript = await transcribe(wav, auth, buildSttPrompt());
     if (!transcript) { setState("idle"); showCaption("I didn't catch that."); return null; }
     return transcript;
   };

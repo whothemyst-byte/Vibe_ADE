@@ -64,10 +64,11 @@ async function post(
   return res.json();
 }
 
-export async function transcribe(wav: Blob, auth: GroqAuth): Promise<string> {
+export async function transcribe(wav: Blob, auth: GroqAuth, prompt?: string): Promise<string> {
   const form = new FormData();
   form.append("file", wav, "utterance.wav");
   form.append("model", STT_MODEL);
+  if (prompt) form.append("prompt", prompt); // Whisper vocabulary biasing
   const json = (await post("/audio/transcriptions", "/transcribe", auth, {
     method: "POST",
     body: form,
