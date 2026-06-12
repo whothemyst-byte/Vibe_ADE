@@ -69,7 +69,8 @@ describe("chat", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.groq.com/openai/v1/chat/completions");
     const body = JSON.parse(init.body);
-    expect(body.model).toBe("llama-3.3-70b-versatile");
+    expect(body.model).toBe("openai/gpt-oss-120b");
+    expect(body.reasoning_effort).toBe("low");
     expect(body.tool_choice).toBeUndefined(); // no tools registered -> no tool fields
   });
 
@@ -83,7 +84,7 @@ describe("chat", () => {
       "https://cvithwrsgmtdajaddsab.supabase.co/functions/v1/groq-proxy/chat"
     );
     expect(init.headers["x-device-id"]).toBe("dev-1");
-    expect(JSON.parse(init.body).model).toBe("llama-3.3-70b-versatile");
+    expect(JSON.parse(init.body).model).toBe("openai/gpt-oss-120b");
   });
 
   it("includes tools and tool_choice when tools are provided", async () => {

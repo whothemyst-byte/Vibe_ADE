@@ -1,7 +1,7 @@
 /** Pure request rules for the groq-proxy edge function (no Deno APIs — vitest-testable). */
 
 export const DAILY_LIMIT = 300;
-export const CHAT_MODEL = "llama-3.3-70b-versatile";
+export const CHAT_MODEL = "openai/gpt-oss-120b";
 export const STT_MODEL = "whisper-large-v3-turbo";
 
 export type Rejection = { status: number; message: string };

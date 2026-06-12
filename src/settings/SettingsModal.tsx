@@ -177,7 +177,7 @@ function VibePane() {
         Voice companion. Works out of the box — speech recognition and the brain run
         through our hosted gateway with a free daily allowance. Paste your own free
         Groq API key (console.groq.com) for unlimited usage. The "Vibe" wake word
-        runs fully offline. Models: Llama 3.3 70B (brain) + Whisper large-v3-turbo
+        runs fully offline. Models: GPT-OSS 120B (brain) + Whisper large-v3-turbo
         (ears).
       </p>
       <div className="set-row">

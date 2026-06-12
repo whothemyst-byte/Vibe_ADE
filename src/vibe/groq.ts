@@ -4,7 +4,7 @@ const BASE = "https://api.groq.com/openai/v1";
 /** Public Supabase project URL (not a secret; auth lives server-side in the function). */
 const PROXY_BASE = "https://cvithwrsgmtdajaddsab.supabase.co/functions/v1/groq-proxy";
 export const STT_MODEL = "whisper-large-v3-turbo";
-export const CHAT_MODEL = "llama-3.3-70b-versatile";
+export const CHAT_MODEL = "openai/gpt-oss-120b";
 
 /** Direct = user's own Groq key. Proxy = bundled access via our edge function. */
 export type GroqAuth =
@@ -85,6 +85,7 @@ export async function chat(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: CHAT_MODEL,
+      reasoning_effort: "low", // gpt-oss is a reasoning model; low keeps voice latency down
       messages,
       ...(tools.length > 0 ? { tools, tool_choice: "auto" } : {}),
     }),

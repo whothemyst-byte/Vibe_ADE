@@ -18,8 +18,11 @@ describe("checkRequest", () => {
     });
   });
 
+  it("rejects the retired llama-3.3 chat model", () => {
+    expect(checkRequest("chat", "llama-3.3-70b-versatile", "d")?.status).toBe(400);
+  });
+
   it("rejects non-whitelisted models with 400", () => {
-    expect(checkRequest("chat", "openai/gpt-oss-120b", "d")?.status).toBe(400);
     expect(checkRequest("chat", STT_MODEL, "d")?.status).toBe(400); // wrong route
     expect(checkRequest("transcribe", null, "d")?.status).toBe(400);
   });
