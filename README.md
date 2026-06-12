@@ -9,10 +9,16 @@ This template should help get you started developing with Tauri, React and Types
 ## Vibe — voice companion
 
 Vibe is the floating ghost that controls the app by voice. Enable it in
-Settings → Vibe. It needs:
+Settings → Vibe.
 
-- A free Groq API key (https://console.groq.com/keys) — speech-to-text + brain.
-  Any email works; no card required.
+Speech recognition and the agent brain work out of the box: they run through a
+hosted gateway with a free daily allowance per device (300 requests/day). For
+unlimited usage, grab a free API key at https://console.groq.com/keys (any
+email works; no card required) and paste it in Settings → Vibe — the app then
+talks to Groq directly and skips the shared allowance.
+
+One asset is still needed locally:
+
 - The offline wake-word model (~40MB, not committed to git). Download
   https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz
   and save it as `public/vosk-model-small-en-us.tar.gz`. No account needed —
