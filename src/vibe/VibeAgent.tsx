@@ -3,7 +3,7 @@ import { useSettingsStore } from "../settings/settingsStore";
 import { VibePet, type VibeState } from "./VibePet";
 import { useVoicePipeline } from "./useVoicePipeline";
 import { runAgent } from "./agentLoop";
-import { transcribe, chat, type ChatMessage } from "./groq";
+import { transcribe, chat, type ChatMessage, type GroqAuth } from "./groq";
 import { useVibeCommand, type ToolDef } from "./commands";
 import { speak, cancelSpeech } from "./speech";
 
@@ -26,6 +26,10 @@ function matchesHotkey(e: KeyboardEvent, hotkey: string): boolean {
 
 export function VibeAgent() {
   const vibe = useSettingsStore((s) => s.settings.vibe);
+  // Own key (unlimited, direct) when set; otherwise the bundled proxy.
+  const auth: GroqAuth = vibe.groqApiKey
+    ? { kind: "direct", key: vibe.groqApiKey }
+    : { kind: "proxy", deviceId: vibe.deviceId };
   const [state, setState] = useState<VibeState>("idle");
   const [caption, setCaption] = useState<string | null>(null);
   const [celebrating, setCelebrating] = useState(false);
@@ -76,13 +80,12 @@ export function VibeAgent() {
   };
 
   const runUtterance = async (transcript: string) => {
-    if (!vibe.groqApiKey) { fail("I need a Groq API key — check Settings."); return; }
     setState("thinking");
     showCaption(`"${transcript}"`);
     try {
       const { text, messages } = await runAgent(
         transcript,
-        (msgs: ChatMessage[], tools: ToolDef[]) => chat(msgs, tools, vibe.groqApiKey),
+        (msgs: ChatMessage[], tools: ToolDef[]) => chat(msgs, tools, auth),
         conversation.current ?? undefined
       );
 
@@ -123,7 +126,7 @@ export function VibeAgent() {
     const wav = await pipeline.capture();
     if (!wav) { setState("idle"); showCaption("I didn't catch that."); return null; }
     setState("thinking");
-    const transcript = await transcribe(wav, vibe.groqApiKey);
+    const transcript = await transcribe(wav, auth);
     if (!transcript) { setState("idle"); showCaption("I didn't catch that."); return null; }
     return transcript;
   };
@@ -152,7 +155,6 @@ export function VibeAgent() {
     try {
       const transcript = await captureTranscript();
       if (transcript === null) return;
-      if (!vibe.groqApiKey) { fail("I need a Groq API key — check Settings."); return; }
       await runUtterance(transcript);
     } catch (e) {
       fail(e instanceof Error ? e.message : "Something went wrong.");
@@ -175,7 +177,7 @@ export function VibeAgent() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vibe.enabled, vibe.hotkey, vibe.groqApiKey, sleeping]);
+  }, [vibe.enabled, vibe.hotkey, vibe.groqApiKey, vibe.deviceId, sleeping]);
 
   // Dev escape hatch: drive the full agent loop from the console without a mic:
   //   window.__vibeSay("open a terminal")
@@ -183,7 +185,7 @@ export function VibeAgent() {
     (window as unknown as Record<string, unknown>).__vibeSay = (t: string) => void runUtterance(t);
     return () => { delete (window as unknown as Record<string, unknown>).__vibeSay; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vibe.groqApiKey, vibe.voice]);
+  }, [vibe.groqApiKey, vibe.deviceId, vibe.voice]);
 
   if (!vibe.enabled) return null;
 

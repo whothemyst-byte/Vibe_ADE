@@ -174,11 +174,11 @@ function VibePane() {
     <>
       <h2 className="set-title">Vibe</h2>
       <p className="set-sub">
-        Voice companion. Needs a free Groq API key (console.groq.com) for speech
-        recognition and the brain. The "Vibe" wake word runs fully offline — no
-        account needed — and the hotkey or clicking the pet always works too.
-        Models: Llama 3.3 70B (brain) + Whisper large-v3-turbo (ears), both on
-        the Groq free tier.
+        Voice companion. Works out of the box — speech recognition and the brain run
+        through our hosted gateway with a free daily allowance. Paste your own free
+        Groq API key (console.groq.com) for unlimited usage. The "Vibe" wake word
+        runs fully offline. Models: Llama 3.3 70B (brain) + Whisper large-v3-turbo
+        (ears).
       </p>
       <div className="set-row">
         <span className="set-label">Enable Vibe</span>
@@ -189,7 +189,7 @@ function VibePane() {
         />
       </div>
       <div className="set-row">
-        <span className="set-label">Groq API key</span>
+        <span className="set-label">Groq API key (optional)</span>
         <input
           className="set-input set-mono"
           type="password"

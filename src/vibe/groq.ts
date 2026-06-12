@@ -50,7 +50,7 @@ async function post(
   init: RequestInit
 ): Promise<unknown> {
   const url = auth.kind === "direct" ? `${BASE}${directPath}` : `${PROXY_BASE}${proxyPath}`;
-  const authHeaders =
+  const authHeaders: Record<string, string> =
     auth.kind === "direct"
       ? { Authorization: `Bearer ${auth.key}` }
       : { "x-device-id": auth.deviceId };
