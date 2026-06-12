@@ -5,11 +5,13 @@ import {
   browserCard,
   closeBrowser,
   openBrowser,
+  toNavigableUrl,
   _resetForTests,
 } from "./browserActions";
 
 vi.mock("../browser/client", () => ({
   browserNavigate: vi.fn(() => Promise.resolve()),
+  browserSetVisible: vi.fn(() => Promise.resolve()),
 }));
 import { browserNavigate } from "../browser/client";
 
@@ -31,7 +33,32 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+describe("toNavigableUrl", () => {
+  it("keeps explicit schemes as-is", () => {
+    expect(toNavigableUrl("https://example.com")).toBe("https://example.com");
+    expect(toNavigableUrl("http://localhost:5173/")).toBe("http://localhost:5173/");
+  });
+
+  it("adds https:// to host-like input", () => {
+    expect(toNavigableUrl("github.com/foo")).toBe("https://github.com/foo");
+    expect(toNavigableUrl("localhost:3000")).toBe("https://localhost:3000");
+    expect(toNavigableUrl("127.0.0.1:8080")).toBe("https://127.0.0.1:8080");
+  });
+
+  it("turns bare words into a google search, like a browser omnibox", () => {
+    expect(toNavigableUrl("google")).toBe("https://www.google.com/search?q=google");
+    expect(toNavigableUrl("what is rust")).toBe(
+      "https://www.google.com/search?q=what%20is%20rust"
+    );
+  });
+});
+
 describe("openBrowser", () => {
+  it("searches instead of navigating when given a bare word", async () => {
+    await openBrowser("google");
+    expect(browserCard()?.url).toBe("https://www.google.com/search?q=google");
+  });
+
   it("adds the browser card with a default scheme", async () => {
     await openBrowser("localhost:5173");
     expect(browserCard()?.url).toBe("https://localhost:5173");

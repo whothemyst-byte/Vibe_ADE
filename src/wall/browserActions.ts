@@ -1,6 +1,7 @@
 import { useCardStore, type BrowserCard } from "./cardStore";
-import { browserNavigate } from "../browser/client";
+import { browserNavigate, browserSetVisible } from "../browser/client";
 import { CELL } from "./gridLayout";
+import { removeCardWithFade } from "./removeCard";
 
 export const BROWSER_ID = "wall-browser";
 export const DEFAULT_URL = "https://www.google.com";
@@ -12,10 +13,23 @@ export function browserCard(): BrowserCard | undefined {
   return useCardStore.getState().cards.find((c): c is BrowserCard => c.kind === "browser");
 }
 
+/**
+ * Omnibox semantics: explicit schemes pass through, host-like input
+ * (a dot, localhost, or an IP) gets https://, anything else becomes a
+ * Google search — typing "google" should search, not resolve as a host.
+ */
+export function toNavigableUrl(input: string): string {
+  const t = input.trim();
+  if (/^https?:\/\//i.test(t)) return t;
+  const hostLike = !/\s/.test(t) && (/\./.test(t) || /^(localhost|\[::1\])(:\d+)?(\/|$)/i.test(t));
+  if (hostLike) return `https://${t}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(t)}`;
+}
+
 /** Opens the browser card (the grid re-flows) or navigates the existing one. */
 export async function openBrowser(url?: string): Promise<string> {
   const target = url?.trim() || browserCard()?.url || DEFAULT_URL;
-  const withScheme = /^https?:\/\//i.test(target) ? target : `https://${target}`;
+  const withScheme = toNavigableUrl(target);
   if (browserCard()) {
     useCardStore.getState().update(BROWSER_ID, { url: withScheme });
     await browserNavigate(withScheme);
@@ -36,7 +50,9 @@ export async function openBrowser(url?: string): Promise<string> {
 /** Removes the card; BrowserWindow's unmount destroys the native webview. */
 export function closeBrowser(): string {
   if (!browserCard()) return "The browser is not open.";
-  useCardStore.getState().remove(BROWSER_ID);
+  // The native webview can't fade — hide it at once; the chrome fades out.
+  void browserSetVisible(false).catch(() => {});
+  removeCardWithFade(BROWSER_ID);
   return "Closed the browser.";
 }
 
