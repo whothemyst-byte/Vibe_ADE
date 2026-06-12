@@ -6,6 +6,8 @@ import { spawnPty, writePty, resizePty, killPty, onPtyExit } from "../pty/client
 import { newActivity, recordOutput, type Activity } from "./agentStatus";
 import { useCardStore } from "./cardStore";
 import { useSettingsStore } from "../settings/settingsStore";
+import { createUrlScanner } from "./urlScanner";
+import { autoOpenFromTerminal } from "./browserActions";
 
 /**
  * Terminal sessions live OUTSIDE the React tree. A session (xterm instance, its
@@ -105,6 +107,9 @@ export function ensureSession(opts: {
   fit.fit();
 
   const activity = getActivityRef(id);
+  // Dev-server URLs in this terminal's output auto-open the wall browser.
+  const decoder = new TextDecoder();
+  const scanUrls = createUrlScanner((url) => autoOpenFromTerminal(id, url));
   const dataSub = term.onData((d) => writePty(id, new TextEncoder().encode(d)));
 
   let unExit: (() => void) | null = null;
@@ -146,6 +151,7 @@ export function ensureSession(opts: {
       onData: (bytes) => {
         if (disposed) return;
         activity.current = recordOutput(activity.current, Date.now());
+        scanUrls(decoder.decode(bytes, { stream: true }));
         term.write(bytes);
       },
     });
