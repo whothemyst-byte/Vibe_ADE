@@ -12,6 +12,7 @@
     "vibe:eval": "vitest run --config vitest.eval.config.ts"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.61.8",
     "@excalidraw/excalidraw": "^0.18.1",
     "@fontsource/geist": "^5.2.9",
     "@fontsource/geist-mono": "^5.2.8",
