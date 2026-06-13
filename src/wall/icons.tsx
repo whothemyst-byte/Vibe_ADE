@@ -80,6 +80,12 @@ export const GearIcon = () => (
     <circle cx="12" cy="12" r="3" />
   </Svg>
 );
+export const UserIcon = () => (
+  <Svg>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </Svg>
+);
 export const GridIcon = () => (
   <Svg>
     <rect x="3" y="3" width="7" height="7" rx="1" />
