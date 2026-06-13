@@ -402,3 +402,8 @@
 .tb-chip svg { width: 11px; height: 11px; }
 .tb-chip:hover { background: rgba(215, 154, 61, .22); }
 .tb-link-select { background: var(--bg); color: var(--text-muted); border: 1px solid var(--rule); border-radius: 7px; font-size: 11px; padding: 3px 6px; cursor: pointer; font-family: var(--font-ui); }
+.set-account { align-items: center; gap: 12px; }
+.set-avatar { border-radius: 50%; object-fit: cover; }
+.set-avatar-empty { width: 48px; height: 48px; background: var(--surface-2); border: 1px solid var(--rule); }
+.set-account-meta { display: flex; flex-direction: column; gap: 2px; }
+.set-account-name { font-size: 14px; }

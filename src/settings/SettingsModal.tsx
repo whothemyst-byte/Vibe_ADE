@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import { useSettingsStore } from "./settingsStore";
 import { usePresetStore } from "../wall/presetStore";
 import { presetTierColor } from "../wall/presetTier";
 import type { Preset } from "../wall/presets";
 import { importBackground, pickBackgroundFile, savePresets } from "../store/persistence";
 import type { Background } from "../store/types";
-import { CloseIcon, EllipseIcon, GearIcon, ImageIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon } from "../wall/icons";
+import { CloseIcon, EllipseIcon, GearIcon, ImageIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon, UserIcon } from "../wall/icons";
 import { THEMES, isThemeActive } from "./themes";
+import { connectedProviders, memberSince } from "../auth/profile";
 
-type Section = "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about";
+type Section = "account" | "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about";
 
 const SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[] = [
+  { key: "account", label: "Account", icon: UserIcon },
   { key: "agents", label: "Agents", icon: SelectIcon },
   { key: "terminal", label: "Terminal", icon: RectangleIcon },
   { key: "themes", label: "Themes", icon: PaletteIcon },
@@ -53,6 +56,41 @@ function BackgroundPicker({ value, onChange }: { value: Background; onChange: (b
         {value.kind === "color" ? value.color : `${value.kind}: …${value.path.slice(-24)}`}
       </span>
     </div>
+  );
+}
+
+function AccountPane() {
+  const { user } = useUser();
+  const clerk = useClerk();
+  if (!user) return null;
+
+  const providers = connectedProviders(user.externalAccounts);
+  const email = user.primaryEmailAddress?.emailAddress ?? "—";
+  const since = memberSince(user.createdAt ?? null);
+
+  return (
+    <>
+      <h2 className="set-title">Account</h2>
+      <p className="set-sub">You're signed in to Vibe Space.</p>
+      <div className="set-row set-account">
+        {user.imageUrl
+          ? <img className="set-avatar" src={user.imageUrl} alt="" width={48} height={48} />
+          : <span className="set-avatar set-avatar-empty" />}
+        <div className="set-account-meta">
+          <span className="set-account-name">{user.fullName ?? email}</span>
+          <span className="set-hint">{email}</span>
+          {since && <span className="set-hint">Member since {since}</span>}
+        </div>
+      </div>
+      <div className="set-row">
+        <span className="set-label">Connected accounts</span>
+        <span className="set-hint">{providers.length ? providers.join(", ") : "None"}</span>
+      </div>
+      <div className="set-row">
+        <button className="set-btn" onClick={() => clerk.openUserProfile()}>Manage account…</button>
+        <button className="set-btn" onClick={() => void clerk.signOut()}>Sign out</button>
+      </div>
+    </>
   );
 }
 
@@ -343,6 +381,7 @@ export function SettingsModal({ background, onChangeBackground, onClose }: {
         </aside>
         <section className="settings-pane">
           <button className="settings-close" title="Close" onClick={onClose}><CloseIcon /></button>
+          {section === "account" && <AccountPane />}
           {section === "agents" && <AgentsPane />}
           {section === "terminal" && <TerminalPane />}
           {section === "themes" && <ThemesPane background={background} onChangeBackground={onChangeBackground} />}
