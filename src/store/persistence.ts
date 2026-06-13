@@ -12,14 +12,14 @@ export function saveIndex(index: WallMeta[]): Promise<void> {
   return invoke("index_save", { json: JSON.stringify(index) });
 }
 export async function loadWall(id: string): Promise<WallDoc | null> {
-  const s = await invoke<string | null>("wall_load", { id });
+  const s = await invoke<string | null>("space_load", { id });
   return s ? (JSON.parse(s) as WallDoc) : null;
 }
 export function saveWall(id: string, doc: WallDoc): Promise<void> {
-  return invoke("wall_save", { id, json: JSON.stringify(doc) });
+  return invoke("space_save", { id, json: JSON.stringify(doc) });
 }
 export function deleteWall(id: string): Promise<void> {
-  return invoke("wall_delete", { id });
+  return invoke("space_delete", { id });
 }
 export function saveThumbnail(id: string, bytes: Uint8Array): Promise<void> {
   return invoke("thumb_save", { id, bytes: Array.from(bytes) });

@@ -4,13 +4,13 @@ use tauri::{AppHandle, Manager};
 use super::atomic::write_atomic;
 use super::paths::{index_path, thumb_path, wall_path};
 
-/// Reject ids that could escape the walls dir. Frontend ids are UUIDs, so this is
+/// Reject ids that could escape the spaces dir. Frontend ids are UUIDs, so this is
 /// defense-in-depth against path traversal via a crafted id.
 fn safe_id(id: &str) -> Result<(), String> {
     if !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         Ok(())
     } else {
-        Err("invalid wall id".to_string())
+        Err("invalid space id".to_string())
     }
 }
 
@@ -37,7 +37,7 @@ pub fn index_save(app: AppHandle, json: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn wall_load(app: AppHandle, id: String) -> Result<Option<String>, String> {
+pub fn space_load(app: AppHandle, id: String) -> Result<Option<String>, String> {
     safe_id(&id)?;
     let p = wall_path(&base(&app)?, &id);
     match fs::read_to_string(&p) {
@@ -48,13 +48,13 @@ pub fn wall_load(app: AppHandle, id: String) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-pub fn wall_save(app: AppHandle, id: String, json: String) -> Result<(), String> {
+pub fn space_save(app: AppHandle, id: String, json: String) -> Result<(), String> {
     safe_id(&id)?;
     write_atomic(&wall_path(&base(&app)?, &id), json.as_bytes()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn wall_delete(app: AppHandle, id: String) -> Result<(), String> {
+pub fn space_delete(app: AppHandle, id: String) -> Result<(), String> {
     safe_id(&id)?;
     let b = base(&app)?;
     for p in [wall_path(&b, &id), thumb_path(&b, &id)] {
