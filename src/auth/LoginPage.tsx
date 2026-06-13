@@ -3,7 +3,7 @@ import { useSignIn, useSignUp } from "@clerk/clerk-react";
 import { SSO_CALLBACK_PATH } from "./route";
 import "./login.css";
 
-type Mode = "sign-in" | "sign-up" | "verify" | "reset";
+type Mode = "sign-in" | "sign-up" | "verify" | "reset" | "reset-code";
 
 const firstError = (err: unknown): string => {
   const e = err as { errors?: { message?: string }[] };
@@ -80,7 +80,21 @@ export function LoginPage() {
 
   const doReset = async () => {
     await signIn.create({ strategy: "reset_password_email_code", identifier: email });
-    setNotice("We've emailed you a reset code. Reset from 'Manage account' after signing in, or contact support.");
+    setNotice("We've emailed you a reset code. Enter it below with a new password.");
+    setMode("reset-code");
+  };
+
+  const doResetCode = async () => {
+    const res = await signIn.attemptFirstFactor({
+      strategy: "reset_password_email_code",
+      code,
+      password,
+    });
+    if (res.status === "complete") {
+      await setSignInActive({ session: res.createdSessionId });
+    } else {
+      setError("Couldn't reset your password. Check the code and try again.");
+    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -93,6 +107,7 @@ export function LoginPage() {
       else if (mode === "sign-up") await doSignUp();
       else if (mode === "verify") await doVerify();
       else if (mode === "reset") await doReset();
+      else if (mode === "reset-code") await doResetCode();
     } catch (err) {
       setError(firstError(err));
     } finally {
@@ -108,6 +123,7 @@ export function LoginPage() {
           {mode === "sign-up" ? "Create your account."
             : mode === "verify" ? "Check your email for a code."
             : mode === "reset" ? "Reset your password."
+            : mode === "reset-code" ? "Enter your reset code and a new password."
             : "Sign in to your canvas."}
         </p>
 
@@ -125,28 +141,27 @@ export function LoginPage() {
           </>
         )}
 
-        {mode === "verify" ? (
+        {(mode === "verify" || mode === "reset-code") && (
           <div className="login-field">
-            <label htmlFor="code">Verification code</label>
+            <label htmlFor="code">{mode === "reset-code" ? "Reset code" : "Verification code"}</label>
             <input id="code" className="login-input" type="text" inputMode="numeric" autoComplete="one-time-code"
               value={code} onChange={(e) => setCode(e.target.value)} autoFocus />
           </div>
-        ) : (
-          <>
-            <div className="login-field">
-              <label htmlFor="email">Email</label>
-              <input id="email" className="login-input" type="email" autoComplete="email"
-                value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            {mode !== "reset" && (
-              <div className="login-field">
-                <label htmlFor="password">Password</label>
-                <input id="password" className="login-input" type="password"
-                  autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-                  value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
-            )}
-          </>
+        )}
+        {(mode === "sign-in" || mode === "sign-up" || mode === "reset") && (
+          <div className="login-field">
+            <label htmlFor="email">Email</label>
+            <input id="email" className="login-input" type="email" autoComplete="email"
+              value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+        )}
+        {(mode === "sign-in" || mode === "sign-up" || mode === "reset-code") && (
+          <div className="login-field">
+            <label htmlFor="password">{mode === "reset-code" ? "New password" : "Password"}</label>
+            <input id="password" className="login-input" type="password"
+              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+              value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </div>
         )}
 
         <p className="login-error" aria-live="assertive">{error}</p>
@@ -157,6 +172,7 @@ export function LoginPage() {
             : mode === "sign-up" ? "Create account"
             : mode === "verify" ? "Verify email"
             : mode === "reset" ? "Send reset code"
+            : mode === "reset-code" ? "Reset password"
             : "Sign in"}
         </button>
 
@@ -172,7 +188,7 @@ export function LoginPage() {
               </button>
             </>
           )}
-          {(mode === "sign-up" || mode === "reset" || mode === "verify") && (
+          {(mode === "sign-up" || mode === "reset" || mode === "verify" || mode === "reset-code") && (
             <button type="button" className="login-link" onClick={() => { setError(""); setNotice(""); setMode("sign-in"); }}>
               Back to sign in
             </button>
