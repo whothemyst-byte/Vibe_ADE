@@ -1,5 +1,7 @@
 # Groq Proxy + Managed Terminal Grid Implementation Plan
 
+> NOTE (2026-06-13): the groq-proxy was migrated to Supabase project tfaouguiyvmfarfqungk for Vibe Space v1.0.0; references to cvithwrsgmtdajaddsab below are historical.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Voice agent works out of the box via a Supabase Edge Function proxy holding the Groq key (per-device daily quota), terminals arrange in a screen-aspect grid with auto-fit camera and drag-to-reorder, and agent names become easy to pronounce.

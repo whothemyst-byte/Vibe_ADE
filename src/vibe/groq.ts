@@ -2,7 +2,7 @@ import type { ToolDef } from "./commands";
 
 const BASE = "https://api.groq.com/openai/v1";
 /** Public Supabase project URL (not a secret; auth lives server-side in the function). */
-const PROXY_BASE = "https://cvithwrsgmtdajaddsab.supabase.co/functions/v1/groq-proxy";
+const PROXY_BASE = "https://tfaouguiyvmfarfqungk.supabase.co/functions/v1/groq-proxy";
 export const STT_MODEL = "whisper-large-v3-turbo";
 export const CHAT_MODEL = "openai/gpt-oss-120b";
 

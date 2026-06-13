@@ -61,7 +61,7 @@ describe("transcribe (proxy)", () => {
     await transcribe(new Blob(["x"]), proxy);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      "https://cvithwrsgmtdajaddsab.supabase.co/functions/v1/groq-proxy/transcribe"
+      "https://tfaouguiyvmfarfqungk.supabase.co/functions/v1/groq-proxy/transcribe"
     );
     expect(init.headers["x-device-id"]).toBe("dev-1");
     expect(init.headers.Authorization).toBeUndefined();
@@ -95,7 +95,7 @@ describe("chat", () => {
     await chat([{ role: "user", content: "hi" }], [], proxy);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      "https://cvithwrsgmtdajaddsab.supabase.co/functions/v1/groq-proxy/chat"
+      "https://tfaouguiyvmfarfqungk.supabase.co/functions/v1/groq-proxy/chat"
     );
     expect(init.headers["x-device-id"]).toBe("dev-1");
     expect(JSON.parse(init.body).model).toBe("openai/gpt-oss-120b");
