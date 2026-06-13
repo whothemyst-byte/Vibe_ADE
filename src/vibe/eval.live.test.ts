@@ -21,18 +21,18 @@ function fakeRegistry() {
       run: (args) => { calls.push({ name, args }); return result; },
     });
 
-  stub("go_to_start_page", "Navigate to the start page (the wall picker).");
+  stub("go_to_start_page", "Navigate to the start page (the space picker).");
   stub("open_task_board", "Open the task board view.");
-  stub("open_wall", "Open a wall (canvas workspace) by its name.", {
+  stub("open_space", "Open a space (canvas workspace) by its name.", {
     type: "object",
-    properties: { name: { type: "string", description: "Wall name, e.g. 'design'" } },
+    properties: { name: { type: "string", description: "Space name, e.g. 'design'" } },
     required: ["name"],
   });
-  stub("create_wall", "Create a NEW wall in a folder and open it. If the user did not say where, ask where to create it.", {
+  stub("create_space", "Create a NEW space in a folder and open it. If the user did not say where, ask where to create it.", {
     type: "object",
     properties: {
       location: { type: "string", description: "Absolute folder path, or 'picker' for the native picker" },
-      name: { type: "string", description: "Optional wall name" },
+      name: { type: "string", description: "Optional space name" },
     },
     required: ["location"],
   });
@@ -91,9 +91,9 @@ describe.runIf(KEY)("vibe agent eval (live Groq)", { retry: 1 }, () => {
     expect(String(c?.args.name ?? "")).toMatch(/ada/i);
   });
 
-  it("opens a wall by name", async () => {
-    await runAgent("open the design wall", liveChat);
-    const c = calls.find((c) => c.name === "open_wall");
+  it("opens a space by name", async () => {
+    await runAgent("open the design space", liveChat);
+    const c = calls.find((c) => c.name === "open_space");
     expect(String(c?.args.name ?? "")).toMatch(/design/i);
   });
 
@@ -125,16 +125,16 @@ describe.runIf(KEY)("vibe agent eval (live Groq)", { retry: 1 }, () => {
     expect(String(c?.args.column ?? "")).toMatch(/done/i);
   });
 
-  it("creates a wall at an explicit path", async () => {
-    await runAgent("create a wall called demo in C:\\Users\\admin\\Projects", liveChat);
-    const c = calls.find((c) => c.name === "create_wall");
+  it("creates a space at an explicit path", async () => {
+    await runAgent("create a space called demo in C:\\Users\\admin\\Projects", liveChat);
+    const c = calls.find((c) => c.name === "create_space");
     expect(String(c?.args.location ?? "")).toMatch(/projects/i);
   });
 
   it("chains two commands in one utterance", async () => {
-    await runAgent("open the design wall and give me a terminal", liveChat);
+    await runAgent("open the design space and give me a terminal", liveChat);
     const names = calls.map((c) => c.name);
-    expect(names).toContain("open_wall");
+    expect(names).toContain("open_space");
     expect(names).toContain("open_terminal");
   });
 
@@ -151,8 +151,8 @@ describe.runIf(KEY)("vibe agent eval (live Groq)", { retry: 1 }, () => {
   });
 
   it("asks instead of guessing when a required detail is missing", async () => {
-    const out = await runAgent("make me a new wall", liveChat);
+    const out = await runAgent("make me a new space", liveChat);
     expect(out.kind).toBe("question");
-    expect(calls.find((c) => c.name === "create_wall")).toBeUndefined();
+    expect(calls.find((c) => c.name === "create_space")).toBeUndefined();
   });
 });

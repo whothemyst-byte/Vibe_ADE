@@ -16,9 +16,9 @@ describe("buildSttPrompt", () => {
   });
 
   it("appends live context nouns after the command phrases", () => {
-    registerVibeCommand({ name: "open_wall", description: "d", run: () => "" });
-    registerVibeContext("app", () => "existing walls: design, scratchpad");
-    expect(buildSttPrompt()).toBe("open wall. app: existing walls: design, scratchpad");
+    registerVibeCommand({ name: "open_space", description: "d", run: () => "" });
+    registerVibeContext("app", () => "existing spaces: design, scratchpad");
+    expect(buildSttPrompt()).toBe("open space. app: existing spaces: design, scratchpad");
   });
 
   it("keeps the END when truncating (Whisper weighs final tokens most)", () => {

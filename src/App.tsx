@@ -22,14 +22,14 @@ export default function App() {
     const where =
       view.kind === "start" ? "start page"
       : view.kind === "tasks" ? "task board"
-      : `wall "${wallsRef.current.find((w) => w.id === view.id)?.name ?? "unknown"}"`;
+      : `space "${wallsRef.current.find((w) => w.id === view.id)?.name ?? "unknown"}"`;
     const names = wallsRef.current.map((w) => w.name).join(", ") || "none yet";
-    return `current view: ${where}; existing walls: ${names}`;
+    return `current view: ${where}; existing spaces: ${names}`;
   });
 
   useVibeCommand({
     name: "go_to_start_page",
-    description: "Navigate to the start page (the wall picker).",
+    description: "Navigate to the start page (the space picker).",
     run: () => { setView({ kind: "start" }); return "Now on the start page."; },
   });
   useVibeCommand({
@@ -41,11 +41,11 @@ export default function App() {
     },
   });
   useVibeCommand({
-    name: "open_wall",
-    description: "Open a wall (canvas workspace) by its name.",
+    name: "open_space",
+    description: "Open a space (canvas workspace) by its name.",
     parameters: {
       type: "object",
-      properties: { name: { type: "string", description: "Wall name, e.g. 'design'" } },
+      properties: { name: { type: "string", description: "Space name, e.g. 'design'" } },
       required: ["name"],
     },
     run: async (args) => {
@@ -54,16 +54,16 @@ export default function App() {
       const wall = index.find((w) => w.name.toLowerCase().includes(wanted));
       if (!wall) {
         const names = index.map((w) => w.name).join(", ") || "none";
-        return `Error: no wall matches "${args.name}". Existing walls: ${names}.`;
+        return `Error: no space matches "${args.name}". Existing spaces: ${names}.`;
       }
       setView({ kind: "wall", id: wall.id });
-      return `Opened the wall "${wall.name}".`;
+      return `Opened the space "${wall.name}".`;
     },
   });
   useVibeCommand({
-    name: "create_wall",
+    name: "create_space",
     description:
-      "Create a NEW wall (canvas workspace) in a folder and open it. If the user did not say where, ask where to create it — they can answer with a full folder path or ask you to open the folder picker.",
+      "Create a NEW space (canvas workspace) in a folder and open it. If the user did not say where, ask where to create it — they can answer with a full folder path or ask you to open the folder picker.",
     parameters: {
       type: "object",
       properties: {
@@ -72,7 +72,7 @@ export default function App() {
           description:
             "Absolute folder path (e.g. C:\\Users\\admin\\Projects\\demo), or 'picker' to open the native folder picker",
         },
-        name: { type: "string", description: "Optional wall name; defaults to the folder name" },
+        name: { type: "string", description: "Optional space name; defaults to the folder name" },
       },
       required: ["location"],
     },
@@ -92,7 +92,7 @@ export default function App() {
       const meta: WallMeta = { id: crypto.randomUUID(), name, path, updatedAt: Date.now(), isCurrent: true };
       await saveIndex([...index.map((w) => ({ ...w, isCurrent: false })), meta]);
       setView({ kind: "wall", id: meta.id });
-      return `Created and opened the wall "${name}" at ${path}.`;
+      return `Created and opened the space "${name}" at ${path}.`;
     },
   });
 

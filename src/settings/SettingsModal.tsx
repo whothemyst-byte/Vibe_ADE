@@ -243,7 +243,7 @@ function ThemesPane({ background, onChangeBackground }: {
   return (
     <>
       <h2 className="set-title">Themes</h2>
-      <p className="set-sub">Pick a theme for this wall — or craft your own below.</p>
+      <p className="set-sub">Pick a theme for this space — or craft your own below.</p>
       <div className="theme-grid">
         {THEMES.map((t) => {
           const active = isThemeActive(background, t);
@@ -276,7 +276,7 @@ function ThemesPane({ background, onChangeBackground }: {
       <div className="set-group">
         <span className="set-label">Create your own</span>
         <BackgroundPicker value={background} onChange={onChangeBackground} />
-        <span className="set-hint">A color, image, or video of your choice becomes this wall’s theme.</span>
+        <span className="set-hint">A color, image, or video of your choice becomes this space’s theme.</span>
       </div>
     </>
   );
@@ -288,9 +288,9 @@ function CanvasPane() {
   return (
     <>
       <h2 className="set-title">Canvas</h2>
-      <p className="set-sub">Wall-level canvas behavior. Theme the current wall from the Themes tab.</p>
+      <p className="set-sub">Space-level canvas behavior. Theme the current space from the Themes tab.</p>
       <div className="set-group">
-        <span className="set-label">Default background for new walls</span>
+        <span className="set-label">Default background for new spaces</span>
         <BackgroundPicker
           value={settings.canvas.defaultBackground}
           onChange={(bg) => save({ ...settings, canvas: { ...settings.canvas, defaultBackground: bg } })}
@@ -305,7 +305,7 @@ function AboutPane() {
     <>
       <h2 className="set-title">About</h2>
       <p className="set-sub">
-        <strong>Vibe Walls</strong> v0.1.0 — an infinite canvas for commanding a wall of
+        <strong>Vibe Space</strong> v1.0.0 — an infinite canvas for commanding a constellation of
         coding agents. Draw, plan, and run Claude Code, Codex, and friends side by side.
       </p>
       <p className="set-hint">Quansynd · built with Tauri, Excalidraw, and xterm.js</p>
