@@ -8,6 +8,9 @@ import { useVibeCommand } from "./vibe/commands";
 import { useVibeContext } from "./vibe/context";
 import { loadIndex, saveIndex, pickFolder } from "./store/persistence";
 import type { WallMeta } from "./store/types";
+import { SignedIn, SignedOut, ClerkLoaded, ClerkLoading, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
+import { LoginPage } from "./auth/LoginPage";
+import { isSsoCallbackPath } from "./auth/route";
 
 type View = { kind: "start" } | { kind: "wall"; id: string } | { kind: "tasks"; from: View };
 
@@ -121,10 +124,24 @@ export default function App() {
       />
     );
   }
+  if (isSsoCallbackPath(window.location.pathname)) {
+    return <AuthenticateWithRedirectCallback signInForceRedirectUrl="/" signUpForceRedirectUrl="/" />;
+  }
+
   return (
     <>
-      {page}
-      <VibeAgent />
+      <ClerkLoading>
+        <div className="login-screen" />
+      </ClerkLoading>
+      <ClerkLoaded>
+        <SignedOut>
+          <LoginPage />
+        </SignedOut>
+        <SignedIn>
+          {page}
+          <VibeAgent />
+        </SignedIn>
+      </ClerkLoaded>
     </>
   );
 }
