@@ -19,7 +19,7 @@ export function corsAllowOrigin(origin: string | null | undefined): string {
 export function corsHeaders(origin: string | null | undefined): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": corsAllowOrigin(origin),
-    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     Vary: "Origin",
   };

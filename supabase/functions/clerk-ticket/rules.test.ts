@@ -18,6 +18,7 @@ describe("corsHeaders", () => {
     expect(h["Access-Control-Allow-Origin"]).toBe("https://quansynd.com");
     expect(h["Vary"]).toBe("Origin");
     expect(h["Access-Control-Allow-Methods"]).toContain("POST");
+    expect(h["Access-Control-Allow-Headers"]).toContain("apikey");
   });
 });
 
