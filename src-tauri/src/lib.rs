@@ -1,4 +1,5 @@
 mod browser;
+mod oauth;
 mod pty;
 mod store;
 
@@ -37,6 +38,7 @@ pub fn run() {
             browser::commands::browser_close,
             browser::commands::browser_read,
             browser::commands::browser_status,
+            oauth::start_oauth_loopback,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

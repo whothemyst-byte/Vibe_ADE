@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useSignIn, useSignUp } from "@clerk/clerk-react";
-import { SSO_CALLBACK_PATH } from "./route";
+import { signInWithProvider } from "./browserOauth";
 import "./login.css";
 
 type Mode = "sign-in" | "sign-up" | "verify" | "reset" | "reset-code";
 
 const firstError = (err: unknown): string => {
-  const e = err as { errors?: { message?: string }[] };
-  return e?.errors?.[0]?.message ?? "Something went wrong. Please try again.";
+  const e = err as { errors?: { message?: string }[]; message?: string };
+  return e?.errors?.[0]?.message ?? e?.message ?? "Something went wrong. Please try again.";
 };
 
 function GoogleGlyph() {
@@ -42,13 +42,18 @@ export function LoginPage() {
 
   if (!siLoaded || !suLoaded) return null;
 
-  const oauth = (strategy: "oauth_google" | "oauth_github") => {
+  const oauth = async (provider: "google" | "github") => {
     setError("");
-    signIn.authenticateWithRedirect({
-      strategy,
-      redirectUrl: SSO_CALLBACK_PATH,
-      redirectUrlComplete: "/",
-    }).catch((err) => setError(firstError(err)));
+    setNotice("");
+    setBusy(true);
+    try {
+      // Opens the system browser; returns once the loopback hands back a sign-in token.
+      await signInWithProvider(provider, signIn, setSignInActive);
+    } catch (err) {
+      setError(firstError(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const doSignIn = async () => {
@@ -130,10 +135,10 @@ export function LoginPage() {
         {(mode === "sign-in" || mode === "sign-up") && (
           <>
             <div className="login-oauth">
-              <button type="button" className="login-oauth-btn" onClick={() => oauth("oauth_google")}>
+              <button type="button" className="login-oauth-btn" disabled={busy} onClick={() => void oauth("google")}>
                 <GoogleGlyph /> Continue with Google
               </button>
-              <button type="button" className="login-oauth-btn" onClick={() => oauth("oauth_github")}>
+              <button type="button" className="login-oauth-btn" disabled={busy} onClick={() => void oauth("github")}>
                 <GithubGlyph /> Continue with GitHub
               </button>
             </div>
