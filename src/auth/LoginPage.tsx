@@ -37,6 +37,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!siLoaded || !suLoaded) return null;
@@ -61,7 +62,9 @@ export function LoginPage() {
   };
 
   const doSignUp = async () => {
-    await signUp.create({ emailAddress: email, password });
+    if (signUp.status !== "missing_requirements") {
+      await signUp.create({ emailAddress: email, password });
+    }
     await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
     setMode("verify");
   };
@@ -77,12 +80,13 @@ export function LoginPage() {
 
   const doReset = async () => {
     await signIn.create({ strategy: "reset_password_email_code", identifier: email });
-    setError("We've emailed you a reset code. Reset from 'Manage account' after signing in, or contact support.");
+    setNotice("We've emailed you a reset code. Reset from 'Manage account' after signing in, or contact support.");
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNotice("");
     setBusy(true);
     try {
       if (mode === "sign-in") await doSignIn();
@@ -124,8 +128,8 @@ export function LoginPage() {
         {mode === "verify" ? (
           <div className="login-field">
             <label htmlFor="code">Verification code</label>
-            <input id="code" className="login-input" inputMode="numeric" value={code}
-              onChange={(e) => setCode(e.target.value)} autoFocus />
+            <input id="code" className="login-input" type="text" inputMode="numeric" autoComplete="one-time-code"
+              value={code} onChange={(e) => setCode(e.target.value)} autoFocus />
           </div>
         ) : (
           <>
@@ -145,7 +149,8 @@ export function LoginPage() {
           </>
         )}
 
-        <p className="login-error">{error}</p>
+        <p className="login-error" aria-live="assertive">{error}</p>
+        <p className="login-notice" aria-live="polite">{notice}</p>
 
         <button className="login-submit" type="submit" disabled={busy}>
           {busy ? "Please wait…"
@@ -158,17 +163,17 @@ export function LoginPage() {
         <div className="login-foot">
           {mode === "sign-in" && (
             <>
-              <button type="button" className="login-link" onClick={() => { setError(""); setMode("reset"); }}>
+              <button type="button" className="login-link" onClick={() => { setError(""); setNotice(""); setMode("reset"); }}>
                 Forgot password?
               </button>
               {" · "}
-              <button type="button" className="login-link" onClick={() => { setError(""); setMode("sign-up"); }}>
+              <button type="button" className="login-link" onClick={() => { setError(""); setNotice(""); setMode("sign-up"); }}>
                 Create an account
               </button>
             </>
           )}
           {(mode === "sign-up" || mode === "reset" || mode === "verify") && (
-            <button type="button" className="login-link" onClick={() => { setError(""); setMode("sign-in"); }}>
+            <button type="button" className="login-link" onClick={() => { setError(""); setNotice(""); setMode("sign-in"); }}>
               Back to sign in
             </button>
           )}
