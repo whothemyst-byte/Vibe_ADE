@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    vibe_walls_lib::run()
+    vibe_space_lib::run()
 }
