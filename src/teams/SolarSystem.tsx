@@ -7,7 +7,11 @@ import { statusLine } from "./presenceHelpers";
 const MIN_SIZE = 360;       // never shrink the orbit below this
 const AVATAR_HALF = 26;     // keep outer avatars off the edge
 
-export function SolarSystem({ org, members, myId }: { org: Org; members: Member[]; myId: string | null }) {
+export function SolarSystem({ org, members, myId, onOpenSpace, onOpenSettings }: {
+  org: Org; members: Member[]; myId: string | null;
+  onOpenSpace?: (orgSpaceId: string) => void;
+  onOpenSettings?: () => void;
+}) {
   const roster = usePresenceStore((s) => s.roster);
   const stageRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(MIN_SIZE);
@@ -29,6 +33,7 @@ export function SolarSystem({ org, members, myId }: { org: Org; members: Member[
     return () => window.clearInterval(t);
   }, []);
 
+  void onOpenSpace; // consumed in Task 11 (openableSpace affordance)
   const C = size / 2;
   const maxRadius = C - AVATAR_HALF;
   const positions = orbitPositions(members.length, maxRadius);
@@ -43,9 +48,9 @@ export function SolarSystem({ org, members, myId }: { org: Org; members: Member[
             <span key={r} style={{ width: r * 2, height: r * 2 }} />
           ))}
         </div>
-        <div className="solar-core" title={org.name}>
+        <button className="solar-core" title={`${org.name} — settings`} onClick={() => onOpenSettings?.()}>
           {org.logo_url ? <img src={org.logo_url} alt="" /> : <span>{monogram}</span>}
-        </div>
+        </button>
         <div className="solar-rotor">
           {members.map((m, i) => {
             const pos = positions[i];

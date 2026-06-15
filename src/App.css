@@ -614,7 +614,7 @@
   display: grid; place-items: center; font-size: 38px; font-weight: 600; overflow: hidden;
   background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--accent) 70%, transparent), var(--accent-soft));
   box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 45%, transparent);
-  color: var(--text); z-index: 2;
+  color: var(--text); z-index: 2; border: none; cursor: pointer;
 }
 .solar-core img { width: 100%; height: 100%; object-fit: cover; }
 .solar-rotor { position: absolute; inset: 0; transform-origin: 50% 50%; animation: solar-spin 140s linear infinite; }
