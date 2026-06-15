@@ -9,6 +9,7 @@ export type Entitlements = {
   canUseSavedViews: boolean;
   canImportExternal: boolean;
   canUseAiTaskTools: boolean;
+  canUseTeams: boolean;
   aiAllowance: number | "unlimited";
   maxDevices: number;
   settingsSync: boolean;
@@ -22,6 +23,7 @@ export const TIERS: Record<Tier, Entitlements> = {
     canUseSavedViews: false,
     canImportExternal: false,
     canUseAiTaskTools: false,
+    canUseTeams: false,
     aiAllowance: 300,
     maxDevices: 1,
     settingsSync: false,
@@ -33,6 +35,7 @@ export const TIERS: Record<Tier, Entitlements> = {
     canUseSavedViews: true,
     canImportExternal: true,
     canUseAiTaskTools: true,
+    canUseTeams: false,
     aiAllowance: "unlimited",
     maxDevices: 5,
     settingsSync: true,
@@ -44,6 +47,7 @@ export const TIERS: Record<Tier, Entitlements> = {
     canUseSavedViews: true,
     canImportExternal: true,
     canUseAiTaskTools: true,
+    canUseTeams: true,
     aiAllowance: "unlimited",
     maxDevices: 25,
     settingsSync: true,

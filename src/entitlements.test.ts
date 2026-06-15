@@ -45,4 +45,9 @@ describe("entitlementsFor", () => {
     expect(e.canUseAiTaskTools).toBe(true);
     expect(e.aiAllowance).toBe("unlimited");
   });
+  it("only team can use collaboration", () => {
+    expect(entitlementsFor("free").canUseTeams).toBe(false);
+    expect(entitlementsFor("pro").canUseTeams).toBe(false);
+    expect(entitlementsFor("team").canUseTeams).toBe(true);
+  });
 });
