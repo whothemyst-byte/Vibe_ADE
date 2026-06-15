@@ -5,6 +5,8 @@ import type { WallMeta } from "../store/types";
 import { BackIcon, GridIcon } from "../wall/icons";
 import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
+import { useEntitlements } from "../entitlements";
+import { UpgradePill } from "./UpgradePill";
 
 const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "backlog", label: "Backlog", color: "var(--text-muted)" },
@@ -146,6 +148,7 @@ export function TaskBoard({
   onBack, onOpenWall,
 }: { onBack: () => void; onOpenWall: (id: string) => void }) {
   const tasks = useTaskStore((s) => s.tasks);
+  const ent = useEntitlements();
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
   const saveTimer = useRef<number | null>(null);
@@ -249,6 +252,34 @@ export function TaskBoard({
         <span className="tb-title"><GridIcon /> Taskboard</span>
         <span className="tb-total">{tasks.length} {tasks.length === 1 ? "task" : "tasks"}</span>
         <button className="tb-add" onClick={() => useTaskStore.getState().add("New task")}>+ Task</button>
+        <button
+          className={`tb-add${ent.canImportExternal ? "" : " tb-locked"}`}
+          disabled={!ent.canImportExternal}
+          title={
+            ent.canImportExternal
+              ? "Import from Jira, Linear, Trello… (ships with the connectors update)"
+              : "Importing from external tools is a Pro feature"
+          }
+          onClick={() => {
+            if (ent.canImportExternal) alert("External imports ship with the connectors update.");
+          }}
+        >
+          Import ▾ {!ent.canImportExternal && <UpgradePill feature="External import" />}
+        </button>
+        <button
+          className={`tb-add${ent.canUseSavedViews ? "" : " tb-locked"}`}
+          disabled={!ent.canUseSavedViews}
+          title={
+            ent.canUseSavedViews
+              ? "Saved views & filters (ships with the Pro task update)"
+              : "Saved views are a Pro feature"
+          }
+          onClick={() => {
+            if (ent.canUseSavedViews) alert("Saved views ship with the Pro task update.");
+          }}
+        >
+          Saved views {!ent.canUseSavedViews && <UpgradePill feature="Saved views" />}
+        </button>
       </div>
       <div className="tb-columns">
         {COLUMNS.map((col) => {
