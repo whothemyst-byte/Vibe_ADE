@@ -86,6 +86,14 @@ export const UserIcon = () => (
     <circle cx="12" cy="7" r="4" />
   </Svg>
 );
+export const TeamsIcon = () => (
+  <Svg>
+    <path d="M16 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M9 21v-2a4 4 0 0 0-4-4H4" />
+    <circle cx="9" cy="7" r="3" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </Svg>
+);
 export const GridIcon = () => (
   <Svg>
     <rect x="3" y="3" width="7" height="7" rx="1" />
