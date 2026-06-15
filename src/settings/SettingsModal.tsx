@@ -681,7 +681,7 @@ export function SettingsModal({ background, onChangeBackground, onClose, initial
           {section === "agents" && <AgentsPane />}
           {section === "terminal" && <TerminalPane />}
           {section === "themes" && background != null && onChangeBackground && <ThemesPane background={background} onChangeBackground={onChangeBackground} />}
-          {section === "canvas" && <CanvasPane />}
+          {section === "canvas" && background != null && <CanvasPane />}
           {section === "vibe" && <VibePane />}
           {section === "about" && <AboutPane />}
           {section === "organization" && <OrganizationPane />}
