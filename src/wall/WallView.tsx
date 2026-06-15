@@ -30,6 +30,8 @@ import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
 import { findPresetByPhrase } from "./presets";
 import { THEMES, accentForBackground, applyAccent, DEFAULT_ACCENT } from "../settings/themes";
+import { setPresenceSpace } from "../teams/presence";
+import { useOrgStore } from "../teams/orgStore";
 
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
 const THUMB_INTERVAL_MS = 20_000;
@@ -165,6 +167,18 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   }, [wallId]);
 
   useEffect(() => useCardStore.subscribe(scheduleSave), [scheduleSave]);
+
+  // Report this space to team presence + persist it as the member's last space.
+  useEffect(() => {
+    let cancelled = false;
+    void loadIndex().then((idx) => {
+      if (cancelled) return;
+      const name = idx.find((w) => w.id === wallId)?.name ?? "space";
+      setPresenceSpace(wallId, name);
+      void useOrgStore.getState().recordSpaceActivity(wallId, name);
+    });
+    return () => { cancelled = true; setPresenceSpace(null, null); };
+  }, [wallId]);
 
   // Pan/zoom never goes through React state: write the camera to a ref and patch
   // the overlay layer's transform in one rAF. Terminals re-render only when the
