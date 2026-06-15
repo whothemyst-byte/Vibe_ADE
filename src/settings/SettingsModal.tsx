@@ -5,6 +5,7 @@ import { usePresetStore } from "../wall/presetStore";
 import { presetTierColor } from "../wall/presetTier";
 import type { Preset } from "../wall/presets";
 import { importBackground, pickBackgroundFile, savePresets } from "../store/persistence";
+import { uploadAvatar } from "../teams/avatarUpload";
 import type { Background } from "../store/types";
 import { CloseIcon, EllipseIcon, GearIcon, GridIcon, ImageIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon, TeamsIcon, UserIcon } from "../wall/icons";
 import { THEMES, isThemeActive } from "./themes";
@@ -585,7 +586,24 @@ function MyCardPane() {
   const [status, setStatus] = useState(me?.manual_status ?? "");
   const [emoji, setEmoji] = useState(me?.manual_status_emoji ?? "");
   const [busy, setBusy] = useState(false);
+  const [photoErr, setPhotoErr] = useState<string | null>(null);
   if (!me) return null;
+
+  const choosePhoto = async () => {
+    const src = await pickBackgroundFile();
+    if (!src) return;
+    setPhotoErr(null); setBusy(true);
+    try {
+      const url = await uploadAvatar(me.user_id, src);
+      await setMyCard({ avatar_url: url });
+    } catch (e) {
+      setPhotoErr((e as Error).message);
+    } finally { setBusy(false); }
+  };
+  const clearPhoto = async () => {
+    setBusy(true);
+    try { await setMyCard({ avatar_url: null }); } finally { setBusy(false); }
+  };
 
   const saveName = async () => {
     const display = name.trim();
@@ -612,6 +630,16 @@ function MyCardPane() {
     <>
       <h2 className="set-title">My Card</h2>
       <p className="set-sub">How you appear to teammates in the orbit.</p>
+      <div className="set-row mycard-photo-row">
+        <span className="mycard-photo">
+          {me.avatar_url ? <img src={me.avatar_url} alt="" /> : <span>{emoji || (me.display_name || "?").trim().charAt(0).toUpperCase()}</span>}
+        </span>
+        <div className="mycard-photo-actions">
+          <button className="set-btn" disabled={busy} onClick={() => void choosePhoto()}>Choose photo…</button>
+          {me.avatar_url && <button className="set-btn" disabled={busy} onClick={() => void clearPhoto()}>Remove</button>}
+          {photoErr && <span className="set-hint" style={{ color: "var(--danger)" }}>{photoErr}</span>}
+        </div>
+      </div>
       <div className="set-row">
         <span className="set-label">Username</span>
         <input className="set-input" value={name} placeholder="what should people call you"
