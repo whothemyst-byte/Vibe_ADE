@@ -6,13 +6,17 @@ import { presetTierColor } from "../wall/presetTier";
 import type { Preset } from "../wall/presets";
 import { importBackground, pickBackgroundFile, savePresets } from "../store/persistence";
 import type { Background } from "../store/types";
-import { CloseIcon, EllipseIcon, GearIcon, ImageIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon, UserIcon } from "../wall/icons";
+import { CloseIcon, EllipseIcon, GearIcon, GridIcon, ImageIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon, TeamsIcon, UserIcon } from "../wall/icons";
 import { THEMES, isThemeActive } from "./themes";
 import { connectedProviders, memberSince } from "../auth/profile";
+import { useEntitlements } from "../entitlements";
+import { useOrgStore } from "../teams/orgStore";
 
-type Section = "account" | "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about";
+type Section =
+  | "account" | "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about"
+  | "organization" | "members" | "invites" | "projects" | "mycard";
 
-const SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[] = [
+const APP_SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[] = [
   { key: "account", label: "Account", icon: UserIcon },
   { key: "agents", label: "Agents", icon: SelectIcon },
   { key: "terminal", label: "Terminal", icon: RectangleIcon },
@@ -21,6 +25,17 @@ const SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[
   { key: "vibe", label: "Vibe", icon: EllipseIcon },
   { key: "about", label: "About", icon: EllipseIcon },
 ];
+
+const TEAM_SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[] = [
+  { key: "organization", label: "Organization", icon: TeamsIcon },
+  { key: "members", label: "Members", icon: UserIcon },
+  { key: "invites", label: "Invites", icon: PlusIcon },
+  { key: "projects", label: "Projects", icon: GridIcon },
+  { key: "mycard", label: "My Card", icon: EllipseIcon },
+];
+
+/** Space-scoped sections that only make sense with an active wall. */
+const SPACE_ONLY: Section[] = ["themes", "canvas"];
 
 const extOf = (p: string) => p.split(".").pop()?.toLowerCase() ?? "bin";
 
@@ -351,12 +366,32 @@ function AboutPane() {
   );
 }
 
-export function SettingsModal({ background, onChangeBackground, onClose }: {
-  background: Background;
-  onChangeBackground: (bg: Background) => void;
+function OrganizationPane() { return <><h2 className="set-title">Organization</h2></>; }
+function MembersPane() { return <><h2 className="set-title">Members</h2></>; }
+function InvitesPane() { return <><h2 className="set-title">Invites</h2></>; }
+function ProjectsPane({ onOpenWall }: { onOpenWall?: (id: string) => void }) {
+  void onOpenWall; return <><h2 className="set-title">Projects</h2></>;
+}
+function MyCardPane() { return <><h2 className="set-title">My Card</h2></>; }
+
+export function SettingsModal({ background, onChangeBackground, onClose, initialSection, onOpenWall }: {
+  background?: Background;
+  onChangeBackground?: (bg: Background) => void;
   onClose: () => void;
+  initialSection?: Section;
+  onOpenWall?: (id: string) => void;
 }) {
-  const [section, setSection] = useState<Section>("agents");
+  const ent = useEntitlements();
+  const hasOrg = useOrgStore((s) => s.currentOrgId != null);
+  const showTeam = ent.canUseTeams && hasOrg;
+
+  const sections = [
+    ...APP_SECTIONS.filter((s) => background != null || !SPACE_ONLY.includes(s.key)),
+    ...(showTeam ? TEAM_SECTIONS : []),
+  ];
+  const [section, setSection] = useState<Section>(
+    initialSection && sections.some((s) => s.key === initialSection) ? initialSection : "agents",
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -369,7 +404,7 @@ export function SettingsModal({ background, onChangeBackground, onClose }: {
       <div className="settings-modal" role="dialog" aria-label="Settings">
         <aside className="settings-side">
           <span className="settings-head"><GearIcon /> Settings</span>
-          {SECTIONS.map(({ key, label, icon: Icon }) => (
+          {sections.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               className={`settings-item${section === key ? " active" : ""}`}
@@ -384,10 +419,15 @@ export function SettingsModal({ background, onChangeBackground, onClose }: {
           {section === "account" && <AccountPane />}
           {section === "agents" && <AgentsPane />}
           {section === "terminal" && <TerminalPane />}
-          {section === "themes" && <ThemesPane background={background} onChangeBackground={onChangeBackground} />}
+          {section === "themes" && background != null && onChangeBackground && <ThemesPane background={background} onChangeBackground={onChangeBackground} />}
           {section === "canvas" && <CanvasPane />}
           {section === "vibe" && <VibePane />}
           {section === "about" && <AboutPane />}
+          {section === "organization" && <OrganizationPane />}
+          {section === "members" && <MembersPane />}
+          {section === "invites" && <InvitesPane />}
+          {section === "projects" && <ProjectsPane onOpenWall={onOpenWall} />}
+          {section === "mycard" && <MyCardPane />}
         </section>
       </div>
     </div>
