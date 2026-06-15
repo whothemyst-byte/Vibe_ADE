@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
-import { useTaskStore, type Task, type TaskStatus } from "./taskStore";
+import { useTaskStore, normalizeTasks, type Task, type TaskStatus } from "./taskStore";
 import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { BackIcon, GridIcon } from "../wall/icons";
@@ -88,7 +88,7 @@ export function TaskBoard({
   useEffect(() => {
     (async () => {
       const [t, idx] = await Promise.all([loadTasks(), loadIndex()]);
-      useTaskStore.getState().setAll(t);
+      useTaskStore.getState().setAll(normalizeTasks(t));
       setWalls(idx);
       ready.current = true;
     })();
