@@ -11,6 +11,8 @@ import { THEMES, isThemeActive } from "./themes";
 import { connectedProviders, memberSince } from "../auth/profile";
 import { useEntitlements } from "../entitlements";
 import { useOrgStore } from "../teams/orgStore";
+import { currentUserId } from "../teams/identity";
+import { inviteLinkFor } from "../teams/inviteLink";
 
 type Section =
   | "account" | "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about"
@@ -366,7 +368,45 @@ function AboutPane() {
   );
 }
 
-function OrganizationPane() { return <><h2 className="set-title">Organization</h2></>; }
+function OrganizationPane() {
+  const orgs = useOrgStore((s) => s.orgs);
+  const currentOrgId = useOrgStore((s) => s.currentOrgId);
+  const members = useOrgStore((s) => s.members);
+  const org = orgs.find((o) => o.id === currentOrgId) ?? null;
+  const myId = currentUserId();
+  const myRole = members.find((m) => m.user_id === myId)?.role ?? null;
+  const isAdmin = myRole === "owner" || myRole === "admin";
+  const [copied, setCopied] = useState<"code" | "link" | null>(null);
+  if (!org) return null;
+  const copy = (kind: "code" | "link", text: string) => {
+    void navigator.clipboard.writeText(text);
+    setCopied(kind);
+    setTimeout(() => setCopied(null), 1500);
+  };
+  return (
+    <>
+      <h2 className="set-title">Organization</h2>
+      <p className="set-sub">{members.length} {members.length === 1 ? "member" : "members"}.</p>
+      <div className="set-row"><span className="set-label">Name</span><span>{org.name}</span></div>
+      {isAdmin && (
+        <>
+          <div className="set-row">
+            <span className="set-label">Join code</span>
+            <button className="teams-code" onClick={() => copy("code", org.join_code)}>
+              <strong>{org.join_code}</strong> {copied === "code" ? "✓" : "⧉"}
+            </button>
+          </div>
+          <div className="set-row">
+            <span className="set-label">Invite link</span>
+            <button className="set-btn" onClick={() => copy("link", inviteLinkFor(org.join_code))}>
+              {copied === "link" ? "Copied ✓" : "Copy invite link"}
+            </button>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
 function MembersPane() { return <><h2 className="set-title">Members</h2></>; }
 function InvitesPane() { return <><h2 className="set-title">Invites</h2></>; }
 function ProjectsPane({ onOpenWall }: { onOpenWall?: (id: string) => void }) {
