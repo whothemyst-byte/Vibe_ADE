@@ -215,8 +215,9 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
     let cancelled = false;
     void loadIndex().then((idx) => {
       if (cancelled) return;
-      const name = idx.find((w) => w.id === wallId)?.name ?? "space";
-      setPresenceSpace(wallId, name);
+      const meta = idx.find((w) => w.id === wallId);
+      const name = meta?.name ?? "space";
+      setPresenceSpace(wallId, name, meta?.sharedOrgSpaceId ?? null);
       void useOrgStore.getState().recordSpaceActivity(wallId, name);
     });
     return () => { cancelled = true; setPresenceSpace(null, null); };

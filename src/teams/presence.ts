@@ -9,6 +9,7 @@ export type RosterEntry = {
   status: LiveStatus;
   spaceId: string | null;
   spaceName: string | null;
+  orgSpaceId: string | null;
   manualStatus: string | null;
   manualEmoji: string | null;
 };
@@ -23,6 +24,7 @@ let userId: string | null = null;
 const self = {
   spaceId: null as string | null,
   spaceName: null as string | null,
+  orgSpaceId: null as string | null,
   manualStatus: null as string | null,
   manualEmoji: null as string | null,
 };
@@ -35,6 +37,7 @@ function selfPayload(): RosterEntry {
     status: deriveSelfStatus(visible, lastActivity, Date.now()),
     spaceId: self.spaceId,
     spaceName: self.spaceName,
+    orgSpaceId: self.orgSpaceId,
     manualStatus: self.manualStatus,
     manualEmoji: self.manualEmoji,
   };
@@ -118,9 +121,14 @@ export async function leavePresence(): Promise<void> {
 }
 
 /** Update the space the user is currently in (null when not in a space). */
-export function setPresenceSpace(spaceId: string | null, spaceName: string | null): void {
+export function setPresenceSpace(
+  spaceId: string | null,
+  spaceName: string | null,
+  orgSpaceId: string | null = null,
+): void {
   self.spaceId = spaceId;
   self.spaceName = spaceName;
+  self.orgSpaceId = orgSpaceId;
   lastActivity = Date.now();
   retrack();
 }
