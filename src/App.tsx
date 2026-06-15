@@ -10,6 +10,7 @@ import { loadIndex, saveIndex, pickFolder } from "./store/persistence";
 import type { WallMeta } from "./store/types";
 import { SignedIn, SignedOut, ClerkLoaded, ClerkLoading } from "@clerk/clerk-react";
 import { LoginPage } from "./auth/LoginPage";
+import { TeamsBootstrap } from "./teams/TeamsBootstrap";
 
 type View = { kind: "start" } | { kind: "wall"; id: string } | { kind: "tasks"; from: View };
 
@@ -135,6 +136,7 @@ export default function App() {
         <SignedIn>
           {page}
           <VibeAgent />
+          <TeamsBootstrap />
         </SignedIn>
       </ClerkLoaded>
     </>
