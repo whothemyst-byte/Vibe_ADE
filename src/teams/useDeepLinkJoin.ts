@@ -28,18 +28,23 @@ export function useDeepLinkJoin(): void {
 
   // Incoming URLs (cold-start + while running).
   useEffect(() => {
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
-    const handle = (urls: string[] | null) => {
-      for (const u of urls ?? []) {
+    const handle = (urls: string[]) => {
+      for (const u of urls) {
         const code = parseJoinUrl(u);
         if (!code) continue;
         if (signedInRef.current) void joinNow(code);
         else localStorage.setItem(PENDING_JOIN_KEY, code);
       }
     };
-    void getCurrent().then(handle).catch(() => {});
-    void onOpenUrl((urls) => handle(urls)).then((fn) => { unlisten = fn; }).catch(() => {});
-    return () => unlisten?.();
+    void getCurrent().then((urls) => { if (urls) handle(urls); }).catch((e) => console.warn("deep-link getCurrent failed", e));
+    void onOpenUrl(handle).then((fn) => {
+      // If the effect already cleaned up (StrictMode double-mount), unlisten immediately.
+      if (cancelled) fn();
+      else unlisten = fn;
+    }).catch((e) => console.warn("deep-link onOpenUrl failed", e));
+    return () => { cancelled = true; unlisten?.(); };
   }, []);
 
   // Claim a stashed code once the user signs in.
