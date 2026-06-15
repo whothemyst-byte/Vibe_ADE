@@ -407,7 +407,48 @@ function OrganizationPane() {
     </>
   );
 }
-function MembersPane() { return <><h2 className="set-title">Members</h2></>; }
+function MembersPane() {
+  const members = useOrgStore((s) => s.members);
+  const orgId = useOrgStore((s) => s.currentOrgId);
+  const setRole = useOrgStore((s) => s.setRole);
+  const removeMember = useOrgStore((s) => s.removeMember);
+  const myId = currentUserId();
+  const myRole = members.find((m) => m.user_id === myId)?.role ?? null;
+  const isAdmin = myRole === "owner" || myRole === "admin";
+  if (!orgId) return null;
+  return (
+    <>
+      <h2 className="set-title">Members</h2>
+      <p className="set-sub">Everyone in this organization.</p>
+      <ul className="teams-members">
+        {members.map((m) => {
+          const name = m.display_name || m.user_id;
+          const initial = (m.display_name || "?").trim().charAt(0).toUpperCase();
+          const isMe = m.user_id === myId;
+          return (
+            <li key={m.user_id} className="teams-member">
+              <span className="teams-avatar">{m.avatar_url ? <img src={m.avatar_url} alt="" /> : initial}</span>
+              <span className="teams-member-name">{name}{isMe && <span className="teams-you"> (you)</span>}</span>
+              {isAdmin && !isMe ? (
+                <select className="teams-role" value={m.role}
+                  onChange={(e) => void setRole(orgId, m.user_id, e.target.value as "owner" | "admin" | "member")}>
+                  <option value="owner">Owner</option>
+                  <option value="admin">Admin</option>
+                  <option value="member">Member</option>
+                </select>
+              ) : (
+                <span className="teams-role-badge">{m.role}</span>
+              )}
+              {isAdmin && !isMe && (
+                <button className="teams-remove" title="Remove member" onClick={() => void removeMember(orgId, m.user_id)}>×</button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
 function InvitesPane() { return <><h2 className="set-title">Invites</h2></>; }
 function ProjectsPane({ onOpenWall }: { onOpenWall?: (id: string) => void }) {
   void onOpenWall; return <><h2 className="set-title">Projects</h2></>;
