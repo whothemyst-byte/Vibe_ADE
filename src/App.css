@@ -460,3 +460,133 @@
   color: var(--text-muted); border-radius: 999px;
   font-size: 10px; padding: 2px 7px; width: 64px; outline: none;
 }
+
+/* ── Teams view ─────────────────────────────────────────────── */
+.teams {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  overflow: auto;
+}
+.teams-switcher,
+.teams-role,
+.teams-input {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font: inherit;
+}
+.teams-switcher { margin-left: 8px; }
+.teams-error {
+  margin: 10px 16px 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+  font-size: 13px;
+}
+.teams-loading,
+.teams-placeholder { color: var(--text-muted); padding: 16px; font-size: 14px; }
+
+.teams-body {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* org core "sun" */
+.teams-core {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    var(--accent-soft));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+}
+.teams-core img { width: 100%; height: 100%; object-fit: cover; }
+.teams-core-lg { width: 84px; height: 84px; font-size: 34px; }
+
+.teams-hero { display: flex; align-items: center; gap: 18px; }
+.teams-hero-meta { display: flex; flex-direction: column; gap: 4px; }
+.teams-hero-meta h1 { margin: 0; font-size: 26px; font-weight: 600; }
+.teams-hero-sub { color: var(--text-muted); font-size: 13px; }
+.teams-code {
+  margin-top: 6px;
+  align-self: flex-start;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+.teams-code strong { color: var(--accent); letter-spacing: 1px; }
+
+.teams-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.teams-panel-title { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+
+.teams-members, .teams-invites { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.teams-member, .teams-invite { display: flex; align-items: center; gap: 10px; }
+.teams-avatar {
+  display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 25%, var(--surface-2));
+  font-size: 13px; font-weight: 600; overflow: hidden; flex: none;
+}
+.teams-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.teams-member-name, .teams-invite-email { flex: 1; font-size: 14px; }
+.teams-you { color: var(--text-muted); }
+.teams-role-badge { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.teams-invite-pending { font-size: 11px; color: var(--accent); }
+.teams-remove {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.teams-remove:hover { color: var(--danger); }
+
+.teams-form-row { display: flex; gap: 8px; align-items: center; }
+.teams-input { flex: 1; }
+.teams-btn {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm); padding: 7px 16px; font: inherit; cursor: pointer;
+}
+.teams-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.teams-btn:disabled { opacity: .5; cursor: default; }
+
+.teams-empty { display: flex; flex-wrap: wrap; gap: 20px; max-width: 720px; margin: 40px auto; padding: 0 20px; }
+.teams-empty-card, .teams-upsell-card {
+  flex: 1; min-width: 280px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius); padding: 22px;
+}
+.teams-empty-card h2, .teams-upsell-card h2 { margin: 0 0 6px; font-size: 18px; }
+.teams-empty-card p, .teams-upsell-card p { margin: 0 0 14px; color: var(--text-muted); font-size: 14px; }
+.teams-upsell { display: grid; place-items: center; flex: 1; }
+.teams-upsell-card { max-width: 420px; text-align: center; }
+.teams-upsell-card .teams-core { margin: 0 auto 14px; }
+.teams-upsell-tier { color: var(--text) !important; }
+.teams-upsell-tier strong { color: var(--accent); }
