@@ -14,6 +14,9 @@ import { useOrgStore } from "../teams/orgStore";
 import { currentUserId } from "../teams/identity";
 import { inviteLinkFor } from "../teams/inviteLink";
 import { isValidEmail } from "../teams/orgHelpers";
+import { loadIndex } from "../store/persistence";
+import type { WallMeta } from "../store/types";
+import { publishLocalSpace, openSharedSpace, unpublishSharedSpace } from "../teams/spaceSync";
 
 type Section =
   | "account" | "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about"
@@ -512,7 +515,64 @@ function InvitesPane() {
   );
 }
 function ProjectsPane({ onOpenWall }: { onOpenWall?: (id: string) => void }) {
-  void onOpenWall; return <><h2 className="set-title">Projects</h2></>;
+  const orgId = useOrgStore((s) => s.currentOrgId);
+  const members = useOrgStore((s) => s.members);
+  const projects = useOrgStore((s) => s.projects);
+  const loadProjects = useOrgStore((s) => s.loadProjects);
+  const myId = currentUserId();
+  const myRole = members.find((m) => m.user_id === myId)?.role ?? null;
+  const isAdmin = myRole === "owner" || myRole === "admin";
+  const [locals, setLocals] = useState<WallMeta[]>([]);
+  const [pick, setPick] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void loadIndex().then((idx) => setLocals(idx.filter((w) => w.sharedOrgSpaceId == null)));
+  }, [projects]);
+
+  if (!orgId) return null;
+  const share = async () => {
+    if (!pick) return;
+    setBusy(true);
+    try { await publishLocalSpace(pick, orgId); await loadProjects(orgId); setPick(""); } finally { setBusy(false); }
+  };
+  const open = async (id: string) => {
+    setBusy(true);
+    try { onOpenWall?.(await openSharedSpace(id)); } finally { setBusy(false); }
+  };
+  const unpublish = async (id: string) => {
+    setBusy(true);
+    try { await unpublishSharedSpace(id); await loadProjects(orgId); } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <h2 className="set-title">Projects</h2>
+      <p className="set-sub">Spaces shared to this organization.</p>
+      <div className="teams-form-row">
+        <select className="teams-input" value={pick} onChange={(e) => setPick(e.target.value)}>
+          <option value="">Share a space…</option>
+          {locals.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        <button className="teams-btn primary" disabled={busy || !pick} onClick={() => void share()}>Share</button>
+      </div>
+      {projects.length === 0 ? (
+        <p className="teams-placeholder">No shared projects yet. Share one of your spaces above.</p>
+      ) : (
+        <ul className="teams-projects">
+          {projects.map((p) => (
+            <li key={p.id} className="teams-project">
+              <span className="teams-proj-mono">{p.name.charAt(0).toUpperCase() || "?"}</span>
+              <span className="teams-proj-name">{p.name}</span>
+              <button className="teams-btn" disabled={busy} onClick={() => void open(p.id)}>Open</button>
+              {(isAdmin || p.owner_user_id === myId) && (
+                <button className="teams-remove" title="Unpublish" disabled={busy} onClick={() => void unpublish(p.id)}>×</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
 }
 function MyCardPane() { return <><h2 className="set-title">My Card</h2></>; }
 
