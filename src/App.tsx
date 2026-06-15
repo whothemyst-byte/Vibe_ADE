@@ -22,6 +22,12 @@ type View =
 export default function App() {
   const [view, setView] = useState<View>({ kind: "start" });
 
+  useEffect(() => {
+    const open = () => setView((v) => (v.kind === "teams" ? v : { kind: "teams", from: v }));
+    window.addEventListener("vibe:open-teams", open);
+    return () => window.removeEventListener("vibe:open-teams", open);
+  }, []);
+
   const wallsRef = useRef<WallMeta[]>([]);
   useEffect(() => {
     void loadIndex().then((i) => { wallsRef.current = i; });
