@@ -27,4 +27,16 @@ describe("orbitPositions", () => {
     const angles = pos.map((p) => p.angle).sort((a, b) => a - b);
     expect(angles).toEqual([0, 90, 180, 270]);
   });
+
+  it("scales ring radius with the maxRadius argument", () => {
+    const small = orbitPositions(1, 100)[0].radius;
+    const big = orbitPositions(1, 200)[0].radius;
+    expect(big).toBeCloseTo(small * 2);
+    expect(small).toBeGreaterThan(0);
+  });
+
+  it("defaults to the original 560-box scale", () => {
+    // ring 0 radius was 110 in the fixed layout (maxRadius 280)
+    expect(orbitPositions(1)[0].radius).toBeCloseTo(110);
+  });
 });
