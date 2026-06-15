@@ -30,6 +30,10 @@ export async function loadThumbnailUrl(id: string): Promise<string | null> {
   const blob = new Blob([new Uint8Array(bytes)], { type: "image/png" });
   return URL.createObjectURL(blob);
 }
+export async function loadThumbnailBytes(id: string): Promise<Uint8Array | null> {
+  const bytes = await invoke<number[] | null>("thumb_load", { id });
+  return bytes ? new Uint8Array(bytes) : null;
+}
 export function importBackground(srcPath: string, destName: string): Promise<string> {
   return invoke("import_background", { srcPath, destName });
 }
