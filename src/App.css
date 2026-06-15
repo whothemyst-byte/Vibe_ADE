@@ -337,13 +337,29 @@
 .tb-title { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 24px; font-weight: 400; }
 .tb-title svg { width: 17px; height: 17px; color: var(--accent); }
 .tb-total { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.tb-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .tb-add {
-  margin-left: auto; background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--radius-sm);
+  background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--radius-sm);
   cursor: pointer; padding: 8px 16px; font-size: 13px; font-weight: 600; font-family: var(--font-ui);
   box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--accent) 50%, transparent); transition: background .14s, transform .12s;
 }
 .tb-add:hover { background: var(--accent-hover); transform: translateY(-1px); }
 .tb-add:active { transform: translateY(0); }
+.tb-menu-wrap { position: relative; display: inline-flex; }
+.tb-kebab { min-width: 30px; height: 30px; }
+.tb-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+.tb-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; min-width: 196px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-sm);
+  box-shadow: 0 14px 34px -12px rgba(0, 0, 0, .65); padding: 6px;
+  display: flex; flex-direction: column; gap: 2px; animation: page-in .12s ease-out;
+}
+.tb-menu-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  background: transparent; border: none; color: var(--text); font-family: var(--font-ui); font-size: 13px;
+  text-align: left; padding: 8px 10px; border-radius: 7px; cursor: pointer; transition: background .12s;
+}
+.tb-menu-item:not(:disabled):hover { background: rgba(243, 238, 229, .06); }
 .tb-columns { flex: 1; display: flex; gap: 16px; padding: 20px; overflow: auto; align-items: stretch; }
 .tb-col {
   flex: 1; min-width: 250px; max-width: 360px;
