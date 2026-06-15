@@ -45,7 +45,7 @@ const TaskCard = memo(function TaskCard({
   const remove = useTaskStore((s) => s.remove);
   const linkedWall = walls.find((w) => w.id === task.wallId);
   return (
-    <div className="tb-card">
+    <div className="tb-card" data-id={task.id}>
       <div className="tb-card-top">
         <span
           className="tb-grip"
@@ -225,11 +225,21 @@ export function TaskBoard({
   // Stable reference so it never breaks TaskCard's memo.
   const clearDragOver = useCallback(() => setDragOver(null), []);
 
-  const onDrop = (status: TaskStatus) => (e: DragEvent) => {
+  const onDrop = (status: TaskStatus) => (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(null);
     const id = e.dataTransfer.getData("text/plain");
-    if (id) useTaskStore.getState().update(id, { status });
+    if (!id) return;
+    const body = e.currentTarget.querySelector(".tb-col-body");
+    const cards = body
+      ? Array.from(body.querySelectorAll<HTMLElement>(".tb-card")).filter((c) => c.dataset.id !== id)
+      : [];
+    let index = cards.findIndex((c) => {
+      const r = c.getBoundingClientRect();
+      return e.clientY < r.top + r.height / 2;
+    });
+    if (index === -1) index = cards.length;
+    useTaskStore.getState().reorder(id, status, index);
   };
 
   return (
@@ -242,7 +252,9 @@ export function TaskBoard({
       </div>
       <div className="tb-columns">
         {COLUMNS.map((col) => {
-          const items = tasks.filter((t) => t.status === col.key);
+          const items = tasks
+            .filter((t) => t.status === col.key)
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
           return (
             <div
               key={col.key}
