@@ -13,6 +13,7 @@ import { useEntitlements } from "../entitlements";
 import { useOrgStore } from "../teams/orgStore";
 import { currentUserId } from "../teams/identity";
 import { inviteLinkFor } from "../teams/inviteLink";
+import { isValidEmail } from "../teams/orgHelpers";
 
 type Section =
   | "account" | "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about"
@@ -449,7 +450,67 @@ function MembersPane() {
     </>
   );
 }
-function InvitesPane() { return <><h2 className="set-title">Invites</h2></>; }
+function InvitesPane() {
+  const orgId = useOrgStore((s) => s.currentOrgId);
+  const orgs = useOrgStore((s) => s.orgs);
+  const members = useOrgStore((s) => s.members);
+  const invites = useOrgStore((s) => s.invites);
+  const invite = useOrgStore((s) => s.invite);
+  const revokeInvite = useOrgStore((s) => s.revokeInvite);
+  const org = orgs.find((o) => o.id === orgId) ?? null;
+  const myRole = members.find((m) => m.user_id === currentUserId())?.role ?? null;
+  const isAdmin = myRole === "owner" || myRole === "admin";
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "member">("member");
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  if (!orgId || !org) return null;
+  if (!isAdmin) {
+    return (
+      <>
+        <h2 className="set-title">Invites</h2>
+        <p className="set-sub">Only owners and admins can invite people.</p>
+      </>
+    );
+  }
+  const valid = isValidEmail(email);
+  return (
+    <>
+      <h2 className="set-title">Invites</h2>
+      <p className="set-sub">Invite by email, or share the invite link.</p>
+      <div className="set-row">
+        <span className="set-label">Invite link</span>
+        <button className="set-btn" onClick={() => {
+          void navigator.clipboard.writeText(inviteLinkFor(org.join_code));
+          setCopied(true); setTimeout(() => setCopied(false), 1500);
+        }}>{copied ? "Copied ✓" : "Copy invite link"}</button>
+      </div>
+      <div className="teams-form-row">
+        <input className="teams-input" placeholder="teammate@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <select className="teams-role" value={role} onChange={(e) => setRole(e.target.value as "admin" | "member")}>
+          <option value="member">Member</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button className="teams-btn primary" disabled={busy || !valid}
+          onClick={async () => { setBusy(true); try { await invite(orgId, email.trim(), role); setEmail(""); } finally { setBusy(false); } }}>
+          Send
+        </button>
+      </div>
+      {invites.length > 0 && (
+        <ul className="teams-invites">
+          {invites.map((inv) => (
+            <li key={inv.id} className="teams-invite">
+              <span className="teams-invite-email">{inv.email}</span>
+              <span className="teams-role-badge">{inv.role}</span>
+              <span className="teams-invite-pending">pending</span>
+              <button className="teams-remove" title="Revoke invite" onClick={() => void revokeInvite(inv.id)}>×</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
 function ProjectsPane({ onOpenWall }: { onOpenWall?: (id: string) => void }) {
   void onOpenWall; return <><h2 className="set-title">Projects</h2></>;
 }
