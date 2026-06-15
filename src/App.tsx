@@ -130,7 +130,7 @@ export default function App() {
       />
     );
   } else if (view.kind === "teams") {
-    page = <TeamsView onBack={() => setView(view.from)} />;
+    page = <TeamsView onBack={() => setView(view.from)} onOpenWall={(id) => setView({ kind: "wall", id })} />;
   } else {
     page = (
       <WallView

@@ -5,9 +5,12 @@ import { currentUserId } from "./identity";
 import { isValidEmail } from "./orgHelpers";
 import { SolarSystem } from "./SolarSystem";
 import { setPresenceManualStatus } from "./presence";
+import { loadIndex } from "../store/persistence";
+import type { WallMeta } from "../store/types";
+import { publishLocalSpace, openSharedSpace, unpublishSharedSpace } from "./spaceSync";
 import { BackIcon, TeamsIcon } from "../wall/icons";
 
-export function TeamsView({ onBack }: { onBack: () => void }) {
+export function TeamsView({ onBack, onOpenWall }: { onBack: () => void; onOpenWall: (id: string) => void }) {
   const ent = useEntitlements();
   const { orgs, currentOrgId, members, invites, loading, error } = useOrgStore();
   const loadMyOrgs = useOrgStore((s) => s.loadMyOrgs);
@@ -68,7 +71,7 @@ export function TeamsView({ onBack }: { onBack: () => void }) {
           <MyStatusBar />
           <MembersPanel members={members} myId={myId} isAdmin={isAdmin} orgId={currentOrg.id} />
           {isAdmin && <InvitesPanel orgId={currentOrg.id} invites={invites} />}
-          <ProjectsPanel />
+          <ProjectsPanel orgId={currentOrg.id} myId={myId} isAdmin={isAdmin} onOpenWall={onOpenWall} />
         </div>
       ) : loading ? (
         <div className="teams-loading">Loading…</div>
@@ -311,13 +314,60 @@ function InvitesPanel({ orgId, invites }: { orgId: string; invites: Invite[] }) 
   );
 }
 
-function ProjectsPanel() {
+function ProjectsPanel({
+  orgId, myId, isAdmin, onOpenWall,
+}: { orgId: string; myId: string | null; isAdmin: boolean; onOpenWall: (id: string) => void }) {
+  const projects = useOrgStore((s) => s.projects);
+  const loadProjects = useOrgStore((s) => s.loadProjects);
+  const [locals, setLocals] = useState<WallMeta[]>([]);
+  const [pick, setPick] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void loadIndex().then((idx) => setLocals(idx.filter((w) => w.sharedOrgSpaceId == null)));
+  }, [projects]);
+
+  const share = async () => {
+    if (!pick) return;
+    setBusy(true);
+    try { await publishLocalSpace(pick, orgId); await loadProjects(orgId); setPick(""); }
+    finally { setBusy(false); }
+  };
+  const open = async (id: string) => {
+    setBusy(true);
+    try { onOpenWall(await openSharedSpace(id)); } finally { setBusy(false); }
+  };
+  const unpublish = async (id: string) => {
+    setBusy(true);
+    try { await unpublishSharedSpace(id); await loadProjects(orgId); } finally { setBusy(false); }
+  };
+
   return (
     <section className="teams-panel">
       <h3 className="teams-panel-title">Projects</h3>
-      <p className="teams-placeholder">
-        No shared projects yet. Publishing a space to your org arrives in a later update.
-      </p>
+      <div className="teams-form-row">
+        <select className="teams-input" value={pick} onChange={(e) => setPick(e.target.value)}>
+          <option value="">Share a space…</option>
+          {locals.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        <button className="teams-btn primary" disabled={busy || !pick} onClick={() => void share()}>Share</button>
+      </div>
+      {projects.length === 0 ? (
+        <p className="teams-placeholder">No shared projects yet. Share one of your spaces above.</p>
+      ) : (
+        <ul className="teams-projects">
+          {projects.map((p) => (
+            <li key={p.id} className="teams-project">
+              <span className="teams-proj-mono">{p.name.charAt(0).toUpperCase() || "?"}</span>
+              <span className="teams-proj-name">{p.name}</span>
+              <button className="teams-btn" disabled={busy} onClick={() => void open(p.id)}>Open</button>
+              {(isAdmin || p.owner_user_id === myId) && (
+                <button className="teams-remove" title="Unpublish" disabled={busy} onClick={() => void unpublish(p.id)}>×</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

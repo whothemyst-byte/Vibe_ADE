@@ -7,6 +7,7 @@ import { currentProfile, currentUserId } from "./identity";
 export type Org = Tables<"org">;
 export type Member = Tables<"org_member">;
 export type Invite = Tables<"org_invite">;
+export type Project = Tables<"org_space">;
 
 const CURRENT_ORG_KEY = "vibe.teams.currentOrg";
 
@@ -15,10 +16,12 @@ type OrgStore = {
   currentOrgId: string | null;
   members: Member[];
   invites: Invite[];
+  projects: Project[];
   loading: boolean;
   error: string | null;
 
   loadMyOrgs: () => Promise<void>;
+  loadProjects: (orgId: string) => Promise<void>;
   setCurrentOrg: (id: string | null) => void;
   createOrg: (name: string, logoUrl?: string | null) => Promise<string>;
   joinByCode: (code: string) => Promise<string>;
@@ -43,6 +46,7 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
   currentOrgId: localStorage.getItem(CURRENT_ORG_KEY),
   members: [],
   invites: [],
+  projects: [],
   loading: false,
   error: null,
 
@@ -56,8 +60,9 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
       if (current) {
         await get().loadMembers(current.id);
         await get().loadInvites(current.id);
+        await get().loadProjects(current.id);
       } else {
-        set({ members: [], invites: [] });
+        set({ members: [], invites: [], projects: [] });
       }
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
@@ -71,8 +76,9 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
     if (id) {
       void get().loadMembers(id);
       void get().loadInvites(id);
+      void get().loadProjects(id);
     } else {
-      set({ members: [], invites: [] });
+      set({ members: [], invites: [], projects: [] });
     }
   },
 
@@ -131,6 +137,13 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
       await supabase.from("org_invite").select("*").eq("org_id", orgId).eq("status", "pending"),
     );
     set({ invites: data ?? [] });
+  },
+
+  loadProjects: async (orgId) => {
+    const data = throwIf(
+      await supabase.from("org_space").select("*").eq("org_id", orgId).order("updated_at", { ascending: false }),
+    );
+    set({ projects: data ?? [] });
   },
 
   invite: async (orgId, email, role) => {
