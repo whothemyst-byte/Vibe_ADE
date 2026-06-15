@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
-import { useTaskStore, normalizeTasks, type Task, type TaskStatus } from "./taskStore";
+import { useTaskStore, normalizeTasks, type Task, type TaskStatus, type Priority } from "./taskStore";
 import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { BackIcon, GridIcon } from "../wall/icons";
@@ -12,6 +12,24 @@ const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "in-review", label: "In review", color: "var(--info)" },
   { key: "done", label: "Done", color: "var(--ok)" },
 ];
+
+const PRIORITIES: { value: Priority; label: string }[] = [
+  { value: "p0", label: "P0" },
+  { value: "p1", label: "P1" },
+  { value: "p2", label: "P2" },
+  { value: "p3", label: "P3" },
+];
+
+function dueToInput(ms?: number): string {
+  if (!ms) return "";
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function inputToDue(value: string): number | undefined {
+  if (!value) return undefined;
+  const ms = new Date(`${value}T00:00:00`).getTime();
+  return Number.isNaN(ms) ? undefined : ms;
+}
 
 // Memoized: update() replaces only the edited task's object, so typing in one
 // card re-renders just that card instead of every card on the board.
@@ -55,6 +73,54 @@ const TaskCard = memo(function TaskCard({
         placeholder="Add notes…"
         onChange={(e) => update(task.id, { description: e.target.value })}
       />
+      <div className="tb-card-meta">
+        <select
+          className={`tb-prio${task.priority ? ` ${task.priority}` : ""}`}
+          value={task.priority ?? ""}
+          onChange={(e) =>
+            update(task.id, { priority: (e.target.value || undefined) as Priority | undefined })
+          }
+          title="Priority"
+        >
+          <option value="">Priority</option>
+          {PRIORITIES.map((p) => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+        <input
+          className="tb-due"
+          type="date"
+          value={dueToInput(task.dueAt)}
+          onChange={(e) => update(task.id, { dueAt: inputToDue(e.target.value) })}
+          title="Due date"
+        />
+      </div>
+      <div className="tb-card-labels">
+        {(task.labels ?? []).map((label) => (
+          <button
+            key={label}
+            className="tb-label"
+            title="Remove label"
+            onClick={() =>
+              update(task.id, { labels: (task.labels ?? []).filter((l) => l !== label) })
+            }
+          >
+            {label} ×
+          </button>
+        ))}
+        <input
+          className="tb-label-add"
+          placeholder="+ label"
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            const value = e.currentTarget.value.trim();
+            if (!value) return;
+            const existing = task.labels ?? [];
+            if (!existing.includes(value)) update(task.id, { labels: [...existing, value] });
+            e.currentTarget.value = "";
+          }}
+        />
+      </div>
       <div className="tb-card-link">
         {linkedWall && (
           <button className="tb-chip" onClick={() => onOpenWall(linkedWall.id)} title="Open wall">
