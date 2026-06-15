@@ -335,8 +335,22 @@
 .tb-name:hover { background: transparent; color: var(--text); }
 .tb-total { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); padding: 0 2px; }
 .tb-menu-wrap { position: relative; display: inline-flex; }
-.tb-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+/* Solid panel so the columns behind don't bleed through the menu. */
+.tb-menu { background: var(--surface); backdrop-filter: none; }
 .tb-menu-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 172px; }
+.tb-menu-item:disabled { cursor: not-allowed; }
+.tb-menu-item:disabled:hover { background: transparent; color: var(--text-muted); }
+
+/* Centered "+ Task" launcher, mirroring the wall's terminal launch button. */
+.tb-launch {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 300;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--radius-sm);
+  cursor: pointer; padding: 6px 12px; font-size: 11.5px; font-weight: 600; font-family: var(--font-ui);
+  box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--accent) 50%, transparent); transition: background .14s;
+}
+.tb-launch svg { width: 11px; height: 11px; }
+.tb-launch:hover { background: var(--accent-hover); }
 .tb-columns { flex: 1; display: flex; gap: 16px; padding: 60px 20px 20px; overflow: auto; align-items: stretch; }
 .tb-col {
   flex: 1; min-width: 250px; max-width: 360px;

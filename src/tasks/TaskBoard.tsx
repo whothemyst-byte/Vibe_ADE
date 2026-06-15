@@ -152,6 +152,16 @@ export function TaskBoard({
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
   const saveTimer = useRef<number | null>(null);
   const ready = useRef(false);
 
@@ -253,11 +263,7 @@ export function TaskBoard({
         <span className="cnvs-name tb-name"><GridIcon /> Taskboard</span>
         <span className="tb-total">{tasks.length} {tasks.length === 1 ? "task" : "tasks"}</span>
         <span className="cnvs-sep" />
-        <button className="cnvs-btn" onClick={() => useTaskStore.getState().add("New task")} title="New task">
-          <PlusIcon /> Task
-        </button>
-        <span className="cnvs-sep" />
-        <div className="tb-menu-wrap">
+        <div className="tb-menu-wrap" ref={menuRef}>
           <button
             className="cnvs-btn"
             onClick={() => setMenuOpen((o) => !o)}
@@ -268,48 +274,48 @@ export function TaskBoard({
             <MoreIcon />
           </button>
           {menuOpen && (
-            <>
-              <div className="tb-menu-backdrop" onClick={() => setMenuOpen(false)} />
-              <div className="cnvs-menu" role="menu">
-                <button
-                  className={`cnvs-menu-item tb-menu-item${ent.canImportExternal ? "" : " tb-locked"}`}
-                  disabled={!ent.canImportExternal}
-                  role="menuitem"
-                  title={
-                    ent.canImportExternal
-                      ? "Import from Jira, Linear, Trello… (ships with the connectors update)"
-                      : "Importing from external tools is a Pro feature"
-                  }
-                  onClick={() => {
-                    setMenuOpen(false);
-                    if (ent.canImportExternal) alert("External imports ship with the connectors update.");
-                  }}
-                >
-                  <span>Import…</span>
-                  {!ent.canImportExternal && <UpgradePill feature="External import" />}
-                </button>
-                <button
-                  className={`cnvs-menu-item tb-menu-item${ent.canUseSavedViews ? "" : " tb-locked"}`}
-                  disabled={!ent.canUseSavedViews}
-                  role="menuitem"
-                  title={
-                    ent.canUseSavedViews
-                      ? "Saved views & filters (ships with the Pro task update)"
-                      : "Saved views are a Pro feature"
-                  }
-                  onClick={() => {
-                    setMenuOpen(false);
-                    if (ent.canUseSavedViews) alert("Saved views ship with the Pro task update.");
-                  }}
-                >
-                  <span>Saved views</span>
-                  {!ent.canUseSavedViews && <UpgradePill feature="Saved views" />}
-                </button>
-              </div>
-            </>
+            <div className="cnvs-menu tb-menu" role="menu">
+              <button
+                className={`cnvs-menu-item tb-menu-item${ent.canImportExternal ? "" : " tb-locked"}`}
+                disabled={!ent.canImportExternal}
+                role="menuitem"
+                title={
+                  ent.canImportExternal
+                    ? "Import from Jira, Linear, Trello… (ships with the connectors update)"
+                    : "Importing from external tools is a Pro feature"
+                }
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (ent.canImportExternal) alert("External imports ship with the connectors update.");
+                }}
+              >
+                <span>Import…</span>
+                {!ent.canImportExternal && <UpgradePill feature="External import" />}
+              </button>
+              <button
+                className={`cnvs-menu-item tb-menu-item${ent.canUseSavedViews ? "" : " tb-locked"}`}
+                disabled={!ent.canUseSavedViews}
+                role="menuitem"
+                title={
+                  ent.canUseSavedViews
+                    ? "Saved views & filters (ships with the Pro task update)"
+                    : "Saved views are a Pro feature"
+                }
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (ent.canUseSavedViews) alert("Saved views ship with the Pro task update.");
+                }}
+              >
+                <span>Saved views</span>
+                {!ent.canUseSavedViews && <UpgradePill feature="Saved views" />}
+              </button>
+            </div>
           )}
         </div>
       </div>
+      <button className="tb-launch" onClick={() => useTaskStore.getState().add("New task")} title="New task">
+        <PlusIcon /> Task
+      </button>
       <div className="tb-columns">
         {COLUMNS.map((col) => {
           const items = tasks
