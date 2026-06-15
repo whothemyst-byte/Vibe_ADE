@@ -3,6 +3,8 @@ import { type Member, type Org } from "./orgStore";
 import { usePresenceStore } from "./presence";
 import { orbitPositions } from "./orbit";
 import { statusLine } from "./presenceHelpers";
+import { useOrgStore } from "./orgStore";
+import { openableSpaceFor } from "./openableSpace";
 
 const MIN_SIZE = 360;       // never shrink the orbit below this
 const AVATAR_HALF = 26;     // keep outer avatars off the edge
@@ -33,7 +35,7 @@ export function SolarSystem({ org, members, myId, onOpenSpace, onOpenSettings }:
     return () => window.clearInterval(t);
   }, []);
 
-  void onOpenSpace; // consumed in Task 11 (openableSpace affordance)
+  const projects = useOrgStore((s) => s.projects);
   const C = size / 2;
   const maxRadius = C - AVATAR_HALF;
   const positions = orbitPositions(members.length, maxRadius);
@@ -80,6 +82,17 @@ export function SolarSystem({ org, members, myId, onOpenSpace, onOpenSettings }:
                   <div className="solar-tip">
                     <strong>{name}{m.user_id === myId ? " (you)" : ""}</strong>
                     <span>{line}</span>
+                    {(() => {
+                      const sp = openableSpaceFor(
+                        { liveOrgSpaceId: live?.orgSpaceId ?? null, lastSpaceId: m.last_space_id, userId: m.user_id },
+                        projects,
+                      );
+                      return sp ? (
+                        <button className="solar-open" onClick={(e) => { e.stopPropagation(); onOpenSpace?.(sp.id); }}>
+                          Open {sp.name}
+                        </button>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </div>
