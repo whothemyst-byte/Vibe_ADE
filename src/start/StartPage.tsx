@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { loadIndex, saveIndex, pickFolder, deleteWall, loadThumbnailUrl } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { relativeTime } from "./relativeTime";
-import { CloseIcon, GridIcon } from "../wall/icons";
+import { CloseIcon, GridIcon, TeamsIcon } from "../wall/icons";
+import { useEntitlements } from "../entitlements";
+import { UpgradePill } from "../tasks/UpgradePill";
 
 const basename = (p: string) => p.replace(/[/\\]+$/, "").split(/[/\\]/).pop() || "wall";
 
@@ -36,7 +38,8 @@ function WallCard({ meta, onOpen, onDelete }: { meta: WallMeta; onOpen: () => vo
   );
 }
 
-export function StartPage({ onOpen, onTasks }: { onOpen: (id: string) => void; onTasks: () => void }) {
+export function StartPage({ onOpen, onTasks, onTeams }: { onOpen: (id: string) => void; onTasks: () => void; onTeams: () => void }) {
+  const ent = useEntitlements();
   const [walls, setWalls] = useState<WallMeta[]>([]);
   useEffect(() => {
     loadIndex().then(setWalls).catch(() => setWalls([]));
@@ -68,6 +71,9 @@ export function StartPage({ onOpen, onTasks }: { onOpen: (id: string) => void; o
           <span className="start-sub">{walls.length} {walls.length === 1 ? "wall" : "walls"}</span>
         </div>
         <button className="start-tasks" onClick={onTasks}><GridIcon /> Taskboard</button>
+        <button className="start-tasks" onClick={onTeams}>
+          <TeamsIcon /> Teams{!ent.canUseTeams && <UpgradePill feature="Team collaboration" tier="Team" />}
+        </button>
       </div>
       <div className="start-grid">
         {walls.map((w) => (

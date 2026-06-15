@@ -11,8 +11,13 @@ import type { WallMeta } from "./store/types";
 import { SignedIn, SignedOut, ClerkLoaded, ClerkLoading } from "@clerk/clerk-react";
 import { LoginPage } from "./auth/LoginPage";
 import { TeamsBootstrap } from "./teams/TeamsBootstrap";
+import { TeamsView } from "./teams/TeamsView";
 
-type View = { kind: "start" } | { kind: "wall"; id: string } | { kind: "tasks"; from: View };
+type View =
+  | { kind: "start" }
+  | { kind: "wall"; id: string }
+  | { kind: "tasks"; from: View }
+  | { kind: "teams"; from: View };
 
 export default function App() {
   const [view, setView] = useState<View>({ kind: "start" });
@@ -25,6 +30,7 @@ export default function App() {
     const where =
       view.kind === "start" ? "start page"
       : view.kind === "tasks" ? "task board"
+      : view.kind === "teams" ? "teams view"
       : `space "${wallsRef.current.find((w) => w.id === view.id)?.name ?? "unknown"}"`;
     const names = wallsRef.current.map((w) => w.name).join(", ") || "none yet";
     return `current view: ${where}; existing spaces: ${names}`;
@@ -41,6 +47,14 @@ export default function App() {
     run: () => {
       setView((v) => (v.kind === "tasks" ? v : { kind: "tasks", from: v }));
       return "Task board is open.";
+    },
+  });
+  useVibeCommand({
+    name: "open_teams",
+    description: "Open the Teams view (organization, members, and shared projects).",
+    run: () => {
+      setView((v) => (v.kind === "teams" ? v : { kind: "teams", from: v }));
+      return "Teams view is open.";
     },
   });
   useVibeCommand({
@@ -105,6 +119,7 @@ export default function App() {
       <StartPage
         onOpen={(id) => setView({ kind: "wall", id })}
         onTasks={() => setView({ kind: "tasks", from: { kind: "start" } })}
+        onTeams={() => setView({ kind: "teams", from: { kind: "start" } })}
       />
     );
   } else if (view.kind === "tasks") {
@@ -114,6 +129,8 @@ export default function App() {
         onOpenWall={(id) => setView({ kind: "wall", id })}
       />
     );
+  } else if (view.kind === "teams") {
+    page = <TeamsView onBack={() => setView(view.from)} />;
   } else {
     page = (
       <WallView
@@ -121,6 +138,7 @@ export default function App() {
         onExit={() => setView({ kind: "start" })}
         onSwitch={(id) => setView({ kind: "wall", id })}
         onTasks={() => setView({ kind: "tasks", from: view })}
+        onTeams={() => setView({ kind: "teams", from: view })}
       />
     );
   }

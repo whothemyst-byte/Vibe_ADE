@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
-import { BackIcon, ChevronDownIcon, GearIcon, GridIcon } from "./icons";
+import { BackIcon, ChevronDownIcon, GearIcon, GridIcon, TeamsIcon } from "./icons";
 import { useBlocksBrowser } from "./browserVisibility";
 
 export function Toolbar({
-  wallId, onBack, onSwitch, onGear, onTasks,
-}: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void; onTasks: () => void }) {
+  wallId, onBack, onSwitch, onGear, onTasks, onTeams,
+}: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void; onTasks: () => void; onTeams: () => void }) {
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [open, setOpen] = useState(false);
   useBlocksBrowser(open);
@@ -22,6 +22,7 @@ export function Toolbar({
       <span className="cnvs-sep" />
       <button className="cnvs-btn" onClick={onGear} title="Background"><GearIcon /></button>
       <button className="cnvs-btn" onClick={onTasks} title="Taskboard"><GridIcon /></button>
+      <button className="cnvs-btn" onClick={onTeams} title="Teams"><TeamsIcon /></button>
       {open && (
         <div className="cnvs-menu" onMouseLeave={() => setOpen(false)}>
           {walls.map((w) => (
