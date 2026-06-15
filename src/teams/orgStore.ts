@@ -34,7 +34,7 @@ type OrgStore = {
   removeMember: (orgId: string, userId: string) => Promise<void>;
   recordSpaceActivity: (spaceId: string, spaceName: string) => Promise<void>;
   setMyStatus: (text: string | null, emoji: string | null) => Promise<void>;
-  setMyCard: (patch: { display_name?: string; manual_status?: string | null; manual_status_emoji?: string | null }) => Promise<void>;
+  setMyCard: (patch: { display_name?: string; avatar_url?: string | null; manual_status?: string | null; manual_status_emoji?: string | null }) => Promise<void>;
 };
 
 function throwIf<T>(res: { data: T; error: { message: string } | null }): T {
