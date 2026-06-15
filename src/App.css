@@ -650,3 +650,14 @@
   background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); font-weight: 600; font-size: 13px;
 }
 .teams-proj-name { flex: 1; font-size: 14px; }
+
+.wall-shared-badge {
+  position: absolute; top: 12px; right: 16px; z-index: 20;
+  background: var(--surface-2); border: 1px solid var(--rule); color: var(--accent);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 4px 10px; border-radius: 999px;
+}
+.wall-shared-notice {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 20;
+  background: var(--surface-2); border: 1px solid var(--rule); color: var(--text);
+  padding: 8px 14px; border-radius: var(--radius-sm); font-size: 13px;
+}

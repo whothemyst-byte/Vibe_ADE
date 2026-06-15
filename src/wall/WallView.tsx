@@ -32,6 +32,7 @@ import { findPresetByPhrase } from "./presets";
 import { THEMES, accentForBackground, applyAccent, DEFAULT_ACCENT } from "../settings/themes";
 import { setPresenceSpace } from "../teams/presence";
 import { useOrgStore } from "../teams/orgStore";
+import { pushSharedScene } from "../teams/spaceSync";
 
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
 const THUMB_INTERVAL_MS = 20_000;
@@ -66,6 +67,9 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
   const presets = usePresetStore((s) => s.presets);
   const [wallPath, setWallPath] = useState("");
+  const sharedRef = useRef<{ orgSpaceId: string; version: number } | null>(null);
+  const [isShared, setIsShared] = useState(false);
+  const [sharedNotice, setSharedNotice] = useState<string | null>(null);
 
   const saveTimer = useRef<number | null>(null);
   const savesEnabled = useRef(false);
@@ -91,6 +95,33 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
     };
   };
 
+  const bumpLocalCloudVersion = async (version: number) => {
+    const index = await loadIndex();
+    await saveIndex(index.map((w) => (w.id === wallId ? { ...w, cloudVersion: version } : w)));
+  };
+
+  const pushShared = async (doc: WallDoc) => {
+    const s = sharedRef.current;
+    if (!s) return;
+    try {
+      const res = await pushSharedScene(s.orgSpaceId, s.version, doc);
+      sharedRef.current = { orgSpaceId: s.orgSpaceId, version: res.version };
+      await bumpLocalCloudVersion(res.version);
+      if (res.status === "reloaded") {
+        const api = apiRef.current;
+        if (api) applyScene(api, { elements: res.doc.scene.elements, appState: res.doc.scene.appState as AppStateLike });
+        backgroundRef.current = res.doc.background;
+        setBackground(res.doc.background);
+        applyAccent(accentForBackground(res.doc.background));
+        await saveWall(wallId, res.doc);
+        setSharedNotice("Updated by a teammate — reloaded.");
+        window.setTimeout(() => setSharedNotice(null), 4000);
+      }
+    } catch {
+      /* sync is best-effort; local save already succeeded */
+    }
+  };
+
   const doSave = async (opts?: { thumbnail?: boolean }) => {
     const api = apiRef.current;
     const doc = buildDoc();
@@ -114,6 +145,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
     }
     const index = await loadIndex();
     await saveIndex(index.map((w) => (w.id === wallId ? { ...w, updatedAt: Date.now() } : w)));
+    if (sharedRef.current) await pushShared(doc);
   };
 
   const scheduleSave = useCallback(() => {
@@ -160,7 +192,17 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
       if (api && pendingScene.current) applyScene(api, pendingScene.current);
       usePresetStore.getState().load();
       const index = await loadIndex();
-      if (!cancelled) setWallPath(index.find((w) => w.id === wallId)?.path ?? "");
+      const meta = index.find((w) => w.id === wallId);
+      if (!cancelled) {
+        setWallPath(meta?.path ?? "");
+        if (meta?.sharedOrgSpaceId) {
+          sharedRef.current = { orgSpaceId: meta.sharedOrgSpaceId, version: meta.cloudVersion ?? 0 };
+          setIsShared(true);
+        } else {
+          sharedRef.current = null;
+          setIsShared(false);
+        }
+      }
       window.setTimeout(() => { savesEnabled.current = true; }, 400);
     })();
     return () => { cancelled = true; if (saveTimer.current) window.clearTimeout(saveTimer.current); };
@@ -562,6 +604,8 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   return (
     <div className="wall-root">
       <WallBackground background={background} />
+      {isShared && <div className="wall-shared-badge">Shared</div>}
+      {sharedNotice && <div className="wall-shared-notice">{sharedNotice}</div>}
       <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onTasks={onTasks} onTeams={onTeams} />
       {gearOpen && (
         <SettingsModal background={background} onChangeBackground={changeBg} onClose={() => setGearOpen(false)} />
