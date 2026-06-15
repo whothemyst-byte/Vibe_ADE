@@ -13,8 +13,8 @@ export type SavedTerminal = {
 
 export type Background =
   | { kind: "color"; color: string }
-  | { kind: "image"; path: string }
-  | { kind: "video"; path: string };
+  | { kind: "image"; path?: string; url?: string }
+  | { kind: "video"; path?: string; url?: string };
 
 export type WallScene = {
   elements: unknown[];

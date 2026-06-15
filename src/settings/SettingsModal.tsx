@@ -53,7 +53,7 @@ function BackgroundPicker({ value, onChange }: { value: Background; onChange: (b
       <button className="set-btn" onClick={() => void pick("image")}>Image…</button>
       <button className="set-btn" onClick={() => void pick("video")}>Video…</button>
       <span className="set-hint">
-        {value.kind === "color" ? value.color : `${value.kind}: …${value.path.slice(-24)}`}
+        {value.kind === "color" ? value.color : `${value.kind}: …${(value.path ?? value.url ?? "").slice(-24)}`}
       </span>
     </div>
   );
