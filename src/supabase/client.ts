@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./types";
 import { getClerkToken } from "./clerkToken";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
@@ -16,7 +17,7 @@ if (!url || !anonKey) {
  * auth.jwt()->>'sub'. We disable Supabase's own auth persistence — Clerk is the
  * sole identity provider; Supabase never holds its own session here.
  */
-export const supabase = createClient(url, anonKey, {
+export const supabase = createClient<Database>(url, anonKey, {
   accessToken: getClerkToken,
   auth: { persistSession: false, autoRefreshToken: false },
 });
