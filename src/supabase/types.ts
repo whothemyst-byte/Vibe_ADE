@@ -793,6 +793,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invites: {
+        Args: { p_avatar_url?: string; p_display_name?: string }
+        Returns: number
+      }
       bump_groq_usage: { Args: { p_device_id: string }; Returns: number }
       clerk_sub: { Args: never; Returns: string }
       clerk_sub_probe: { Args: never; Returns: string }
@@ -876,6 +880,19 @@ export type Database = {
           scopes_out: string[]
         }[]
       }
+      create_org: {
+        Args: {
+          p_avatar_url?: string
+          p_display_name?: string
+          p_logo_url?: string
+          p_name: string
+        }
+        Returns: string
+      }
+      invite_member: {
+        Args: { p_email: string; p_org: string; p_role?: string }
+        Returns: string
+      }
       is_org_admin: {
         Args: { p_org: string; p_user: string }
         Returns: boolean
@@ -884,11 +901,24 @@ export type Database = {
         Args: { p_org: string; p_user: string }
         Returns: boolean
       }
+      join_org_by_code: {
+        Args: { p_avatar_url?: string; p_code: string; p_display_name?: string }
+        Returns: string
+      }
       record_usage_event: {
         Args: { amount?: number; event_type: string }
         Returns: undefined
       }
+      remove_member: {
+        Args: { p_org: string; p_user: string }
+        Returns: undefined
+      }
       revoke_api_key: { Args: { api_key_id: string }; Returns: undefined }
+      revoke_invite: { Args: { p_invite: string }; Returns: undefined }
+      set_member_role: {
+        Args: { p_org: string; p_role: string; p_user: string }
+        Returns: undefined
+      }
       start_subscription: { Args: { plan_id: string }; Returns: string }
     }
     Enums: {
