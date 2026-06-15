@@ -592,7 +592,8 @@
 .teams-upsell-tier strong { color: var(--accent); }
 
 /* ── Solar system ───────────────────────────────────────────── */
-.solar { position: relative; margin: 6px auto 4px; }
+.solar-stage { position: absolute; inset: 0; display: grid; place-items: center; }
+.solar { position: relative; }
 .solar-rings { position: absolute; inset: 0; }
 .solar-rings span {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
