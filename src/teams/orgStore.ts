@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { supabase } from "../supabase/client";
 import type { Tables } from "../supabase/types";
 import { resolveCurrentOrg } from "./orgHelpers";
-import { currentProfile } from "./identity";
+import { currentProfile, currentUserId } from "./identity";
 
 export type Org = Tables<"org">;
 export type Member = Tables<"org_member">;
@@ -29,6 +29,8 @@ type OrgStore = {
   revokeInvite: (inviteId: string) => Promise<void>;
   setRole: (orgId: string, userId: string, role: "owner" | "admin" | "member") => Promise<void>;
   removeMember: (orgId: string, userId: string) => Promise<void>;
+  recordSpaceActivity: (spaceId: string, spaceName: string) => Promise<void>;
+  setMyStatus: (text: string | null, emoji: string | null) => Promise<void>;
 };
 
 function throwIf<T>(res: { data: T; error: { message: string } | null }): T {
@@ -150,5 +152,30 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
   removeMember: async (orgId, userId) => {
     throwIf(await supabase.rpc("remove_member", { p_org: orgId, p_user: userId }));
     await get().loadMyOrgs();
+  },
+
+  recordSpaceActivity: async (spaceId, spaceName) => {
+    const orgId = get().currentOrgId;
+    const me = currentUserId();
+    if (!orgId || !me) return;
+    // best-effort; never block opening a space on a presence write
+    await supabase
+      .from("org_member")
+      .update({ last_space_id: spaceId, last_space_name: spaceName, last_active_at: new Date().toISOString() })
+      .eq("org_id", orgId)
+      .eq("user_id", me);
+  },
+
+  setMyStatus: async (text, emoji) => {
+    const orgId = get().currentOrgId;
+    const me = currentUserId();
+    if (!orgId || !me) return;
+    const { error } = await supabase
+      .from("org_member")
+      .update({ manual_status: text, manual_status_emoji: emoji })
+      .eq("org_id", orgId)
+      .eq("user_id", me);
+    if (error) throw new Error(error.message);
+    await get().loadMembers(orgId);
   },
 }));
