@@ -3,6 +3,8 @@ import { useEntitlements } from "../entitlements";
 import { useOrgStore, type Org, type Member, type Invite } from "./orgStore";
 import { currentUserId } from "./identity";
 import { isValidEmail } from "./orgHelpers";
+import { SolarSystem } from "./SolarSystem";
+import { setPresenceManualStatus } from "./presence";
 import { BackIcon, TeamsIcon } from "../wall/icons";
 
 export function TeamsView({ onBack }: { onBack: () => void }) {
@@ -61,7 +63,9 @@ export function TeamsView({ onBack }: { onBack: () => void }) {
         <TeamsEmptyState />
       ) : currentOrg ? (
         <div className="teams-body">
+          <SolarSystem org={currentOrg} members={members} myId={myId} />
           <OrgHero org={currentOrg} memberCount={members.length} isAdmin={isAdmin} />
+          <MyStatusBar />
           <MembersPanel members={members} myId={myId} isAdmin={isAdmin} orgId={currentOrg.id} />
           {isAdmin && <InvitesPanel orgId={currentOrg.id} invites={invites} />}
           <ProjectsPanel />
@@ -131,29 +135,67 @@ function TeamsEmptyState() {
 
 function OrgHero({ org, memberCount, isAdmin }: { org: Org; memberCount: number; isAdmin: boolean }) {
   const [copied, setCopied] = useState(false);
-  const monogram = org.name.trim().charAt(0).toUpperCase() || "?";
   return (
-    <div className="teams-hero">
-      <div className="teams-core teams-core-lg">
-        {org.logo_url ? <img src={org.logo_url} alt="" /> : <span>{monogram}</span>}
-      </div>
-      <div className="teams-hero-meta">
-        <h1>{org.name}</h1>
-        <span className="teams-hero-sub">{memberCount} {memberCount === 1 ? "member" : "members"}</span>
-        {isAdmin && (
-          <button
-            className="teams-code"
-            title="Copy join code"
-            onClick={() => {
-              void navigator.clipboard.writeText(org.join_code);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            }}
-          >
-            Join code <strong>{org.join_code}</strong> {copied ? "✓" : "⧉"}
-          </button>
-        )}
-      </div>
+    <div className="teams-caption">
+      <h1>{org.name}</h1>
+      <span className="teams-hero-sub">{memberCount} {memberCount === 1 ? "member" : "members"}</span>
+      {isAdmin && (
+        <button
+          className="teams-code"
+          title="Copy join code"
+          onClick={() => {
+            void navigator.clipboard.writeText(org.join_code);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          }}
+        >
+          Join code <strong>{org.join_code}</strong> {copied ? "✓" : "⧉"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MyStatusBar() {
+  const [text, setText] = useState("");
+  const [emoji, setEmoji] = useState("");
+  const [busy, setBusy] = useState(false);
+  const setMyStatus = useOrgStore((s) => s.setMyStatus);
+  const apply = async (t: string | null, em: string | null) => {
+    setBusy(true);
+    try { await setMyStatus(t, em); setPresenceManualStatus(t, em); } finally { setBusy(false); }
+  };
+  return (
+    <div className="teams-status-bar">
+      <input
+        className="teams-emoji-input"
+        placeholder="🙂"
+        value={emoji}
+        maxLength={2}
+        onChange={(e) => setEmoji(e.target.value)}
+      />
+      <input
+        className="teams-input"
+        placeholder="Set a status… (e.g. Heads-down)"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <button
+        className="teams-btn primary"
+        disabled={busy}
+        onClick={() => void apply(text.trim() || null, emoji.trim() || null)}
+      >
+        Set
+      </button>
+      {(text || emoji) && (
+        <button
+          className="teams-btn"
+          disabled={busy}
+          onClick={() => { setText(""); setEmoji(""); void apply(null, null); }}
+        >
+          Clear
+        </button>
+      )}
     </div>
   );
 }

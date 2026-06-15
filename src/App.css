@@ -590,3 +590,55 @@
 .teams-upsell-card .teams-core { margin: 0 auto 14px; }
 .teams-upsell-tier { color: var(--text) !important; }
 .teams-upsell-tier strong { color: var(--accent); }
+
+/* ── Solar system ───────────────────────────────────────────── */
+.solar { position: relative; margin: 6px auto 4px; }
+.solar-rings { position: absolute; inset: 0; }
+.solar-rings span {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  border: 1px solid var(--rule); border-radius: 50%;
+}
+.solar-core {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 96px; height: 96px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 38px; font-weight: 600; overflow: hidden;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--accent) 70%, transparent), var(--accent-soft));
+  box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text); z-index: 2;
+}
+.solar-core img { width: 100%; height: 100%; object-fit: cover; }
+.solar-rotor { position: absolute; inset: 0; transform-origin: 50% 50%; animation: solar-spin 140s linear infinite; }
+.solar:hover .solar-rotor, .solar:hover .solar-avatar { animation-play-state: paused; }
+.solar-node { position: absolute; transform: translate(-50%, -50%); }
+.solar-avatar {
+  position: relative; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 600; font-size: 15px; cursor: default;
+  background: color-mix(in srgb, var(--accent) 25%, var(--surface-2)); color: var(--text);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--rule);
+  animation: solar-spin 140s linear infinite reverse;
+}
+.solar-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.solar-avatar.is-online { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px #4caf6a, 0 0 14px #4caf6a66; }
+.solar-avatar.is-idle { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.solar-avatar.is-offline { opacity: .5; }
+@keyframes solar-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .solar-rotor, .solar-avatar { animation: none !important; } }
+.solar-tip {
+  position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  white-space: nowrap; background: var(--surface-2); border: 1px solid var(--rule);
+  border-radius: 8px; padding: 6px 10px; display: none; flex-direction: column; gap: 2px;
+  z-index: 5; pointer-events: none;
+}
+.solar-tip strong { font-size: 13px; }
+.solar-tip span { font-size: 12px; color: var(--text-muted); }
+.solar-avatar:hover { z-index: 6; }
+.solar-avatar:hover .solar-tip { display: flex; }
+
+.teams-caption { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.teams-caption h1 { margin: 0; font-size: 24px; font-weight: 600; }
+.teams-status-bar { display: flex; gap: 8px; align-items: center; justify-content: center; }
+.teams-emoji-input {
+  width: 48px; text-align: center; background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 6px; font: inherit;
+}
+.teams-status-bar .teams-input { max-width: 320px; flex: initial; }
