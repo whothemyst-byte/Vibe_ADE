@@ -461,6 +461,15 @@
   font-size: 10px; padding: 2px 7px; width: 64px; outline: none;
 }
 
+.mycard-emoji { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+.mycard-emoji-btn {
+  display: grid; place-items: center; aspect-ratio: 1; font-size: 18px;
+  background: var(--surface-2); border: 1px solid var(--rule);
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.mycard-emoji-btn:hover { background: rgba(243, 238, 229, .06); }
+.mycard-emoji-btn.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
 /* ── Teams view ─────────────────────────────────────────────── */
 .teams {
   position: absolute;

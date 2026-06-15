@@ -34,6 +34,7 @@ type OrgStore = {
   removeMember: (orgId: string, userId: string) => Promise<void>;
   recordSpaceActivity: (spaceId: string, spaceName: string) => Promise<void>;
   setMyStatus: (text: string | null, emoji: string | null) => Promise<void>;
+  setMyCard: (patch: { display_name?: string; manual_status?: string | null; manual_status_emoji?: string | null }) => Promise<void>;
 };
 
 function throwIf<T>(res: { data: T; error: { message: string } | null }): T {
@@ -186,6 +187,19 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
     const { error } = await supabase
       .from("org_member")
       .update({ manual_status: text, manual_status_emoji: emoji })
+      .eq("org_id", orgId)
+      .eq("user_id", me);
+    if (error) throw new Error(error.message);
+    await get().loadMembers(orgId);
+  },
+
+  setMyCard: async (patch) => {
+    const orgId = get().currentOrgId;
+    const me = currentUserId();
+    if (!orgId || !me) return;
+    const { error } = await supabase
+      .from("org_member")
+      .update(patch)
       .eq("org_id", orgId)
       .eq("user_id", me);
     if (error) throw new Error(error.message);

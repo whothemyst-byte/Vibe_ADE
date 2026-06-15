@@ -17,6 +17,7 @@ import { isValidEmail } from "../teams/orgHelpers";
 import { loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { publishLocalSpace, openSharedSpace, unpublishSharedSpace } from "../teams/spaceSync";
+import { setPresenceManualStatus } from "../teams/presence";
 
 type Section =
   | "account" | "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about"
@@ -574,7 +575,65 @@ function ProjectsPane({ onOpenWall }: { onOpenWall?: (id: string) => void }) {
     </>
   );
 }
-function MyCardPane() { return <><h2 className="set-title">My Card</h2></>; }
+const CARD_EMOJI = ["🧠","🚀","⚡","🔥","🌟","🎧","☕","🐛","🛠️","🎯","🌙","🧪","📦","🔭","🦊","🐢","🧩","🎨","💤","🌈"];
+
+function MyCardPane() {
+  const members = useOrgStore((s) => s.members);
+  const setMyCard = useOrgStore((s) => s.setMyCard);
+  const me = members.find((m) => m.user_id === currentUserId());
+  const [name, setName] = useState(me?.display_name ?? "");
+  const [status, setStatus] = useState(me?.manual_status ?? "");
+  const [emoji, setEmoji] = useState(me?.manual_status_emoji ?? "");
+  const [busy, setBusy] = useState(false);
+  if (!me) return null;
+
+  const saveName = async () => {
+    const display = name.trim();
+    if (!display || display === me.display_name) return;
+    setBusy(true); try { await setMyCard({ display_name: display }); } finally { setBusy(false); }
+  };
+  const saveStatus = async () => {
+    setBusy(true);
+    try {
+      const t = status.trim() || null;
+      const em = emoji.trim() || null;
+      await setMyCard({ manual_status: t, manual_status_emoji: em });
+      setPresenceManualStatus(t, em);
+    } finally { setBusy(false); }
+  };
+  const pickEmoji = async (em: string) => {
+    setEmoji(em);
+    setBusy(true);
+    try { await setMyCard({ manual_status_emoji: em }); setPresenceManualStatus(status.trim() || null, em); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <>
+      <h2 className="set-title">My Card</h2>
+      <p className="set-sub">How you appear to teammates in the orbit.</p>
+      <div className="set-row">
+        <span className="set-label">Username</span>
+        <input className="set-input" value={name} placeholder="what should people call you"
+          onChange={(e) => setName(e.target.value)} onBlur={() => void saveName()} />
+      </div>
+      <div className="set-group">
+        <span className="set-label">Emoji / mood</span>
+        <div className="mycard-emoji">
+          {CARD_EMOJI.map((em) => (
+            <button key={em} className={`mycard-emoji-btn${emoji === em ? " active" : ""}`}
+              disabled={busy} onClick={() => void pickEmoji(em)}>{em}</button>
+          ))}
+        </div>
+      </div>
+      <div className="set-row">
+        <span className="set-label">Status line</span>
+        <input className="set-input" value={status} placeholder="shipping the thing"
+          onChange={(e) => setStatus(e.target.value)} onBlur={() => void saveStatus()} />
+      </div>
+    </>
+  );
+}
 
 export function SettingsModal({ background, onChangeBackground, onClose, initialSection, onOpenWall }: {
   background?: Background;
