@@ -4,6 +4,10 @@ export type WallMeta = {
   path: string;
   updatedAt: number;
   isCurrent: boolean;
+  /** Set when this local space is linked to a shared org project. */
+  sharedOrgSpaceId?: string;
+  /** The org_space.version this local copy is based on (for last-write-wins). */
+  cloudVersion?: number;
 };
 
 export type SavedTerminal = {
