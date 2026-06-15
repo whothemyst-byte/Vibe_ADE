@@ -13,7 +13,7 @@ import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserAct
 import { removeCardWithFade } from "./removeCard";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
-import { browserLayout, CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
+import { browserLayout, BROWSER_PANE, CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
@@ -29,7 +29,7 @@ import { wasSessionDead, sendToSession, focusSession } from "./sessions";
 import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
 import { findPresetByPhrase } from "./presets";
-import { THEMES } from "../settings/themes";
+import { THEMES, accentForBackground, applyAccent, DEFAULT_ACCENT } from "../settings/themes";
 
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 };
 const THUMB_INTERVAL_MS = 20_000;
@@ -130,6 +130,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       const bg = doc?.background ?? useSettingsStore.getState().settings.canvas.defaultBackground;
       backgroundRef.current = bg;
       setBackground(bg);
+      applyAccent(accentForBackground(bg));
       // Docs saved before agent names existed lack `name` - assign unique ones.
       // Terminals whose PTY died while this wall was closed are dropped.
       const names: string[] = [];
@@ -204,10 +205,18 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     // With a browser open it becomes the dominant left pane and terminals
     // stack in columns of two beside it; otherwise the uniform grid applies.
     const hasBrowser = cards.some((c) => c.kind === "browser");
+    // A lone terminal gets the dominant browser-pane size so it doesn't float
+    // tiny in the middle of the screen — it reads at the same scale the browser
+    // does. Text/chrome stay native px (the camera only ever zooms out to fit).
+    const loneTerminal = !hasBrowser && cards.length === 1;
+    const loneRect = loneTerminal
+      ? { x: a.x - BROWSER_PANE.w / 2, y: a.y - BROWSER_PANE.h / 2, w: BROWSER_PANE.w, h: BROWSER_PANE.h }
+      : null;
     const bl = hasBrowser ? browserLayout(cards.length - 1, a) : null;
-    const pos = bl ? null : gridPositions(cards.length, aspect, a);
+    const pos = bl || loneRect ? null : gridPositions(cards.length, aspect, a);
     let ti = 0;
     const rectOf = (c: Card, i: number): { x: number; y: number; w: number; h: number } => {
+      if (loneRect) return loneRect;
       if (bl) {
         if (c.kind === "browser") return bl.browser;
         const p = bl.terminals[ti++];
@@ -225,7 +234,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
       }),
     });
     if (api && st) {
-      const bbox = bl ? bl.bbox : gridBBox(cards.length, aspect, a);
+      const bbox = loneRect ?? (bl ? bl.bbox : gridBBox(cards.length, aspect, a));
       const cam = fitCamera(bbox, screen);
       api.updateScene({
         appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
@@ -266,7 +275,13 @@ export function WallView({ wallId, onExit, onSwitch, onTasks }: { wallId: string
     });
   };
 
-  const changeBg = (bg: Background) => { backgroundRef.current = bg; setBackground(bg); scheduleSave(); };
+  const changeBg = (bg: Background) => {
+    backgroundRef.current = bg; setBackground(bg); applyAccent(accentForBackground(bg)); scheduleSave();
+  };
+
+  // The accent is per-wall; restore the default amber when leaving the wall so
+  // the start page / task board never inherit a space's accent.
+  useEffect(() => () => applyAccent(DEFAULT_ACCENT), []);
 
   const exit = async () => {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);

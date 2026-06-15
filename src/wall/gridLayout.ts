@@ -1,7 +1,7 @@
 import type { Camera, Rect } from "./transform";
 
 /** Fixed terminal cell size (world px) — terminals are uniform in the grid. */
-export const CELL = { w: 420, h: 260 };
+export const CELL = { w: 340, h: 210 };
 export const GUTTER = 24;
 
 export type Point = { x: number; y: number };

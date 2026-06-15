@@ -11,12 +11,15 @@
   --text-muted: #b1a692;
   --text-faint: #6f6960;
 
-  /* accent (amber — used sparingly) */
+  /* accent — driven by the active theme. Only --accent and --on-accent are set
+     at runtime (see applyAccent); everything below derives from --accent so the
+     whole UI recolors from one value. */
   --accent: #d79a3d;
-  --accent-hover: #e3a94e;
-  --accent-dim: #b8802b;
-  --accent-soft: rgba(215, 154, 61, .14);
-  --focus: 0 0 0 3px rgba(215, 154, 61, .35);
+  --on-accent: #20170a;
+  --accent-hover: color-mix(in srgb, var(--accent) 86%, #fff);
+  --accent-dim: color-mix(in srgb, var(--accent) 82%, #000);
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 
   /* status / tiers */
   --ok: #7fa55a;

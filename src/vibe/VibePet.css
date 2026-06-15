@@ -155,7 +155,7 @@
   padding: 8px 12px;
   border-radius: 10px;
   background: rgba(24, 22, 19, 0.94);
-  border: 1px solid rgba(215, 154, 61, 0.35);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--text, #e8e2d6);
   font: 12px/1.45 "Geist", sans-serif;
   white-space: pre-wrap;

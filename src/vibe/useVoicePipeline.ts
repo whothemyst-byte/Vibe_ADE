@@ -38,7 +38,9 @@ export function useVoicePipeline(opts: {
     let lastWakeAt = 0;
 
     const heardWake = (text: string) => {
-      if (!text.includes("vibe")) return;
+      // Require "vibe" as a standalone token (not a substring), so partial
+      // mis-decodes of ambient noise can't trip the wake word.
+      if (!text.trim().split(/\s+/).includes("vibe")) return;
       const now = Date.now();
       if (now - lastWakeAt < WAKE_DEBOUNCE_MS) return;
       lastWakeAt = now;
@@ -51,11 +53,9 @@ export function useVoicePipeline(opts: {
         if (cancelled) { m.terminate(); return; }
         model = m;
         recognizer = new m.KaldiRecognizer(SAMPLE_RATE, WAKE_GRAMMAR);
-        recognizer.on("partialresult", (msg) => {
-          if ("partial" in (msg as { result?: object }).result!) {
-            heardWake((msg as { result: { partial: string } }).result.partial);
-          }
-        });
+        // Only act on finalized results, never partials: streaming partials
+        // constantly mis-fit ambient noise to "vibe", which made Vibe look like
+        // it was always listening. A final result has enough context to trust.
         recognizer.on("result", (msg) => {
           const r = (msg as { result?: { text?: string } }).result;
           if (r?.text) heardWake(r.text);
