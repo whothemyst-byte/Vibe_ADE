@@ -20,6 +20,7 @@ export const usePresenceStore = create<PresenceStore>(() => ({ roster: {} }));
 let channel: RealtimeChannel | null = null;
 let subscribed = false;
 let userId: string | null = null;
+let joiningOrg: string | null = null;
 
 const self = {
   spaceId: null as string | null,
@@ -84,28 +85,38 @@ function detachActivityListeners() {
 
 /** Join (or re-join) the presence channel for an org. */
 export async function joinOrgPresence(orgId: string): Promise<void> {
-  await leavePresence();
-  userId = currentUserId();
-  if (!userId) return; // not signed in yet
+  // Re-entrancy guard. React StrictMode (and rapid org switches) can fire this
+  // twice for the same org before the first subscribe settles; supabase-js then
+  // hands back the already-subscribed channel for the duplicate topic, and the
+  // `channel.on(...)` below throws "cannot add presence callbacks after subscribe()".
+  if (joiningOrg === orgId) return;
+  joiningOrg = orgId;
+  try {
+    await leavePresence();
+    userId = currentUserId();
+    if (!userId) return; // not signed in yet
 
-  // Make sure Realtime carries the Clerk JWT so the channel is authorized.
-  const token = await getClerkToken();
-  if (token) supabase.realtime.setAuth(token);
+    // Make sure Realtime carries the Clerk JWT so the channel is authorized.
+    const token = await getClerkToken();
+    if (token) supabase.realtime.setAuth(token);
 
-  lastActivity = Date.now();
-  visible = document.visibilityState === "visible";
+    lastActivity = Date.now();
+    visible = document.visibilityState === "visible";
 
-  channel = supabase.channel(`org:${orgId}`, {
-    config: { presence: { key: userId } },
-  });
-  channel.on("presence", { event: "sync" }, syncRoster);
-  channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      subscribed = true;
-      void channel!.track(selfPayload());
-    }
-  });
-  attachActivityListeners();
+    channel = supabase.channel(`org:${orgId}`, {
+      config: { presence: { key: userId } },
+    });
+    channel.on("presence", { event: "sync" }, syncRoster);
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        subscribed = true;
+        void channel!.track(selfPayload());
+      }
+    });
+    attachActivityListeners();
+  } finally {
+    joiningOrg = null;
+  }
 }
 
 /** Leave the current presence channel and clear the roster. */
