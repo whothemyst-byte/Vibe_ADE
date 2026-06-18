@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
 import type { WallMeta, WallDoc } from "./types";
 import { DEFAULT_PRESETS, type Preset } from "../wall/presets";
 import { mergeSettings, type Settings } from "../settings/settings";
@@ -55,6 +56,16 @@ export async function loadSettings(): Promise<Settings> {
 }
 export function saveSettings(settings: Settings): Promise<void> {
   return invoke("settings_save", { json: JSON.stringify(settings, null, 2) });
+}
+
+/** Open a folder's contents in the OS file explorer. */
+export function openFolder(path: string): Promise<void> {
+  return openPath(path);
+}
+
+/** True when `path` is an existing directory (used to filter dropped items). */
+export function isDir(path: string): Promise<boolean> {
+  return invoke<boolean>("is_dir", { path });
 }
 
 /** Folder picker for "New canvas". Returns the chosen absolute path or null. */
