@@ -31,3 +31,6 @@ public/vosk-model-*.tar.gz
 # Local env (Clerk key, etc.)
 .env
 .env.local
+
+# Dev screenshots for review loop (scripts/screenshot.ps1)
+.dev/

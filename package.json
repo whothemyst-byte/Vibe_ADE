@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "app": "tauri dev",
+    "shot": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/screenshot.ps1",
     "test": "vitest run",
     "vibe:eval": "vitest run --config vitest.eval.config.ts"
   },
