@@ -17,7 +17,7 @@ export function Toolbar({
     <div className="cnvs-toolbar">
       <button className="cnvs-btn" onClick={onBack} title="All walls"><BackIcon /></button>
       <button className="cnvs-name" onClick={() => setOpen((o) => !o)}>
-        {current?.name ?? "Wall"} <span className="cnvs-caret"><ChevronDownIcon /></span>
+        {current?.name ?? "Space"} <span className="cnvs-caret"><ChevronDownIcon /></span>
       </button>
       <span className="cnvs-sep" />
       <button className="cnvs-btn" onClick={onGear} title="Background"><GearIcon /></button>

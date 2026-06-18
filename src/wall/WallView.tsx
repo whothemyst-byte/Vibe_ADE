@@ -358,7 +358,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   useVibeCommand({
     name: "open_terminal",
     description:
-      `Spawn a new agent terminal on this wall. Available presets: ${presets.map((p) => p.label).join(", ")}. Omit preset for a plain shell.`,
+      `Spawn a new agent terminal on this space. Available presets: ${presets.map((p) => p.label).join(", ")}. Omit preset for a plain shell.`,
     parameters: {
       type: "object",
       properties: { preset: { type: "string", description: "Preset name (fuzzy matched)" } },
@@ -379,7 +379,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   useVibeCommand({
     name: "apply_theme",
     description:
-      `Apply a pre-made theme to this wall. Themes: ${THEMES.map((t) => t.name).join(", ")}.`,
+      `Apply a pre-made theme to this space. Themes: ${THEMES.map((t) => t.name).join(", ")}.`,
     parameters: {
       type: "object",
       properties: { name: { type: "string", description: "Theme name" } },
@@ -400,7 +400,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
 
   useVibeCommand({
     name: "close_terminal",
-    description: "Close a terminal on this wall by its agent name (e.g. 'Ada').",
+    description: "Close a terminal on this space by its agent name (e.g. 'Ada').",
     parameters: {
       type: "object",
       properties: { name: { type: "string", description: "Agent name shown on the terminal" } },
@@ -459,7 +459,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   useVibeCommand({
     name: "send_to_terminal",
     description:
-      "Type a prompt or command into a terminal on this wall and press Enter — use it to instruct agents like Claude or Codex, or to run shell commands. Pass the agent name shown on the terminal; it can be omitted when only one terminal is open.",
+      "Type a prompt or command into a terminal on this space and press Enter — use it to instruct agents like Claude or Codex, or to run shell commands. Pass the agent name shown on the terminal; it can be omitted when only one terminal is open.",
     parameters: {
       type: "object",
       properties: {
@@ -494,7 +494,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   useVibeCommand({
     name: "open_browser",
     description:
-      "Open the wall's browser at a URL, or navigate it if already open. Use when the user asks to open a website or preview a local dev server.",
+      "Open the space's browser at a URL, or navigate it if already open. Use when the user asks to open a website or preview a local dev server.",
     parameters: {
       type: "object",
       properties: { url: { type: "string", description: "URL to open; scheme optional" } },
@@ -504,13 +504,13 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
 
   useVibeCommand({
     name: "close_browser",
-    description: "Close the wall's browser window.",
+    description: "Close the space's browser window.",
     run: () => closeBrowser(),
   });
 
   useVibeCommand({
     name: "browser_back",
-    description: "Go back one page in the wall browser's history.",
+    description: "Go back one page in the space browser's history.",
     run: async () => {
       if (!browserCard()) return "Error: the browser is not open.";
       await browserBack();
@@ -521,7 +521,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   useVibeCommand({
     name: "read_browser",
     description:
-      "Read the current page in the wall's browser. Returns the page title and visible text so you can answer questions about what's on screen.",
+      "Read the current page in the space's browser. Returns the page title and visible text so you can answer questions about what's on screen.",
     run: async () => {
       if (!browserCard()) return "Error: the browser is not open.";
       const { title, text } = await browserRead();
@@ -557,7 +557,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   useVibeCommand({
     name: "change_background",
     description:
-      "Set this wall's background to a solid color. Accepts a CSS color like 'dark green', '#12110f', 'black'.",
+      "Set this space's background to a solid color. Accepts a CSS color like 'dark green', '#12110f', 'black'.",
     parameters: {
       type: "object",
       properties: { color: { type: "string", description: "CSS color value" } },
@@ -584,8 +584,8 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
 
   useVibeCommand({
     name: "exit_wall",
-    description: "Leave this wall and return to the start page (saves first).",
-    run: async () => { await exit(); return "Left the wall."; },
+    description: "Leave this space and return to the start page (saves first).",
+    run: async () => { await exit(); return "Left the space."; },
   });
 
   const selectTool = (tool: ToolDef) => {

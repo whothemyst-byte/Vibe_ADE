@@ -29,7 +29,7 @@ const APP_SECTIONS: { key: Section; label: string; icon: () => React.ReactElemen
   { key: "agents", label: "Agents", icon: SelectIcon },
   { key: "terminal", label: "Terminal", icon: RectangleIcon },
   { key: "themes", label: "Themes", icon: PaletteIcon },
-  { key: "canvas", label: "Canvas", icon: ImageIcon },
+  { key: "canvas", label: "Space", icon: ImageIcon },
   { key: "vibe", label: "Vibe", icon: EllipseIcon },
   { key: "about", label: "About", icon: EllipseIcon },
 ];
@@ -348,8 +348,8 @@ function CanvasPane() {
   const save = useSettingsStore((s) => s.save);
   return (
     <>
-      <h2 className="set-title">Canvas</h2>
-      <p className="set-sub">Space-level canvas behavior. Theme the current space from the Themes tab.</p>
+      <h2 className="set-title">Space</h2>
+      <p className="set-sub">Background and behavior for this space. Theme it from the Themes tab.</p>
       <div className="set-group">
         <span className="set-label">Default background for new spaces</span>
         <BackgroundPicker

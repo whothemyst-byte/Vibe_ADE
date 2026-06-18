@@ -98,8 +98,8 @@ export function StartPage({ onOpen, onTasks, onTeams }: { onOpen: (id: string) =
     <div className={`start-page${dragHover ? " drag-over" : ""}`}>
       <div className="start-head">
         <div className="start-headings">
-          <h1 className="start-title">Walls</h1>
-          <span className="start-sub">{walls.length} {walls.length === 1 ? "wall" : "walls"}</span>
+          <h1 className="start-title">Spaces</h1>
+          <span className="start-sub">{walls.length} {walls.length === 1 ? "space" : "spaces"}</span>
         </div>
         <button className="start-tasks" onClick={onTasks}><GridIcon /> Taskboard</button>
         <button className="start-tasks" onClick={onTeams}>
@@ -112,7 +112,7 @@ export function StartPage({ onOpen, onTasks, onTeams }: { onOpen: (id: string) =
         ))}
         <button className="wall-card new-canvas" onClick={newCanvas}>
           <span className="new-plus">+</span>
-          <span>New canvas</span>
+          <span>New space</span>
         </button>
       </div>
     </div>

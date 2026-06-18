@@ -125,7 +125,7 @@ const TaskCard = memo(function TaskCard({
       </div>
       <div className="tb-card-link">
         {linkedWall && (
-          <button className="tb-chip" onClick={() => onOpenWall(linkedWall.id)} title="Open wall">
+          <button className="tb-chip" onClick={() => onOpenWall(linkedWall.id)} title="Open space">
             <GridIcon /> {linkedWall.name}
           </button>
         )}
@@ -134,7 +134,7 @@ const TaskCard = memo(function TaskCard({
           value={task.wallId ?? ""}
           onChange={(e) => update(task.id, { wallId: e.target.value || undefined })}
         >
-          <option value="">{linkedWall ? "Change wall…" : "Link wall…"}</option>
+          <option value="">{linkedWall ? "Change space…" : "Link space…"}</option>
           {walls.map((w) => (
             <option key={w.id} value={w.id}>{w.name}</option>
           ))}

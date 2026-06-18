@@ -129,7 +129,7 @@ export function LoginPage() {
             : mode === "verify" ? "Check your email for a code."
             : mode === "reset" ? "Reset your password."
             : mode === "reset-code" ? "Enter your reset code and a new password."
-            : "Sign in to your canvas."}
+            : "Sign in to your space."}
         </p>
 
         {(mode === "sign-in" || mode === "sign-up") && (
