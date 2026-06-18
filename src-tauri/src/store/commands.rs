@@ -128,3 +128,10 @@ pub fn tasks_load(app: AppHandle) -> Result<String, String> {
 pub fn tasks_save(app: AppHandle, json: String) -> Result<(), String> {
     write_atomic(&super::paths::tasks_path(&base(&app)?), json.as_bytes()).map_err(|e| e.to_string())
 }
+
+/// True when `path` is an existing directory. Used to filter dropped folders
+/// from loose files (drop only creates spaces from directories).
+#[tauri::command]
+pub fn is_dir(path: String) -> bool {
+    std::path::Path::new(&path).is_dir()
+}

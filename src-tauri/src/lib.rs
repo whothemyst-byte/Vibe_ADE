@@ -50,6 +50,7 @@ pub fn run() {
             store::commands::settings_save,
             store::commands::tasks_load,
             store::commands::tasks_save,
+            store::commands::is_dir,
             store::backgrounds::import_background,
             browser::commands::browser_open,
             browser::commands::browser_navigate,
