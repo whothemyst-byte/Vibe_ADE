@@ -13,7 +13,7 @@ import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserAct
 import { removeCardWithFade } from "./removeCard";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
-import { browserLayout, BROWSER_PANE, CELL, fitCamera, gridBBox, gridPositions } from "./gridLayout";
+import { browserLayout, CELL, fitCamera, gridBBox, gridPositions, splitLayout } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
@@ -259,21 +259,17 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
       a = { x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 };
       useCardStore.setState({ anchor: a });
     }
-    // With a browser open it becomes the dominant left pane and terminals
-    // stack in columns of two beside it; otherwise the uniform grid applies.
+    // With a browser open it becomes the dominant left pane and terminals stack
+    // in columns of two beside it. With no browser and 1–4 terminals, they tile
+    // a fixed stage (1 full, 2 columns, 3–4 quartered). Otherwise (5+) the
+    // uniform grid grows and the camera zooms out to fit.
     const hasBrowser = cards.some((c) => c.kind === "browser");
-    // A lone terminal gets the dominant browser-pane size so it doesn't float
-    // tiny in the middle of the screen — it reads at the same scale the browser
-    // does. Text/chrome stay native px (the camera only ever zooms out to fit).
-    const loneTerminal = !hasBrowser && cards.length === 1;
-    const loneRect = loneTerminal
-      ? { x: a.x - BROWSER_PANE.w / 2, y: a.y - BROWSER_PANE.h / 2, w: BROWSER_PANE.w, h: BROWSER_PANE.h }
-      : null;
+    const split = !hasBrowser && cards.length <= 4 ? splitLayout(cards.length, a) : null;
     const bl = hasBrowser ? browserLayout(cards.length - 1, a) : null;
-    const pos = bl || loneRect ? null : gridPositions(cards.length, aspect, a);
+    const pos = split || bl ? null : gridPositions(cards.length, aspect, a);
     let ti = 0;
     const rectOf = (c: Card, i: number): { x: number; y: number; w: number; h: number } => {
-      if (loneRect) return loneRect;
+      if (split) return split.rects[i];
       if (bl) {
         if (c.kind === "browser") return bl.browser;
         const p = bl.terminals[ti++];
@@ -291,7 +287,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
       }),
     });
     if (api && st) {
-      const bbox = loneRect ?? (bl ? bl.bbox : gridBBox(cards.length, aspect, a));
+      const bbox = split ? split.bbox : bl ? bl.bbox : gridBBox(cards.length, aspect, a);
       const cam = fitCamera(bbox, screen);
       api.updateScene({
         appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
