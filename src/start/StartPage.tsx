@@ -5,8 +5,7 @@ import { relativeTime } from "./relativeTime";
 import { CloseIcon, GridIcon, TeamsIcon } from "../wall/icons";
 import { useEntitlements } from "../entitlements";
 import { UpgradePill } from "../tasks/UpgradePill";
-
-const basename = (p: string) => p.replace(/[/\\]+$/, "").split(/[/\\]/).pop() || "wall";
+import { spaceFromFolder } from "../store/spaceFromFolder";
 
 function WallCard({ meta, onOpen, onDelete }: { meta: WallMeta; onOpen: () => void; onDelete: () => void }) {
   const [thumb, setThumb] = useState<string | null>(null);
@@ -48,12 +47,11 @@ export function StartPage({ onOpen, onTasks, onTeams }: { onOpen: (id: string) =
   const newCanvas = async () => {
     const path = await pickFolder();
     if (!path) return;
-    const id = crypto.randomUUID();
-    const meta: WallMeta = { id, name: basename(path), path, updatedAt: Date.now(), isCurrent: true };
+    const meta = spaceFromFolder(path);
     const next = [...walls.map((w) => ({ ...w, isCurrent: false })), meta];
     setWalls(next);
     await saveIndex(next);
-    onOpen(id);
+    onOpen(meta.id);
   };
 
   const remove = async (id: string) => {
