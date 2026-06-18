@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { loadIndex, saveIndex, pickFolder, deleteWall, loadThumbnailUrl } from "../store/persistence";
+import { loadIndex, saveIndex, pickFolder, deleteWall, loadThumbnailUrl, openFolder, isDir } from "../store/persistence";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { WallMeta } from "../store/types";
 import { relativeTime } from "./relativeTime";
-import { CloseIcon, GridIcon, TeamsIcon } from "../wall/icons";
+import { CloseIcon, GridIcon, TeamsIcon, FolderIcon } from "../wall/icons";
 import { useEntitlements } from "../entitlements";
 import { UpgradePill } from "../tasks/UpgradePill";
 import { spaceFromFolder } from "../store/spaceFromFolder";
@@ -18,6 +19,13 @@ function WallCard({ meta, onOpen, onDelete }: { meta: WallMeta; onOpen: () => vo
   return (
     <div className={`wall-card${meta.isCurrent ? " is-current" : ""}`} onClick={onOpen}>
       {meta.isCurrent && <span className="wall-badge">CURRENT</span>}
+      <button
+        className="wall-folder"
+        title="Open folder in Explorer"
+        onClick={(e) => { e.stopPropagation(); void openFolder(meta.path); }}
+      >
+        <FolderIcon />
+      </button>
       <button
         className="wall-del"
         title="Delete"
@@ -40,9 +48,34 @@ function WallCard({ meta, onOpen, onDelete }: { meta: WallMeta; onOpen: () => vo
 export function StartPage({ onOpen, onTasks, onTeams }: { onOpen: (id: string) => void; onTasks: () => void; onTeams: () => void }) {
   const ent = useEntitlements();
   const [walls, setWalls] = useState<WallMeta[]>([]);
+  const [dragHover, setDragHover] = useState(false);
   useEffect(() => {
     loadIndex().then(setWalls).catch(() => setWalls([]));
   }, []);
+
+  // Drop a folder anywhere on the start page to create a space from it. The
+  // listener only exists while the start page is mounted, so drops on other
+  // views are ignored.
+  useEffect(() => {
+    const unlisten = getCurrentWebview().onDragDropEvent(async (e) => {
+      if (e.payload.type === "enter" || e.payload.type === "over") { setDragHover(true); return; }
+      if (e.payload.type === "leave") { setDragHover(false); return; }
+      if (e.payload.type === "drop") {
+        setDragHover(false);
+        const dirs: string[] = [];
+        for (const p of e.payload.paths) if (await isDir(p)) dirs.push(p);
+        if (dirs.length === 0) return;
+        const created = dirs.map(spaceFromFolder);
+        setWalls((prev) => {
+          const next = [...prev.map((w) => ({ ...w, isCurrent: false })), ...created];
+          void saveIndex(next);
+          return next;
+        });
+        onOpen(created[created.length - 1].id);
+      }
+    });
+    return () => { void unlisten.then((f) => f()); };
+  }, [onOpen]);
 
   const newCanvas = async () => {
     const path = await pickFolder();
@@ -62,7 +95,7 @@ export function StartPage({ onOpen, onTasks, onTeams }: { onOpen: (id: string) =
   };
 
   return (
-    <div className="start-page">
+    <div className={`start-page${dragHover ? " drag-over" : ""}`}>
       <div className="start-head">
         <div className="start-headings">
           <h1 className="start-title">Walls</h1>
