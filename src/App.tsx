@@ -6,7 +6,7 @@ import { TaskBoard } from "./tasks/TaskBoard";
 import { VibeAgent } from "./vibe/VibeAgent";
 import { useVibeCommand } from "./vibe/commands";
 import { useVibeContext } from "./vibe/context";
-import { loadIndex, saveIndex, pickFolder } from "./store/persistence";
+import { loadIndex, saveIndex, pickFolder, openFolder } from "./store/persistence";
 import type { WallMeta } from "./store/types";
 import { SignedIn, SignedOut, ClerkLoaded, ClerkLoading } from "@clerk/clerk-react";
 import { LoginPage } from "./auth/LoginPage";
@@ -116,6 +116,29 @@ export default function App() {
       await saveIndex([...index.map((w) => ({ ...w, isCurrent: false })), meta]);
       setView({ kind: "wall", id: meta.id });
       return `Created and opened the space "${name}" at ${path}.`;
+    },
+  });
+  useVibeCommand({
+    name: "open_folder",
+    description:
+      "Open a space's project folder in the OS file explorer. With no name, opens the currently open space's folder.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Optional space name; defaults to the currently open space" },
+      },
+    },
+    run: async (args) => {
+      const index = await loadIndex();
+      const wanted = String(args.name ?? "").trim().toLowerCase();
+      const target = wanted
+        ? index.find((w) => w.name.toLowerCase() === wanted)
+        : view.kind === "wall"
+          ? index.find((w) => w.id === view.id)
+          : undefined;
+      if (!target) return wanted ? `Error: no space named "${args.name}".` : "Error: no space is open. Open one or pass a name.";
+      await openFolder(target.path);
+      return `Opened the folder for "${target.name}" (${target.path}).`;
     },
   });
 
