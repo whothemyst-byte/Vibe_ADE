@@ -73,6 +73,51 @@ export const BROWSER_PANE = {
   h: 2 * CELL.h + GUTTER,
 };
 
+/** The fixed footprint a 1–4 terminal layout tiles, centered on the anchor.
+ *  Equals the lone-terminal / browser-pane size, so a single terminal reads
+ *  large and 2–4 subdivide that same box. */
+export const STAGE = { w: BROWSER_PANE.w, h: BROWSER_PANE.h };
+
+/**
+ * Tile 1–4 terminals inside the fixed STAGE rect centered on `anchor`:
+ *   n=1 → full stage; n=2 → two full-height columns; n=3 → 2×2 with the
+ *   bottom-right cell empty; n=4 → full 2×2. Reading order. The bbox is the
+ *   full stage for every n, so a fitted camera is identical across 1–4.
+ *  Caller guarantees 1 ≤ n ≤ 4.
+ */
+export function splitLayout(n: number, anchor: Point): { rects: Rect[]; bbox: Rect } {
+  const bbox: Rect = {
+    x: anchor.x - STAGE.w / 2,
+    y: anchor.y - STAGE.h / 2,
+    w: STAGE.w,
+    h: STAGE.h,
+  };
+  const halfW = (STAGE.w - GUTTER) / 2;
+  const halfH = (STAGE.h - GUTTER) / 2;
+  const colX = bbox.x + halfW + GUTTER;
+  const rowY = bbox.y + halfH + GUTTER;
+
+  let rects: Rect[];
+  if (n <= 1) {
+    rects = [{ x: bbox.x, y: bbox.y, w: STAGE.w, h: STAGE.h }];
+  } else if (n === 2) {
+    rects = [
+      { x: bbox.x, y: bbox.y, w: halfW, h: STAGE.h },
+      { x: colX, y: bbox.y, w: halfW, h: STAGE.h },
+    ];
+  } else {
+    // n === 3 or 4: 2×2 quarters in reading order; n=3 leaves bottom-right empty.
+    const quads: Rect[] = [
+      { x: bbox.x, y: bbox.y, w: halfW, h: halfH }, // TL
+      { x: colX, y: bbox.y, w: halfW, h: halfH }, // TR
+      { x: bbox.x, y: rowY, w: halfW, h: halfH }, // BL
+      { x: colX, y: rowY, w: halfW, h: halfH }, // BR
+    ];
+    rects = quads.slice(0, n);
+  }
+  return { rects, bbox };
+}
+
 /**
  * Layout when a browser is open: the browser is the dominant pane on the
  * left; terminals stack right of it in columns of two (column-major), tops

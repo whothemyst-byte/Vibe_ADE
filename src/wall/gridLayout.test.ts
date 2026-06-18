@@ -6,6 +6,8 @@ import {
   fitCamera,
   nearestSlotIndex,
   browserLayout,
+  splitLayout,
+  STAGE,
   BROWSER_PANE,
   CELL,
   GUTTER,
@@ -167,5 +169,64 @@ describe("nearestSlotIndex", () => {
 
   it("returns -1 for an empty list", () => {
     expect(nearestSlotIndex({ x: 0, y: 0 }, [])).toBe(-1);
+  });
+});
+
+describe("splitLayout", () => {
+  const A = { x: 0, y: 0 };
+  const stageRect = { x: -STAGE.w / 2, y: -STAGE.h / 2, w: STAGE.w, h: STAGE.h };
+  const HALF_W = (STAGE.w - GUTTER) / 2;
+  const HALF_H = (STAGE.h - GUTTER) / 2;
+
+  it("fills the whole stage with one terminal", () => {
+    const L = splitLayout(1, A);
+    expect(L.rects).toEqual([stageRect]);
+    expect(L.bbox).toEqual(stageRect);
+  });
+
+  it("splits two terminals into full-height columns", () => {
+    const L = splitLayout(2, A);
+    expect(L.rects).toHaveLength(2);
+    expect(L.rects[0]).toEqual({ x: stageRect.x, y: stageRect.y, w: HALF_W, h: STAGE.h });
+    expect(L.rects[1]).toEqual({ x: stageRect.x + HALF_W + GUTTER, y: stageRect.y, w: HALF_W, h: STAGE.h });
+    expect(L.rects[0].w + GUTTER + L.rects[1].w).toBe(STAGE.w);
+    expect(L.bbox).toEqual(stageRect);
+  });
+
+  it("quarters three terminals and leaves the bottom-right empty", () => {
+    const L = splitLayout(3, A);
+    expect(L.rects).toHaveLength(3);
+    expect(L.rects[0]).toEqual({ x: stageRect.x, y: stageRect.y, w: HALF_W, h: HALF_H }); // TL
+    expect(L.rects[1]).toEqual({ x: stageRect.x + HALF_W + GUTTER, y: stageRect.y, w: HALF_W, h: HALF_H }); // TR
+    expect(L.rects[2]).toEqual({ x: stageRect.x, y: stageRect.y + HALF_H + GUTTER, w: HALF_W, h: HALF_H }); // BL
+    expect(L.bbox).toEqual(stageRect);
+  });
+
+  it("fills the full 2x2 with four terminals", () => {
+    const L = splitLayout(4, A);
+    expect(L.rects).toHaveLength(4);
+    expect(L.rects[3]).toEqual({
+      x: stageRect.x + HALF_W + GUTTER,
+      y: stageRect.y + HALF_H + GUTTER,
+      w: HALF_W,
+      h: HALF_H,
+    }); // BR
+    expect(L.bbox).toEqual(stageRect);
+  });
+
+  it("keeps an identical bbox across 1–4 so the camera never shifts", () => {
+    for (const n of [1, 2, 3, 4]) {
+      expect(splitLayout(n, A).bbox).toEqual(stageRect);
+    }
+  });
+
+  it("centers the stage on a non-origin anchor", () => {
+    const L = splitLayout(2, { x: 100, y: -50 });
+    expect(L.bbox).toEqual({ x: 100 - STAGE.w / 2, y: -50 - STAGE.h / 2, w: STAGE.w, h: STAGE.h });
+  });
+
+  it("derives quartered cells that equal CELL", () => {
+    expect(HALF_W).toBe(CELL.w);
+    expect(HALF_H).toBe(CELL.h);
   });
 });
