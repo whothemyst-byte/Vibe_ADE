@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { loadIndex } from "../store/persistence";
+import { loadIndex, openFolder } from "../store/persistence";
 import type { WallMeta } from "../store/types";
-import { BackIcon, ChevronDownIcon, GearIcon, GridIcon, TeamsIcon } from "./icons";
+import { BackIcon, ChevronDownIcon, GearIcon, GridIcon, TeamsIcon, FolderIcon } from "./icons";
 import { useBlocksBrowser } from "./browserVisibility";
 
 export function Toolbar({
@@ -21,6 +21,12 @@ export function Toolbar({
       </button>
       <span className="cnvs-sep" />
       <button className="cnvs-btn" onClick={onGear} title="Background"><GearIcon /></button>
+      <button
+        className="cnvs-btn"
+        onClick={() => { if (current?.path) void openFolder(current.path); }}
+        title="Open folder"
+        disabled={!current?.path}
+      ><FolderIcon /></button>
       <button className="cnvs-btn" onClick={onTasks} title="Taskboard"><GridIcon /></button>
       <button className="cnvs-btn" onClick={onTeams} title="Teams"><TeamsIcon /></button>
       {open && (
