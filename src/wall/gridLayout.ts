@@ -98,7 +98,7 @@ export function splitLayout(n: number, anchor: Point): { rects: Rect[]; bbox: Re
   const rowY = bbox.y + halfH + GUTTER;
 
   let rects: Rect[];
-  if (n <= 1) {
+  if (n === 1) {
     rects = [{ x: bbox.x, y: bbox.y, w: STAGE.w, h: STAGE.h }];
   } else if (n === 2) {
     rects = [
