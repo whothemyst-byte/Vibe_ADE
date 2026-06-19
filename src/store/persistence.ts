@@ -68,6 +68,23 @@ export function isDir(path: string): Promise<boolean> {
   return invoke<boolean>("is_dir", { path });
 }
 
+export type DirEntry = { name: string; path: string; is_dir: boolean };
+
+/** List a directory's immediate children for the file-explorer tree. */
+export function readDir(path: string): Promise<DirEntry[]> {
+  return invoke<DirEntry[]>("read_dir", { path });
+}
+
+/** Read a text file's contents for the in-app viewer (rejects files over 2 MB). */
+export function readTextFile(path: string): Promise<string> {
+  return invoke<string>("read_text_file", { path });
+}
+
+/** Write a *.design.json (Rust enforces the extension and creates parent dirs). */
+export function writeDesignFile(path: string, contents: string): Promise<void> {
+  return invoke("write_design_file", { path, contents });
+}
+
 /** Folder picker for "New canvas". Returns the chosen absolute path or null. */
 export async function pickFolder(): Promise<string | null> {
   const res = await open({ directory: true, multiple: false });
