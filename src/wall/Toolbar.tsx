@@ -15,7 +15,7 @@ export function Toolbar({
 
   return (
     <div className="cnvs-toolbar">
-      <button className="cnvs-btn" onClick={onBack} title="All walls"><BackIcon /></button>
+      <button className="cnvs-btn" onClick={onBack} title="All spaces"><BackIcon /></button>
       <button className="cnvs-name" onClick={() => setOpen((o) => !o)}>
         {current?.name ?? "Space"} <span className="cnvs-caret"><ChevronDownIcon /></span>
       </button>
