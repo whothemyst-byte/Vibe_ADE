@@ -3,6 +3,7 @@ import { useCardStore } from "./cardStore";
 import { layerTransform, type Camera } from "./transform";
 import { TerminalWindow } from "./TerminalWindow";
 import { BrowserWindow } from "./BrowserWindow";
+import { FileViewerWindow } from "./FileViewerWindow";
 
 export function TerminalOverlay({
   layerRef,
@@ -24,9 +25,11 @@ export function TerminalOverlay({
         {cards.map((c) =>
           c.kind === "terminal" ? (
             <TerminalWindow key={c.id} terminal={c} cameraRef={cameraRef} />
-          ) : (
+          ) : c.kind === "browser" ? (
             <BrowserWindow key={c.id} card={c} cameraRef={cameraRef} />
-          )
+          ) : c.kind === "file" ? (
+            <FileViewerWindow key={c.id} card={c} cameraRef={cameraRef} />
+          ) : null  /* design card rendered in Task 8 */
         )}
       </div>
     </div>
