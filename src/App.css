@@ -129,6 +129,61 @@
   position: absolute; inset: 0; display: grid; place-items: center;
   color: var(--text-faint); font: 500 12px var(--font-mono);
 }
+
+/* ---- File viewer card ---- */
+.file-header-icon { display: inline-flex; color: var(--text-faint); }
+.file-header-icon svg { width: 13px; height: 13px; display: block; }
+.file-body { overflow: auto; padding: 0; }
+.file-pre {
+  margin: 0; padding: 10px 12px; min-width: 100%; box-sizing: border-box;
+  font: 12px/1.55 var(--font-mono); color: var(--text);
+  white-space: pre; tab-size: 2;
+}
+.file-hint {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--text-faint); font: 500 12px var(--font-mono);
+}
+.file-hint.file-error { color: var(--danger); padding: 0 16px; text-align: center; }
+
+/* ---- File explorer side panel ---- */
+.fx-panel {
+  position: absolute; top: 56px; left: 14px; z-index: 310;
+  width: 256px; max-height: calc(100vh - 86px); display: flex; flex-direction: column;
+  background: var(--glass); backdrop-filter: blur(10px);
+  border: 1px solid var(--rule); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); overflow: hidden;
+  animation: card-fade-in .16s ease;
+}
+.fx-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px 7px 12px; border-bottom: 1px solid var(--rule);
+}
+.fx-title {
+  flex: 1; color: var(--text); font: 600 11.5px var(--font-ui);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  letter-spacing: .02em;
+}
+.fx-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--text-faint);
+  cursor: pointer; padding: 3px 5px; border-radius: 6px; transition: color .14s, background .14s;
+}
+.fx-close svg { width: 13px; height: 13px; display: block; }
+.fx-close:hover { background: rgba(243, 238, 229, .06); color: var(--text); }
+.fx-tree { overflow: auto; padding: 4px 0 6px; }
+.fx-row {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 3px 8px; border: none; background: transparent; cursor: pointer;
+  color: var(--text-muted); font: 500 12px var(--font-ui); text-align: left;
+  transition: background .12s, color .12s;
+}
+.fx-row:hover { background: rgba(243, 238, 229, .06); color: var(--text); }
+.fx-caret { flex: none; width: 13px; height: 13px; display: inline-flex; color: var(--text-faint); }
+.fx-caret svg { width: 13px; height: 13px; display: block; }
+.fx-icon { flex: none; display: inline-flex; color: var(--text-faint); }
+.fx-icon svg { width: 14px; height: 14px; display: block; }
+.fx-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-empty { padding: 3px 8px; color: var(--text-faint); font: 500 11px var(--font-mono); }
 .cnvs-toolbar {
   position: absolute; top: 12px; left: 14px; z-index: 320;
   display: flex; align-items: center; gap: 1px;
@@ -203,12 +258,6 @@
   transition: color .14s, background .14s;
 }
 .wall-del:hover { background: rgba(192, 86, 63, .16); color: var(--danger); }
-.wall-folder {
-  position: absolute; top: 6px; right: 30px; z-index: 1; border: none; background: transparent;
-  color: var(--text-faint); cursor: pointer; line-height: 0; padding: 4px 5px; border-radius: 6px;
-  transition: color .14s, background .14s;
-}
-.wall-folder:hover { background: var(--accent-soft); color: var(--accent); }
 .wall-thumb { height: 104px; border-radius: var(--radius-sm); overflow: hidden; background: var(--bg); border: 1px solid var(--rule); }
 .wall-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .wall-thumb-empty { width: 100%; height: 100%; background: linear-gradient(135deg, var(--surface-2), var(--bg)); }

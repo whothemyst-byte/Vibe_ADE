@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { loadIndex, openFolder } from "../store/persistence";
+import { loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
 import { BackIcon, ChevronDownIcon, GearIcon, GridIcon, TeamsIcon, FolderIcon } from "./icons";
 import { useBlocksBrowser } from "./browserVisibility";
 
 export function Toolbar({
-  wallId, onBack, onSwitch, onGear, onTasks, onTeams,
-}: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void; onTasks: () => void; onTeams: () => void }) {
+  wallId, onBack, onSwitch, onGear, onExplorer, onTasks, onTeams,
+}: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void; onExplorer: () => void; onTasks: () => void; onTeams: () => void }) {
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [open, setOpen] = useState(false);
   useBlocksBrowser(open);
@@ -23,9 +23,8 @@ export function Toolbar({
       <button className="cnvs-btn" onClick={onGear} title="Background"><GearIcon /></button>
       <button
         className="cnvs-btn"
-        onClick={() => { if (current?.path) void openFolder(current.path); }}
-        title="Open folder"
-        disabled={!current?.path}
+        onClick={onExplorer}
+        title="File explorer"
       ><FolderIcon /></button>
       <button className="cnvs-btn" onClick={onTasks} title="Taskboard"><GridIcon /></button>
       <button className="cnvs-btn" onClick={onTeams} title="Teams"><TeamsIcon /></button>

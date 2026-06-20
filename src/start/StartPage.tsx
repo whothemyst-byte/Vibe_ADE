@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { loadIndex, saveIndex, pickFolder, deleteWall, loadThumbnailUrl, openFolder, isDir } from "../store/persistence";
+import { loadIndex, saveIndex, pickFolder, deleteWall, loadThumbnailUrl, isDir } from "../store/persistence";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { WallMeta } from "../store/types";
 import { relativeTime } from "./relativeTime";
-import { CloseIcon, GridIcon, TeamsIcon, FolderIcon } from "../wall/icons";
+import { CloseIcon, GridIcon, TeamsIcon } from "../wall/icons";
 import { useEntitlements } from "../entitlements";
 import { UpgradePill } from "../tasks/UpgradePill";
 import { spaceFromFolder } from "../store/spaceFromFolder";
@@ -19,13 +19,6 @@ function WallCard({ meta, onOpen, onDelete }: { meta: WallMeta; onOpen: () => vo
   return (
     <div className={`wall-card${meta.isCurrent ? " is-current" : ""}`} onClick={onOpen}>
       {meta.isCurrent && <span className="wall-badge">CURRENT</span>}
-      <button
-        className="wall-folder"
-        title="Open folder in Explorer"
-        onClick={(e) => { e.stopPropagation(); void openFolder(meta.path); }}
-      >
-        <FolderIcon />
-      </button>
       <button
         className="wall-del"
         title="Delete"

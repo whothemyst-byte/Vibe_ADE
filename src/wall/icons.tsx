@@ -116,6 +116,10 @@ export const PaletteIcon = () => (
 );
 export const ChevronDownIcon = () => <Svg><path d="m6 9 6 6 6-6" /></Svg>;
 export const ChevronUpIcon = () => <Svg><path d="m18 15-6-6-6 6" /></Svg>;
+export const ChevronRightIcon = () => <Svg><path d="m9 18 6-6-6-6" /></Svg>;
+export const FileIcon = () => (
+  <Svg><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></Svg>
+);
 export const PlusIcon = () => <Svg><path d="M5 12h14" /><path d="M12 5v14" /></Svg>;
 export const CloseIcon = () => <Svg><path d="M18 6 6 18" /><path d="m6 6 12 12" /></Svg>;
 export const MoreIcon = () => <Svg><path d="M12 5h.01" /><path d="M12 12h.01" /><path d="M12 19h.01" /></Svg>;

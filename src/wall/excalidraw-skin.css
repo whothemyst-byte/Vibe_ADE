@@ -58,6 +58,5 @@
    Scaling the whole footer-left group (anchored bottom-left) keeps the buttons
    functional without fighting Excalidraw's per-button sizing variables. */
 .wall-root .layer-ui__wrapper__footer-left {
-  transform: scale(0.78);
-  transform-origin: bottom left;
+  display: none !important;
 }
