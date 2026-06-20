@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { designPath, DESIGN_REL, resolveDesignPath, ensureDesignFile } from "./designFile";
+import { designPath, DESIGN_REL, resolveDesignPath, ensureDesignFile, formatReference } from "./designFile";
 import * as persistence from "../store/persistence";
 import { emptySceneJson } from "./normalize";
 
@@ -52,5 +52,11 @@ describe("ensureDesignFile", () => {
     mocked.readTextFile.mockResolvedValue("{}");
     await ensureDesignFile(path);
     expect(mocked.writeDesignFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("formatReference", () => {
+  it("prefixes @ and adds a trailing space so the agent's file mention parses", () => {
+    expect(formatReference("C:/proj/designs/ui.design.json")).toBe("@C:/proj/designs/ui.design.json ");
   });
 });

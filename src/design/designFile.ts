@@ -23,3 +23,9 @@ export async function ensureDesignFile(path: string): Promise<void> {
   const exists = await readTextFile(path).then(() => true).catch(() => false);
   if (!exists) await writeDesignFile(path, emptySceneJson());
 }
+
+/** The text inserted into a terminal to point an agent at the design file.
+ *  Submitted as a non-final paste so the user can review before sending. */
+export function formatReference(path: string): string {
+  return `@${path} `;
+}

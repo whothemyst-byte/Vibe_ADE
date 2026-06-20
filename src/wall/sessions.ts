@@ -26,6 +26,7 @@ type Session = {
 };
 
 const sessions = new Map<string, Session>();
+let lastFocusedTerminalId: string | null = null;
 const activityRefs = new Map<string, { current: Activity }>();
 /** PTYs that exited while their wall wasn't open — dropped on the next wall load. */
 const deadIds = new Set<string>();
@@ -201,7 +202,16 @@ export function sendToSession(id: string, text: string, submit: boolean): boolea
 
 /** Moves keyboard focus into a terminal's xterm so keystrokes go there. */
 export function focusSession(id: string): void {
+  lastFocusedTerminalId = id;
   sessions.get(id)?.term.focus();
+}
+
+/** The terminal the user most recently focused, if it still has a live session.
+ *  Used to target the design page's "reference in terminal" action. */
+export function getLastFocusedTerminalId(): string | null {
+  return lastFocusedTerminalId && sessions.has(lastFocusedTerminalId)
+    ? lastFocusedTerminalId
+    : null;
 }
 
 /** Kills the PTY and disposes the terminal (card closed or process exited). */
