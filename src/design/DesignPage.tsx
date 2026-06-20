@@ -22,11 +22,16 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
   const loadedHash = useRef<string>("");
   const echo = useRef(makeEchoGuard());
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [initial, setInitial] = useState<Initial | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
+  const flash = (msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  };
 
   function applyExternal(text: string) {
     const r = parseScene(text);
@@ -64,7 +69,12 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       });
       if (cancelled) un(); else stop = un;
     })();
-    return () => { cancelled = true; stop?.(); if (saveTimer.current) clearTimeout(saveTimer.current); };
+    return () => {
+      cancelled = true;
+      stop?.();
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
   }, [wallId]);
 
   function onChange(elements: readonly ExcalidrawElement[], appState: AppState) {
