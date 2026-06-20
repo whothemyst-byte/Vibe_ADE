@@ -1,7 +1,14 @@
 # Vibe Space — Design Canvas (file-backed mini-Figma)
 
+> **SUPERSEDED (2026-06-20)** by
+> `2026-06-20-vibe-space-ui-canvas-design.md`. The node-tree mini-Figma card
+> below was rejected: it built a thin renderer inside a wall card rather than a
+> real, separately-opened, Figma-like editor page. The replacement reuses
+> Excalidraw as a full-page per-space editor while keeping the file-backed agent
+> bridge. Kept for history only.
+
 **Date:** 2026-06-20
-**Status:** Design approved, ready for implementation planning
+**Status:** Superseded — see banner above
 
 ## Summary
 
