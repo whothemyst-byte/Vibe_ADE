@@ -35,19 +35,7 @@ export type FileCard = {
   h: number;
 };
 
-/** A live design surface backed by a *.design.json file; occupies a grid cell. */
-export type DesignCard = {
-  kind: "design";
-  id: string;
-  path: string;
-  name: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
-
-export type Card = TerminalCard | BrowserCard | FileCard | DesignCard;
+export type Card = TerminalCard | BrowserCard | FileCard;
 
 export function terminalsOf(cards: Card[]): TerminalCard[] {
   return cards.filter((c): c is TerminalCard => c.kind === "terminal");
@@ -64,7 +52,6 @@ type CardStore = {
       | Partial<Omit<TerminalCard, "kind" | "id">>
       | Partial<Omit<BrowserCard, "kind" | "id">>
       | Partial<Omit<FileCard, "kind" | "id">>
-      | Partial<Omit<DesignCard, "kind" | "id">>
   ) => void;
   remove: (id: string) => void;
   /** Reorders a card to `index` (grid order = array order). */

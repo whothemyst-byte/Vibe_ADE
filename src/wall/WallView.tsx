@@ -21,7 +21,6 @@ import { WallBackground } from "./WallBackground";
 import { SettingsModal } from "../settings/SettingsModal";
 import { useSettingsStore } from "../settings/settingsStore";
 import { LaunchMenu } from "./LaunchMenu";
-import { openDesignFromPicker } from "../design/designCard";
 import { FileExplorer } from "./FileExplorer";
 import { ToolsIsland } from "./ToolsIsland";
 import type { ToolDef } from "./tools";
@@ -636,7 +635,6 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
         presets={presets}
         onLaunch={addTerminal}
         onLaunchBrowser={() => { void openBrowser(); }}
-        onLaunchDesign={() => { void openDesignFromPicker(); }}
       />
       <ToolsIsland activeType={activeType} onSelect={selectTool} />
       <TerminalOverlay layerRef={layerRef} cameraRef={cameraRef} />

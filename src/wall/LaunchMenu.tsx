@@ -1,12 +1,12 @@
 import { useState } from "react";
 import type { Preset } from "./presets";
 import { presetTierColor } from "./presetTier";
-import { ChevronDownIcon, ChevronUpIcon, FileIcon, GlobeIcon, PlusIcon } from "./icons";
+import { ChevronDownIcon, ChevronUpIcon, GlobeIcon, PlusIcon } from "./icons";
 import { useBlocksBrowser } from "./browserVisibility";
 
 export function LaunchMenu({
-  presets, onLaunch, onLaunchBrowser, onLaunchDesign,
-}: { presets: Preset[]; onLaunch: (presetId: string) => void; onLaunchBrowser: () => void; onLaunchDesign: () => void }) {
+  presets, onLaunch, onLaunchBrowser,
+}: { presets: Preset[]; onLaunch: (presetId: string) => void; onLaunchBrowser: () => void }) {
   const [open, setOpen] = useState(false);
   useBlocksBrowser(open);
   return (
@@ -37,15 +37,6 @@ export function LaunchMenu({
               <GlobeIcon />
             </span>
             Browser
-          </button>
-          <button
-            className="launch-item"
-            onPointerDown={() => { setOpen(false); onLaunchDesign(); }}
-          >
-            <span className="launch-ic" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-              <FileIcon />
-            </span>
-            Design
           </button>
         </div>
       )}

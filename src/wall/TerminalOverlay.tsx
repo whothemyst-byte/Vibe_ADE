@@ -4,7 +4,6 @@ import { layerTransform, type Camera } from "./transform";
 import { TerminalWindow } from "./TerminalWindow";
 import { BrowserWindow } from "./BrowserWindow";
 import { FileViewerWindow } from "./FileViewerWindow";
-import { DesignWindow } from "../design/DesignWindow";
 
 export function TerminalOverlay({
   layerRef,
@@ -30,9 +29,7 @@ export function TerminalOverlay({
             <BrowserWindow key={c.id} card={c} cameraRef={cameraRef} />
           ) : c.kind === "file" ? (
             <FileViewerWindow key={c.id} card={c} cameraRef={cameraRef} />
-          ) : (
-            <DesignWindow key={c.id} card={c} cameraRef={cameraRef} />
-          )
+          ) : null
         )}
       </div>
     </div>
