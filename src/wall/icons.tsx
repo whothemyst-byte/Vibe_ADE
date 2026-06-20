@@ -114,6 +114,9 @@ export const PaletteIcon = () => (
     <circle cx="6.5" cy="12.5" r=".8" fill="currentColor" />
   </Svg>
 );
+export const DesignIcon = () => (
+  <Svg><path d="M4 7h16" /><path d="M4 17h16" /><path d="M7 4v16" /><path d="M17 4v16" /></Svg>
+);
 export const ChevronDownIcon = () => <Svg><path d="m6 9 6 6 6-6" /></Svg>;
 export const ChevronUpIcon = () => <Svg><path d="m18 15-6-6-6 6" /></Svg>;
 export const ChevronRightIcon = () => <Svg><path d="m9 18 6-6-6-6" /></Svg>;

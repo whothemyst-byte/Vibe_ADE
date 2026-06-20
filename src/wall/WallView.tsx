@@ -55,7 +55,7 @@ function applyScene(
   });
 }
 
-export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallId: string; onExit: () => void; onSwitch: (id: string) => void; onTasks: () => void; onTeams: () => void }) {
+export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams }: { wallId: string; onExit: () => void; onSwitch: (id: string) => void; onDesign: () => void; onTasks: () => void; onTeams: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const cameraRef = useRef<Camera>(DEFAULT_CAMERA);
   const layerRef = useRef<HTMLDivElement>(null);
@@ -605,7 +605,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
       <WallBackground background={background} />
       {isShared && <div className="wall-shared-badge">Shared</div>}
       {sharedNotice && <div className="wall-shared-notice">{sharedNotice}</div>}
-      <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onExplorer={() => setExplorerOpen((o) => !o)} onTasks={onTasks} onTeams={onTeams} />
+      <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onExplorer={() => setExplorerOpen((o) => !o)} onDesign={onDesign} onTasks={onTasks} onTeams={onTeams} />
       <FileExplorer path={wallPath} open={explorerOpen} onClose={() => setExplorerOpen(false)} />
       {gearOpen && (
         <SettingsModal background={background} onChangeBackground={changeBg} onClose={() => setGearOpen(false)} />

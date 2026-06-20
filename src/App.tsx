@@ -12,12 +12,14 @@ import { SignedIn, SignedOut, ClerkLoaded, ClerkLoading } from "@clerk/clerk-rea
 import { LoginPage } from "./auth/LoginPage";
 import { TeamsBootstrap } from "./teams/TeamsBootstrap";
 import { TeamsView } from "./teams/TeamsView";
+import { DesignPage } from "./design/DesignPage";
 
 type View =
   | { kind: "start" }
   | { kind: "wall"; id: string }
   | { kind: "tasks"; from: View }
-  | { kind: "teams"; from: View };
+  | { kind: "teams"; from: View }
+  | { kind: "design"; wallId: string; from: View };
 
 export default function App() {
   const [view, setView] = useState<View>({ kind: "start" });
@@ -37,6 +39,7 @@ export default function App() {
       view.kind === "start" ? "start page"
       : view.kind === "tasks" ? "task board"
       : view.kind === "teams" ? "teams view"
+      : view.kind === "design" ? "UI design canvas"
       : `space "${wallsRef.current.find((w) => w.id === view.id)?.name ?? "unknown"}"`;
     const names = wallsRef.current.map((w) => w.name).join(", ") || "none yet";
     return `current view: ${where}; existing spaces: ${names}`;
@@ -61,6 +64,15 @@ export default function App() {
     run: () => {
       setView((v) => (v.kind === "teams" ? v : { kind: "teams", from: v }));
       return "Teams view is open.";
+    },
+  });
+  useVibeCommand({
+    name: "open_ui",
+    description: "Open the current space's UI design canvas (the Figma-like infinite canvas).",
+    run: () => {
+      if (view.kind !== "wall") return "Open a space first, then open its UI canvas.";
+      setView({ kind: "design", wallId: view.id, from: view });
+      return "Opened the UI canvas.";
     },
   });
   useVibeCommand({
@@ -160,12 +172,15 @@ export default function App() {
     );
   } else if (view.kind === "teams") {
     page = <TeamsView onBack={() => setView(view.from)} onOpenWall={(id) => setView({ kind: "wall", id })} />;
+  } else if (view.kind === "design") {
+    page = <DesignPage wallId={view.wallId} onBack={() => setView(view.from)} />;
   } else {
     page = (
       <WallView
         wallId={view.id}
         onExit={() => setView({ kind: "start" })}
         onSwitch={(id) => setView({ kind: "wall", id })}
+        onDesign={() => setView({ kind: "design", wallId: view.id, from: view })}
         onTasks={() => setView({ kind: "tasks", from: view })}
         onTeams={() => setView({ kind: "teams", from: view })}
       />
