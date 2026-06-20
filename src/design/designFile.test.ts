@@ -1,5 +1,16 @@
-import { describe, it, expect } from "vitest";
-import { designPath, DESIGN_REL } from "./designFile";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { designPath, DESIGN_REL, resolveDesignPath, ensureDesignFile } from "./designFile";
+import * as persistence from "../store/persistence";
+import { emptySceneJson } from "./normalize";
+
+vi.mock("../store/persistence", () => ({
+  loadIndex: vi.fn(),
+  readTextFile: vi.fn(),
+  writeDesignFile: vi.fn(),
+}));
+
+const mocked = vi.mocked(persistence);
+beforeEach(() => { vi.clearAllMocks(); });
 
 describe("designPath", () => {
   it("joins the space folder with the well-known relative path", () => {
@@ -16,5 +27,30 @@ describe("designPath", () => {
 
   it("ends in .design.json (required by the Rust write command)", () => {
     expect(designPath("C:/x").endsWith(".design.json")).toBe(true);
+  });
+});
+
+describe("resolveDesignPath", () => {
+  it("returns the design path for a known space", async () => {
+    mocked.loadIndex.mockResolvedValue([{ id: "s1", name: "x", path: "C:/proj", updatedAt: 0 }] as never);
+    expect(await resolveDesignPath("s1")).toBe(designPath("C:/proj"));
+  });
+  it("returns null for an unknown space", async () => {
+    mocked.loadIndex.mockResolvedValue([] as never);
+    expect(await resolveDesignPath("nope")).toBeNull();
+  });
+});
+
+describe("ensureDesignFile", () => {
+  const path = "C:/proj/designs/ui.design.json";
+  it("seeds an empty scene when the file is missing", async () => {
+    mocked.readTextFile.mockRejectedValue(new Error("not found"));
+    await ensureDesignFile(path);
+    expect(mocked.writeDesignFile).toHaveBeenCalledWith(path, emptySceneJson());
+  });
+  it("leaves an existing file untouched", async () => {
+    mocked.readTextFile.mockResolvedValue("{}");
+    await ensureDesignFile(path);
+    expect(mocked.writeDesignFile).not.toHaveBeenCalled();
   });
 });
