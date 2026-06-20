@@ -21,6 +21,8 @@ import { WallBackground } from "./WallBackground";
 import { SettingsModal } from "../settings/SettingsModal";
 import { useSettingsStore } from "../settings/settingsStore";
 import { LaunchMenu } from "./LaunchMenu";
+import { openDesignFromPicker } from "../design/designCard";
+import { FileExplorer } from "./FileExplorer";
 import { ToolsIsland } from "./ToolsIsland";
 import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
@@ -63,6 +65,7 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
   const [background, setBackground] = useState<Background>(DEFAULT_BACKGROUND);
   const backgroundRef = useRef<Background>(DEFAULT_BACKGROUND);
   const [gearOpen, setGearOpen] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(false);
   useBlocksBrowser(gearOpen);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
   const presets = usePresetStore((s) => s.presets);
@@ -603,7 +606,8 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
       <WallBackground background={background} />
       {isShared && <div className="wall-shared-badge">Shared</div>}
       {sharedNotice && <div className="wall-shared-notice">{sharedNotice}</div>}
-      <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onTasks={onTasks} onTeams={onTeams} />
+      <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onExplorer={() => setExplorerOpen((o) => !o)} onTasks={onTasks} onTeams={onTeams} />
+      <FileExplorer path={wallPath} open={explorerOpen} onClose={() => setExplorerOpen(false)} />
       {gearOpen && (
         <SettingsModal background={background} onChangeBackground={changeBg} onClose={() => setGearOpen(false)} />
       )}
@@ -628,7 +632,12 @@ export function WallView({ wallId, onExit, onSwitch, onTasks, onTeams }: { wallI
         onChange={onChange as Parameters<typeof Excalidraw>[0]["onChange"]}
         initialData={{ appState: { viewBackgroundColor: "transparent" } }}
       />
-      <LaunchMenu presets={presets} onLaunch={addTerminal} onLaunchBrowser={() => { void openBrowser(); }} />
+      <LaunchMenu
+        presets={presets}
+        onLaunch={addTerminal}
+        onLaunchBrowser={() => { void openBrowser(); }}
+        onLaunchDesign={() => { void openDesignFromPicker(); }}
+      />
       <ToolsIsland activeType={activeType} onSelect={selectTool} />
       <TerminalOverlay layerRef={layerRef} cameraRef={cameraRef} />
     </div>
