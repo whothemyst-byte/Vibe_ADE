@@ -56,6 +56,7 @@ pub fn run() {
             store::commands::read_dir,
             store::commands::read_text_file,
             store::commands::write_design_file,
+            store::commands::read_design_file,
             store::backgrounds::import_background,
             browser::commands::browser_open,
             browser::commands::browser_navigate,

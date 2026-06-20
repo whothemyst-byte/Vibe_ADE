@@ -28,7 +28,3 @@ export function makeEchoGuard(): EchoGuard {
     },
   };
 }
-
-export function shouldReloadOnConflict(loadedHash: string, onDiskHash: string): boolean {
-  return loadedHash !== onDiskHash;
-}

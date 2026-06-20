@@ -200,6 +200,18 @@ pub fn write_design_file(path: String, contents: String) -> Result<(), String> {
     write_atomic(p, contents.as_bytes()).map_err(|e| e.to_string())
 }
 
+/// Read a `*.design.json` document with no size cap (designs can embed image
+/// data-URLs and grow past the preview limit). Restricted to `.design.json` so
+/// it cannot become a general file-read primitive.
+#[tauri::command]
+pub fn read_design_file(path: String) -> Result<String, String> {
+    if !path.ends_with(".design.json") {
+        return Err("refusing to read a non-design file".to_string());
+    }
+    let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 #[cfg(test)]
 mod design_tests {
     use super::*;
@@ -219,5 +231,21 @@ mod design_tests {
         let p = dir.path().join("secrets.txt");
         let err = write_design_file(p.to_string_lossy().into_owned(), "x".to_string());
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn reads_a_design_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("ui.design.json");
+        fs::write(&p, "{\"x\":1}\n").unwrap();
+        let s = read_design_file(p.to_string_lossy().into_owned()).unwrap();
+        assert_eq!(s, "{\"x\":1}\n");
+    }
+
+    #[test]
+    fn read_rejects_non_design_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("secrets.txt");
+        assert!(read_design_file(p.to_string_lossy().into_owned()).is_err());
     }
 }

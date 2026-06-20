@@ -80,6 +80,11 @@ export function readTextFile(path: string): Promise<string> {
   return invoke<string>("read_text_file", { path });
 }
 
+/** Read a *.design.json with no size cap (designs may embed image data-URLs). */
+export function readDesignFile(path: string): Promise<string> {
+  return invoke<string>("read_design_file", { path });
+}
+
 /** Write a *.design.json (Rust enforces the extension and creates parent dirs). */
 export function writeDesignFile(path: string, contents: string): Promise<void> {
   return invoke("write_design_file", { path, contents });

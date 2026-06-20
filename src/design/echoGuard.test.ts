@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hashText, makeEchoGuard, shouldReloadOnConflict } from "./echoGuard";
+import { hashText, makeEchoGuard } from "./echoGuard";
 
 describe("hashText", () => {
   it("is stable and distinguishes different text", () => {
@@ -20,14 +20,5 @@ describe("echo guard", () => {
     const g = makeEchoGuard();
     g.markWritten("FILE-A");
     expect(g.isOwnEcho("FILE-B")).toBe(false);
-  });
-});
-
-describe("shouldReloadOnConflict", () => {
-  it("reloads when on-disk diverged from the loaded baseline", () => {
-    expect(shouldReloadOnConflict(hashText("base"), hashText("agent-edit"))).toBe(true);
-  });
-  it("does not reload when on-disk matches the baseline", () => {
-    expect(shouldReloadOnConflict(hashText("base"), hashText("base"))).toBe(false);
   });
 });

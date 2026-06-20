@@ -1,4 +1,4 @@
-import { loadIndex, readTextFile, writeDesignFile } from "../store/persistence";
+import { loadIndex, readDesignFile, writeDesignFile } from "../store/persistence";
 import { emptySceneJson } from "./normalize";
 
 /** One UI per space: a single well-known file under the space's project folder. */
@@ -20,7 +20,7 @@ export async function resolveDesignPath(wallId: string): Promise<string | null> 
 /** Ensure the file (and its parent `designs/` dir) exists before watching it.
  *  writeDesignFile creates parent directories. */
 export async function ensureDesignFile(path: string): Promise<void> {
-  const exists = await readTextFile(path).then(() => true).catch(() => false);
+  const exists = await readDesignFile(path).then(() => true).catch(() => false);
   if (!exists) await writeDesignFile(path, emptySceneJson());
 }
 

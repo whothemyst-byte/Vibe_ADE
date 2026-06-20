@@ -5,7 +5,7 @@ import { emptySceneJson } from "./normalize";
 
 vi.mock("../store/persistence", () => ({
   loadIndex: vi.fn(),
-  readTextFile: vi.fn(),
+  readDesignFile: vi.fn(),
   writeDesignFile: vi.fn(),
 }));
 
@@ -44,12 +44,12 @@ describe("resolveDesignPath", () => {
 describe("ensureDesignFile", () => {
   const path = "C:/proj/designs/ui.design.json";
   it("seeds an empty scene when the file is missing", async () => {
-    mocked.readTextFile.mockRejectedValue(new Error("not found"));
+    mocked.readDesignFile.mockRejectedValue(new Error("not found"));
     await ensureDesignFile(path);
     expect(mocked.writeDesignFile).toHaveBeenCalledWith(path, emptySceneJson());
   });
   it("leaves an existing file untouched", async () => {
-    mocked.readTextFile.mockResolvedValue("{}");
+    mocked.readDesignFile.mockResolvedValue("{}");
     await ensureDesignFile(path);
     expect(mocked.writeDesignFile).not.toHaveBeenCalled();
   });

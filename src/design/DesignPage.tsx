@@ -4,7 +4,7 @@ import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/t
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import { BackIcon } from "../wall/icons";
-import { readTextFile, writeDesignFile } from "../store/persistence";
+import { readDesignFile, writeDesignFile } from "../store/persistence";
 import { resolveDesignPath, ensureDesignFile } from "./designFile";
 import { serializeScene, parseScene, DEFAULT_BG, type SceneElement } from "./normalize";
 import { hashText, makeEchoGuard } from "./echoGuard";
@@ -53,14 +53,14 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       if (!path) { if (!cancelled) setError("This space has no project folder."); return; }
       pathRef.current = path;
       await ensureDesignFile(path);
-      const text = await readTextFile(path).catch((e) => { setError(String(e)); return null; });
+      const text = await readDesignFile(path).catch((e) => { setError(String(e)); return null; });
       if (text === null || cancelled) return;
       const r = parseScene(text);
       if (!r.ok) { setError(r.error); return; }
       loadedHash.current = hashText(text);
       setInitial({ elements: toEls(r.elements), appState: { viewBackgroundColor: r.viewBackgroundColor } });
       const un = await watchDesignFile(path, async () => {
-        const t = await readTextFile(path).catch(() => null);
+        const t = await readDesignFile(path).catch(() => null);
         if (t === null || cancelled) return;
         if (echo.current.isOwnEcho(t)) return;          // ignore our own write
         if (hashText(t) === loadedHash.current) return; // no real change
@@ -84,7 +84,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     if (hashText(text) === loadedHash.current) return; // load / reload / no-op change
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      const onDisk = await readTextFile(path).catch(() => null);
+      const onDisk = await readDesignFile(path).catch(() => null);
       // Agent changed the file under our in-progress edit -> agent wins.
       if (onDisk !== null && hashText(onDisk) !== loadedHash.current && !echo.current.isOwnEcho(onDisk)) {
         applyExternal(onDisk);
