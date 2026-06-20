@@ -1,4 +1,5 @@
 mod browser;
+mod design;
 mod oauth;
 mod pty;
 mod store;
@@ -32,6 +33,7 @@ pub fn run() {
         })
         .manage(pty::registry::PtyRegistry::new())
         .manage(browser::BrowserState::default())
+        .manage(design::DesignWatcher::default())
         .invoke_handler(tauri::generate_handler![
             pty::commands::pty_spawn,
             pty::commands::pty_write,
@@ -64,6 +66,8 @@ pub fn run() {
             browser::commands::browser_close,
             browser::commands::browser_read,
             browser::commands::browser_status,
+            design::design_watch,
+            design::design_unwatch,
             oauth::start_oauth_loopback,
         ])
         .run(tauri::generate_context!())
