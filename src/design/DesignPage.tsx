@@ -1,0 +1,121 @@
+import { useEffect, useRef, useState } from "react";
+import { Excalidraw, restoreElements } from "@excalidraw/excalidraw";
+import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import "@excalidraw/excalidraw/index.css";
+import { BackIcon } from "../wall/icons";
+import { readTextFile, writeDesignFile } from "../store/persistence";
+import { resolveDesignPath, ensureDesignFile } from "./designFile";
+import { serializeScene, parseScene, DEFAULT_BG, type SceneElement } from "./normalize";
+import { hashText, makeEchoGuard } from "./echoGuard";
+import { watchDesignFile } from "./watch";
+import { referenceInActiveTerminal } from "./reference";
+
+type Initial = { elements: ExcalidrawElement[]; appState: Partial<AppState> };
+
+const toEls = (e: SceneElement[]) =>
+  restoreElements(e as unknown as ExcalidrawElement[], null);
+
+export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => void }) {
+  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const pathRef = useRef<string | null>(null);
+  const loadedHash = useRef<string>("");
+  const echo = useRef(makeEchoGuard());
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [initial, setInitial] = useState<Initial | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
+
+  function applyExternal(text: string) {
+    const r = parseScene(text);
+    if (!r.ok) { setError(r.error); return; }
+    setError(null);
+    loadedHash.current = hashText(text);
+    apiRef.current?.updateScene({
+      elements: toEls(r.elements),
+      appState: { viewBackgroundColor: r.viewBackgroundColor },
+    });
+  }
+
+  // Resolve path -> seed -> load -> watch for agent edits.
+  useEffect(() => {
+    let cancelled = false;
+    let stop: (() => void) | undefined;
+    void (async () => {
+      const path = await resolveDesignPath(wallId);
+      if (!path) { if (!cancelled) setError("This space has no project folder."); return; }
+      pathRef.current = path;
+      await ensureDesignFile(path);
+      const text = await readTextFile(path).catch((e) => { setError(String(e)); return null; });
+      if (text === null || cancelled) return;
+      const r = parseScene(text);
+      if (!r.ok) { setError(r.error); return; }
+      loadedHash.current = hashText(text);
+      setInitial({ elements: toEls(r.elements), appState: { viewBackgroundColor: r.viewBackgroundColor } });
+      const un = await watchDesignFile(path, async () => {
+        const t = await readTextFile(path).catch(() => null);
+        if (t === null || cancelled) return;
+        if (echo.current.isOwnEcho(t)) return;          // ignore our own write
+        if (hashText(t) === loadedHash.current) return; // no real change
+        applyExternal(t);
+        flash("reloaded — agent updated this UI");
+      });
+      if (cancelled) un(); else stop = un;
+    })();
+    return () => { cancelled = true; stop?.(); if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [wallId]);
+
+  function onChange(elements: readonly ExcalidrawElement[], appState: AppState) {
+    const path = pathRef.current;
+    if (!path) return;
+    const text = serializeScene(elements as unknown as SceneElement[], appState.viewBackgroundColor ?? DEFAULT_BG);
+    if (hashText(text) === loadedHash.current) return; // load / reload / no-op change
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      const onDisk = await readTextFile(path).catch(() => null);
+      // Agent changed the file under our in-progress edit -> agent wins.
+      if (onDisk !== null && hashText(onDisk) !== loadedHash.current && !echo.current.isOwnEcho(onDisk)) {
+        applyExternal(onDisk);
+        flash("reloaded — agent updated this UI");
+        return;
+      }
+      echo.current.markWritten(text);
+      loadedHash.current = hashText(text);
+      await writeDesignFile(path, text).catch((e) => setError(String(e)));
+    }, 300);
+  }
+
+  async function reference() {
+    const path = pathRef.current;
+    if (!path) return;
+    const how = await referenceInActiveTerminal(path);
+    flash(how === "sent" ? "added to the focused terminal" : "no terminal focused — path copied");
+  }
+
+  return (
+    <div className="design-page">
+      <div className="design-topbar">
+        <button className="cnvs-btn" onClick={onBack} title="Back"><BackIcon /></button>
+        <span className="design-title">UI</span>
+        <span className="design-spacer" />
+        <button className="cnvs-btn design-ref" onClick={() => void reference()} title="Reference this UI in the focused terminal">
+          @ Reference in terminal
+        </button>
+      </div>
+      <div className="design-canvas">
+        {error && <div className="design-error">{error}</div>}
+        {initial && !error && (
+          <Excalidraw
+            excalidrawAPI={(api) => { apiRef.current = api; }}
+            initialData={initial}
+            theme="dark"
+            onChange={onChange}
+          />
+        )}
+      </div>
+      {toast && <div className="design-toast">{toast}</div>}
+    </div>
+  );
+}
