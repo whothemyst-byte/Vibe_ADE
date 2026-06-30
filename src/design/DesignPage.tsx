@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Excalidraw, restoreElements } from "@excalidraw/excalidraw";
-import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawImperativeAPI, AppState, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
-import { BackIcon } from "../wall/icons";
 import { readDesignFile, writeDesignFile } from "../store/persistence";
 import { resolveDesignPath, ensureDesignFile } from "./designFile";
 import { serializeScene, parseScene, DEFAULT_BG, type SceneElement } from "./normalize";
 import { hashText, makeEchoGuard } from "./echoGuard";
 import { watchDesignFile } from "./watch";
 import { referenceInActiveTerminal } from "./reference";
+import { DesignTopBar } from "./DesignTopBar";
+import { DesignLeftBar } from "./DesignLeftBar";
+import { DesignRightPanel } from "./DesignRightPanel";
 
 type Initial = { elements: ExcalidrawElement[]; appState: Partial<AppState> };
 
@@ -26,6 +28,11 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
   const [initial, setInitial] = useState<Initial | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  const [elements, setElements] = useState<readonly ExcalidrawElement[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
+  const [zoom, setZoom] = useState(1);
+  const [activeType, setActiveType] = useState("selection");
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -44,7 +51,6 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     });
   }
 
-  // Resolve path -> seed -> load -> watch for agent edits.
   useEffect(() => {
     let cancelled = false;
     let stop: (() => void) | undefined;
@@ -62,8 +68,8 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       const un = await watchDesignFile(path, async () => {
         const t = await readDesignFile(path).catch(() => null);
         if (t === null || cancelled) return;
-        if (echo.current.isOwnEcho(t)) return;          // ignore our own write
-        if (hashText(t) === loadedHash.current) return; // no real change
+        if (echo.current.isOwnEcho(t)) return;
+        if (hashText(t) === loadedHash.current) return;
         applyExternal(t);
         flash("reloaded — agent updated this UI");
       });
@@ -77,15 +83,19 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     };
   }, [wallId]);
 
-  function onChange(elements: readonly ExcalidrawElement[], appState: AppState) {
+  function onChange(els: readonly ExcalidrawElement[], appState: AppState) {
+    setElements(els);
+    setSelectedIds(appState.selectedElementIds as Record<string, boolean>);
+    setZoom(appState.zoom.value);
+    setActiveType((appState as { activeTool?: { type?: string } }).activeTool?.type ?? "selection");
+
     const path = pathRef.current;
     if (!path) return;
-    const text = serializeScene(elements as unknown as SceneElement[], appState.viewBackgroundColor ?? DEFAULT_BG);
-    if (hashText(text) === loadedHash.current) return; // load / reload / no-op change
+    const text = serializeScene(els as unknown as SceneElement[], appState.viewBackgroundColor ?? DEFAULT_BG);
+    if (hashText(text) === loadedHash.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       const onDisk = await readDesignFile(path).catch(() => null);
-      // Agent changed the file under our in-progress edit -> agent wins.
       if (onDisk !== null && hashText(onDisk) !== loadedHash.current && !echo.current.isOwnEcho(onDisk)) {
         applyExternal(onDisk);
         flash("reloaded — agent updated this UI");
@@ -104,16 +114,18 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     flash(how === "sent" ? "added to the focused terminal" : "no terminal focused — path copied");
   }
 
+  function zoomBy(delta: number) {
+    const api = apiRef.current;
+    if (!api) return;
+    const next = Math.min(4, Math.max(0.1, zoom + delta));
+    api.updateScene({ appState: { zoom: { value: next as NormalizedZoomValue } } });
+  }
+
   return (
     <div className="design-page">
-      <div className="design-topbar">
-        <button className="cnvs-btn" onClick={onBack} title="Back"><BackIcon /></button>
-        <span className="design-title">UI</span>
-        <span className="design-spacer" />
-        <button className="cnvs-btn design-ref" onClick={() => void reference()} title="Reference this UI in the focused terminal">
-          @ Reference in terminal
-        </button>
-      </div>
+      <DesignTopBar zoom={zoom} onBack={onBack} onReference={() => void reference()} />
+      <DesignLeftBar activeType={activeType} apiRef={apiRef} />
+
       <div className="design-canvas">
         {error && <div className="design-error">{error}</div>}
         {initial && !error && (
@@ -122,10 +134,28 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
             initialData={initial}
             theme="dark"
             onChange={onChange}
+            UIOptions={{
+              canvasActions: {
+                changeViewBackgroundColor: false,
+                clearCanvas: false,
+                loadScene: false,
+                saveToActiveFile: false,
+                toggleTheme: false,
+                export: false,
+                saveAsImage: false,
+              },
+            }}
           />
         )}
+        <div className="design-zoom-island">
+          <button className="design-zoom-btn" onClick={() => zoomBy(-0.1)} title="Zoom out">–</button>
+          <span className="design-zoom-pct">{Math.round(zoom * 100)}%</span>
+          <button className="design-zoom-btn" onClick={() => zoomBy(0.1)} title="Zoom in">+</button>
+        </div>
+        {toast && <div className="design-toast">{toast}</div>}
       </div>
-      {toast && <div className="design-toast">{toast}</div>}
+
+      <DesignRightPanel elements={elements} selectedIds={selectedIds} apiRef={apiRef} />
     </div>
   );
 }
