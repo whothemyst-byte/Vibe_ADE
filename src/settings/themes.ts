@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { Background } from "../store/types";
 
 /** A pre-made wall theme: a background plus a preview palette for the card. */
@@ -80,12 +81,12 @@ export function accentForBackground(bg: Background): string {
   return THEMES.find((t) => isThemeActive(bg, t))?.accent ?? DEFAULT_ACCENT;
 }
 
-/** Readable text color (#rrggbb) to lay on top of a filled accent button. */
-function onAccentText(accent: string): string {
-  const n = parseInt(accent.slice(1), 16);
+/** Readable text color (#rrggbb) to lay on top of a filled color. */
+export function readableTextColor(color: string): string {
+  const n = parseInt(color.slice(1), 16);
   if (Number.isNaN(n)) return "#20170a";
   const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  // Dark ink on light/mid accents; near-white on dark accents.
+  // Dark ink on light/mid colors; near-white on dark colors.
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 150 ? "#20170a" : "#fbf6ec";
 }
 
@@ -97,5 +98,30 @@ function onAccentText(accent: string): string {
 export function applyAccent(accent: string): void {
   const root = document.documentElement;
   root.style.setProperty("--accent", accent);
-  root.style.setProperty("--on-accent", onAccentText(accent));
+  root.style.setProperty("--on-accent", readableTextColor(accent));
+}
+
+/** Caption color used when no wall is open, or its background isn't a solid color. */
+export const DEFAULT_TITLEBAR_BG = "#12110f";
+
+/** Colors to paint the native Windows title bar with, mirroring the current view. */
+export function resolveTitlebarColors(
+  background: Background | null,
+  accent: string
+): { bg: string; text: string; border: string } {
+  const bg = background?.kind === "color" ? background.color : DEFAULT_TITLEBAR_BG;
+  return { bg, text: readableTextColor(bg), border: accent };
+}
+
+/**
+ * Pushes the resolved colors to the native title bar. Windows-only; the
+ * backend command no-ops elsewhere or on unsupported Windows builds, and any
+ * failure (including running outside Tauri, e.g. `npm run dev` in a browser)
+ * is swallowed since this is a purely cosmetic sync.
+ */
+export function syncTitlebar(background: Background | null): void {
+  const accent =
+    getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || DEFAULT_ACCENT;
+  const colors = resolveTitlebarColors(background, accent);
+  void invoke("set_titlebar_theme", colors).catch(() => {});
 }
