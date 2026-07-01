@@ -13,7 +13,7 @@ import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserAct
 import { removeCardWithFade } from "./removeCard";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
-import { browserLayout, CELL, fitCamera, gridBBox, gridPositions, splitLayout } from "./gridLayout";
+import { browserLayout, CELL, fitCamera, gridBBox, gridPositions, maximizeLayout, splitLayout } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
@@ -30,7 +30,7 @@ import { wasSessionDead, sendToSession, focusSession } from "./sessions";
 import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
 import { findPresetByPhrase } from "./presets";
-import { THEMES, accentForBackground, applyAccent, DEFAULT_ACCENT } from "../settings/themes";
+import { THEMES, accentForBackground, applyAccent, syncTitlebar, DEFAULT_ACCENT } from "../settings/themes";
 import { setPresenceSpace } from "../teams/presence";
 import { useOrgStore } from "../teams/orgStore";
 import { pushSharedScene } from "../teams/spaceSync";
@@ -115,6 +115,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         backgroundRef.current = res.doc.background;
         setBackground(res.doc.background);
         applyAccent(accentForBackground(res.doc.background));
+        syncTitlebar(res.doc.background);
         await saveWall(wallId, res.doc);
         setSharedNotice("Updated by a teammate — reloaded.");
         window.setTimeout(() => setSharedNotice(null), 4000);
@@ -167,6 +168,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       backgroundRef.current = bg;
       setBackground(bg);
       applyAccent(accentForBackground(bg));
+      syncTitlebar(bg);
       // Docs saved before agent names existed lack `name` - assign unique ones.
       // Terminals whose PTY died while this wall was closed are dropped.
       const names: string[] = [];
@@ -248,7 +250,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
    * calls this never re-fires for layout writes.
    */
   const layoutGrid = useCallback(() => {
-    const { cards, anchor } = useCardStore.getState();
+    const { cards, anchor, maximizedId } = useCardStore.getState();
     if (cards.length === 0) return;
     const api = apiRef.current;
     const st = api?.getAppState() as AppStateLike | undefined;
@@ -261,16 +263,19 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       a = { x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 };
       useCardStore.setState({ anchor: a });
     }
+    const maxIdx = maximizedId ? cards.findIndex((c) => c.id === maximizedId) : -1;
+    const maximize = maxIdx !== -1 ? maximizeLayout(maxIdx, cards.length, a) : null;
     // With a browser open it becomes the dominant left pane and terminals stack
     // in columns of two beside it. With no browser and 1–4 terminals, they tile
     // a fixed stage (1 full, 2 columns, 3–4 quartered). Otherwise (5+) the
     // uniform grid grows and the camera zooms out to fit.
     const hasBrowser = cards.some((c) => c.kind === "browser");
-    const split = !hasBrowser && cards.length <= 4 ? splitLayout(cards.length, a) : null;
-    const bl = hasBrowser ? browserLayout(cards.length - 1, a) : null;
-    const pos = split || bl ? null : gridPositions(cards.length, aspect, a);
+    const split = !maximize && !hasBrowser && cards.length <= 4 ? splitLayout(cards.length, a) : null;
+    const bl = !maximize && hasBrowser ? browserLayout(cards.length - 1, a) : null;
+    const pos = maximize || split || bl ? null : gridPositions(cards.length, aspect, a);
     let ti = 0;
     const rectOf = (c: Card, i: number): { x: number; y: number; w: number; h: number } => {
+      if (maximize) return maximize.rects[i];
       if (split) return split.rects[i];
       if (bl) {
         if (c.kind === "browser") return bl.browser;
@@ -289,7 +294,13 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       }),
     });
     if (api && st) {
-      const bbox = split ? split.bbox : bl ? bl.bbox : gridBBox(cards.length, aspect, a);
+      const bbox = maximize
+        ? maximize.bbox
+        : split
+        ? split.bbox
+        : bl
+        ? bl.bbox
+        : gridBBox(cards.length, aspect, a);
       const cam = fitCamera(bbox, screen);
       api.updateScene({
         appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
@@ -298,11 +309,12 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     }
   }, [applyCamera]);
 
-  // Re-layout whenever terminal membership or order changes, from any source.
+  // Re-layout whenever terminal membership, order, or maximized state changes.
   useEffect(() => {
-    let prevSig = useCardStore.getState().cards.map((c) => c.id).join("|");
+    const state = useCardStore.getState();
+    let prevSig = state.cards.map((c) => c.id).join("|") + ":" + (state.maximizedId ?? "");
     return useCardStore.subscribe((s) => {
-      const sig = s.cards.map((c) => c.id).join("|");
+      const sig = s.cards.map((c) => c.id).join("|") + ":" + (s.maximizedId ?? "");
       if (sig === prevSig) return;
       prevSig = sig;
       layoutGrid();
@@ -331,12 +343,12 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   };
 
   const changeBg = (bg: Background) => {
-    backgroundRef.current = bg; setBackground(bg); applyAccent(accentForBackground(bg)); scheduleSave();
+    backgroundRef.current = bg; setBackground(bg); applyAccent(accentForBackground(bg)); syncTitlebar(bg); scheduleSave();
   };
 
   // The accent is per-wall; restore the default amber when leaving the wall so
   // the start page / task board never inherit a space's accent.
-  useEffect(() => () => applyAccent(DEFAULT_ACCENT), []);
+  useEffect(() => () => { applyAccent(DEFAULT_ACCENT); syncTitlebar(null); }, []);
 
   const exit = async () => {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
