@@ -13,6 +13,7 @@ import { LoginPage } from "./auth/LoginPage";
 import { TeamsBootstrap } from "./teams/TeamsBootstrap";
 import { TeamsView } from "./teams/TeamsView";
 import { DesignPage } from "./design/DesignPage";
+import { syncTitlebar } from "./settings/themes";
 
 type View =
   | { kind: "start" }
@@ -34,6 +35,10 @@ export default function App() {
   useEffect(() => {
     void loadIndex().then((i) => { wallsRef.current = i; });
   }, [view]);
+
+  useEffect(() => {
+    if (view.kind !== "wall") syncTitlebar(null);
+  }, [view.kind]);
   useVibeContext("app", () => {
     const where =
       view.kind === "start" ? "start page"
