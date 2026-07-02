@@ -560,10 +560,6 @@ git commit -m "feat(design): z-order reordering (front/back/forward/backward)
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
 
-### Task 3: `zorder.ts` — z-order reordering
-
-(placeholder — task body below)
-
 ### Task 4: `designStore.ts` — multi-select selector + snap state
 
 **Files:**
