@@ -9,8 +9,7 @@ import { serializeScene, parseScene, DEFAULT_BG, type SceneElement } from "./nor
 import { hashText, makeEchoGuard } from "./echoGuard";
 import { watchDesignFile } from "./watch";
 import { referenceInActiveTerminal } from "./reference";
-import { createDesignStore, type DesignStore, type StoreElement } from "./designStore";
-import { useDesignSelector } from "./useDesignSelector";
+import { createDesignStore, type StoreElement } from "./designStore";
 import { applyExternalScene } from "./commit";
 import { makeSaver, type Saver } from "./saver";
 import { DesignTopBar } from "./DesignTopBar";
@@ -22,23 +21,6 @@ type Initial = { elements: ExcalidrawElement[]; appState: Partial<AppState> };
 
 const toEls = (e: SceneElement[]) =>
   restoreElements(e as unknown as ExcalidrawElement[], null);
-
-/** Temporary bridge to the pre-store DesignRightPanel props; Task 7 rewrites
- *  the panel to subscribe itself and deletes this adapter. */
-function RightPanelAdapter({ store, apiRef }: {
-  store: DesignStore;
-  apiRef: React.RefObject<ExcalidrawImperativeAPI | null>;
-}) {
-  const elements = useDesignSelector(store, (s) => s.elements);
-  const selectedIds = useDesignSelector(store, (s) => s.selectedIds);
-  return (
-    <DesignRightPanel
-      elements={elements as unknown as readonly ExcalidrawElement[]}
-      selectedIds={selectedIds as Record<string, boolean>}
-      apiRef={apiRef}
-    />
-  );
-}
 
 export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
@@ -203,7 +185,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
         {toast && <div className="design-toast">{toast}</div>}
       </div>
 
-      <RightPanelAdapter store={storeRef.current} apiRef={apiRef} />
+      <DesignRightPanel store={storeRef.current} apiRef={apiRef} />
     </div>
   );
 }
