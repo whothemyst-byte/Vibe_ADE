@@ -866,7 +866,3 @@ Testable items verified by the implementer; visual/runtime items by the user aft
 - PNG and SVG export for whole canvas / selection / single frame via the Tauri save dialog; copy-as-PNG to clipboard; hidden elements excluded; PNG has background, SVG transparent (Tasks 1, 2, 4).
 - "Reference in terminal" with a frame selected writes `designs/ui.design.<slug>.png` and references both files (Task 6).
 - File format unchanged; export writes are extension-guarded in Rust (Task 1).
-
-### Task 6: Frame-aware "Reference in terminal" with rendered PNG
-
-(placeholder)
