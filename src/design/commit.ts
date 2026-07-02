@@ -4,7 +4,8 @@
 import { CaptureUpdateAction } from "@excalidraw/excalidraw";
 import type { AppState, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
-import { applyPatches, type El, type Patch } from "./commitCore";
+import { applyPatches, bumpElement, type El, type Patch } from "./commitCore";
+import { reorderElements, type ZOp } from "./zorder";
 
 export function commitPatches(
   api: ExcalidrawImperativeAPI,
@@ -47,4 +48,56 @@ export function setViewport(
     appState: { zoom: { value: v.zoom as NormalizedZoomValue }, scrollX: v.scrollX, scrollY: v.scrollY },
     captureUpdate: CaptureUpdateAction.NEVER,
   });
+}
+
+/** Reorder the scene array (z-order). Moved elements are bumped so the
+ *  change is never reconciled away. One undo step. */
+export function commitReorder(api: ExcalidrawImperativeAPI, op: ZOp): void {
+  const els = api.getSceneElements() as unknown as readonly El[];
+  const sel = api.getAppState().selectedElementIds as Record<string, boolean>;
+  const next = reorderElements(els, sel, op);
+  if (!next) return;
+  const oldIndex = new Map(els.map((e, i) => [e.id, i]));
+  const bumped = next.map((e, i) => (oldIndex.get(e.id) === i ? e : bumpElement(e)));
+  api.updateScene({
+    elements: bumped as unknown as ExcalidrawElement[],
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+}
+
+/** After grouping, select the new group like Excalidraw would. */
+export function setSelectedGroup(
+  api: ExcalidrawImperativeAPI,
+  groupId: string,
+  memberIds: string[],
+): void {
+  api.updateScene({
+    appState: {
+      selectedGroupIds: { [groupId]: true },
+      selectedElementIds: Object.fromEntries(memberIds.map((id) => [id, true])) as AppState["selectedElementIds"],
+    },
+    captureUpdate: CaptureUpdateAction.EVENTUALLY,
+  });
+}
+
+export function setSnapMode(api: ExcalidrawImperativeAPI, on: boolean): void {
+  api.updateScene({
+    appState: { objectsSnapModeEnabled: on },
+    captureUpdate: CaptureUpdateAction.NEVER,
+  });
+}
+
+/** Select from the layers list the way the canvas would: a grouped element
+ *  selects its whole outermost group. */
+export function selectSmart(api: ExcalidrawImperativeAPI, id: string): void {
+  const els = api.getSceneElements();
+  const outerOf = (e: unknown): string | null => {
+    const g = (e as { groupIds?: readonly string[] }).groupIds;
+    return g?.length ? g[g.length - 1] : null;
+  };
+  const target = els.find((e) => e.id === id);
+  const outer = target ? outerOf(target) : null;
+  if (!outer) { selectOnly(api, id); return; }
+  const memberIds = els.filter((e) => outerOf(e) === outer).map((e) => e.id);
+  setSelectedGroup(api, outer, memberIds);
 }
