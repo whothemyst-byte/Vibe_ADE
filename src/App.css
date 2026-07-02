@@ -51,7 +51,11 @@
 .terminal-layer { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
 .terminal-window {
   position: absolute; top: 0; left: 0; will-change: transform;
-  border: 1px solid var(--rule); border-radius: var(--radius); background: var(--bg); overflow: hidden;
+  border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden;
+  /* Same glass recipe as .titlebar so the wall shows through blurred behind
+     the whole card, text included, not just the header/footer chrome. */
+  background: rgba(18, 17, 15, .28); backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
   box-shadow: var(--shadow);
   /* transform/size glide the grid re-flow; drag suppresses it inline. */
   transition: border-color .14s, box-shadow .14s,
@@ -59,6 +63,22 @@
   animation: card-fade-in .22s ease;
 }
 .terminal-window:focus-within { border-color: var(--accent); box-shadow: var(--focus), var(--shadow); }
+/* Glossy terminals (Settings -> Terminal): a whole-card glass sheen, toggleable.
+   Smoked-glass look: lighter tint so the wall's colors bleed through, an amber
+   hairline on every card, and a top-sheen-to-bottom-shade vertical gradient. */
+.terminal-window[data-glossy="true"] {
+  background: rgba(14, 13, 11, .22);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(243, 238, 229, .07);
+}
+.terminal-window[data-glossy="true"]::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(243, 238, 229, .09) 0%, rgba(243, 238, 229, .02) 26%,
+    rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, .22) 100%
+  );
+}
 .terminal-header {
   position: absolute; top: 0; left: 0; right: 0;
   display: flex; align-items: center; gap: 8px;
@@ -66,6 +86,11 @@
   background: var(--glass); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--rule); border-radius: var(--radius) var(--radius) 0 0;
   pointer-events: all; cursor: grab; user-select: none;
+}
+.terminal-window[data-glossy="true"] .terminal-header {
+  /* Translucent instead of var(--glass) so header + body read as one glass sheet. */
+  background: linear-gradient(to bottom, rgba(243, 238, 229, .10), rgba(243, 238, 229, 0) 60%), rgba(22, 20, 17, .35);
+  box-shadow: inset 0 1px 0 rgba(243, 238, 229, .12);
 }
 .terminal-header:active { cursor: grabbing; }
 .terminal-status-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-faint); transition: background .2s; }
@@ -80,6 +105,9 @@
   font: 500 10px var(--font-mono); color: var(--text-faint);
   background: var(--glass); border-top: 1px solid var(--rule);
   pointer-events: all; user-select: none;
+}
+.terminal-window[data-glossy="true"] .terminal-status {
+  background: linear-gradient(to bottom, rgba(243, 238, 229, .04), rgba(243, 238, 229, 0) 70%), rgba(22, 20, 17, .35);
 }
 .terminal-window[data-working="true"] .terminal-status { color: var(--accent); }
 .terminal-title {
@@ -102,8 +130,15 @@
 }
 .terminal-close svg { width: 12px; height: 12px; display: block; }
 .terminal-close:hover { background: rgba(192, 86, 63, .16); color: var(--danger); }
-.terminal-body { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: all; background: var(--bg); padding: 4px; }
+.terminal-body { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: all; background: transparent; padding: 4px; }
 .terminal-host { width: 100%; height: 100%; }
+/* xterm.css paints .xterm-viewport opaque black (`.xterm .xterm-viewport`, for
+   macOS scrollbar opacity). This override needs THREE class selectors: at equal
+   specificity the winner is bundle order, which Vite doesn't guarantee between
+   App.css and xterm's stylesheet. The theme background itself is transparent
+   (allowTransparency + rgba(0,0,0,0)), so with the viewport cleared the card's
+   glass shows through around the glyphs. */
+.terminal-body .xterm .xterm-viewport { background-color: transparent; }
 
 /* ---- Card enter/exit (opacity only: transform carries world position) ---- */
 @keyframes card-fade-in {
@@ -225,15 +260,29 @@
 }
 .cnvs-menu-item:hover { background: rgba(243, 238, 229, .06); color: var(--text); }
 .cnvs-menu-item.active { color: var(--accent); }
+/* Page swaps (start / space / taskboard / teams / design) run as view
+   transitions (see setView in App.tsx): the old page fades out while the new
+   one fades up, replacing the old hard cut. */
+::view-transition-old(root) {
+  animation: page-out .2s ease both;
+}
+::view-transition-new(root) {
+  animation: page-in .3s cubic-bezier(.22, .8, .36, 1) both;
+}
+@keyframes page-out {
+  to { opacity: 0; }
+}
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px) scale(.995); }
   to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 1ms; }
 }
 .start-page {
   position: fixed; inset: 0; overflow: auto; padding: 28px 32px;
   background: radial-gradient(1100px 500px at 18% -8%, #1b1813 0%, var(--bg) 55%);
   color: var(--text); font-family: var(--font-ui);
-  animation: page-in .22s ease-out;
 }
 .start-page.drag-over { outline: 2px dashed var(--accent); outline-offset: -10px; }
 .start-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
@@ -359,8 +408,8 @@
 .set-icon-btn svg { width: 12px; height: 12px; }
 .set-preset .terminal-status-dot { animation: none; }
 .theme-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
-  gap: 12px; margin-bottom: 22px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 10px; margin-bottom: 22px;
 }
 .theme-card {
   display: flex; flex-direction: column; padding: 0; cursor: pointer; text-align: left;
@@ -370,13 +419,15 @@
 .theme-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: rgba(243, 238, 229, .25); }
 .theme-card.active { border-color: var(--accent); box-shadow: var(--focus); }
 .theme-preview {
-  display: flex; align-items: flex-start; gap: 5px; height: 56px; padding: 9px 10px;
-  border-bottom: 1px solid rgba(127, 127, 127, .18);
+  display: flex; align-items: flex-start; gap: 5px; height: 60px; padding: 7px 8px;
+  border-bottom: 1px solid rgba(127, 127, 127, .18); overflow: hidden; position: relative;
 }
-.theme-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
-.theme-meta { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px 9px; }
-.theme-name { font-family: var(--font-display); font-size: 15px; color: #f3eee5; }
-.theme-tagline { font-family: var(--font-mono); font-size: 9.5px; color: rgba(243, 238, 229, .45); }
+.theme-preview-video {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+}
+.theme-meta { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px 7px; }
+.theme-name { font-family: var(--font-display); font-size: 13px; color: #f3eee5; }
+.theme-tagline { font-family: var(--font-mono); font-size: 8.5px; color: rgba(243, 238, 229, .45); }
 .theme-meta.on-light .theme-name { color: #2a2620; }
 .theme-meta.on-light .theme-tagline { color: rgba(42, 38, 32, .6); }
 .set-bg-picker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -392,8 +443,17 @@
   position: fixed; inset: 0; display: flex; flex-direction: column;
   background: radial-gradient(1100px 520px at 50% -12%, #1b1813 0%, var(--bg) 56%);
   color: var(--text); font-family: var(--font-ui);
-  animation: page-in .22s ease-out;
 }
+/* Themed board: the space's own background (color/image/video) renders behind
+   the columns via .wall-bg, so the board's UI goes glassy like the wall's. */
+.taskboard.themed { background: none; }
+.taskboard.themed .tb-col { background: var(--glass); backdrop-filter: blur(10px); }
+.taskboard.themed .tb-col.drag-over { background: var(--glass); }
+.taskboard.themed .tb-card {
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+}
+.taskboard.themed .tb-card-desc { background: color-mix(in srgb, var(--bg) 55%, transparent); }
+.taskboard.themed .tb-menu { background: var(--surface); }
 /* Taskboard header reuses the wall's floating toolbar (.cnvs-toolbar). */
 .tb-name { font-family: var(--font-display); font-size: 15px; cursor: default; }
 .tb-name:hover { background: transparent; color: var(--text); }
@@ -828,7 +888,66 @@
 .design-zoom-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); font: 600 13px var(--font-ui); transition: background .12s, color .12s; }
 .design-zoom-btn:hover { background: rgba(243,238,229,.06); color: var(--text); }
 .design-zoom-pct { font: 500 11.5px var(--font-mono); color: var(--text-muted); min-width: 38px; text-align: center; }
+.design-zoom-btn.wide { width: auto; padding: 0 8px; font-size: 10px; }
+button.design-zoom-pct { background: none; border: none; cursor: pointer; border-radius: var(--radius-sm); transition: background .12s, color .12s; }
+button.design-zoom-pct:hover { background: rgba(243,238,229,.06); color: var(--text); }
 
 .design-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; text-align: center; color: var(--danger); font: 500 13px var(--font-mono); }
 .design-toast { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); background: var(--glass); border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 7px 14px; color: var(--text); font: 500 12px var(--font-ui); box-shadow: var(--shadow); z-index: 30; white-space: nowrap; }
 .mycard-photo-actions { display: flex; align-items: center; gap: 8px; }
+
+/* Custom glassy title bar (Windows: decorations:false; macOS: drag/blur strip
+   alongside the native traffic lights). Fixed + on top so the app's own
+   background shows through blurred, instead of a separate opaque strip. */
+.titlebar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--titlebar-h); z-index: 10000;
+  display: flex; align-items: stretch; justify-content: space-between;
+  background: rgba(18, 17, 15, .28); backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border-bottom: 1px solid rgba(243, 238, 229, .10); user-select: none;
+}
+.titlebar::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .10) 0%, rgba(255, 255, 255, .02) 55%, rgba(255, 255, 255, 0) 100%);
+}
+.titlebar-drag {
+  flex: 1; display: flex; align-items: center; gap: 7px; padding-left: 10px; min-width: 0;
+}
+.titlebar-mac .titlebar-drag { padding-left: 78px; }
+.titlebar-icon { width: 13px; height: 13px; border-radius: 3px; pointer-events: none; }
+.titlebar-title {
+  font: 500 11px var(--font-ui); color: var(--titlebar-ink); opacity: .75; pointer-events: none;
+}
+.titlebar-controls { display: flex; height: 100%; }
+.titlebar-btn {
+  width: 42px; height: 100%; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--titlebar-ink); cursor: default; transition: background .1s, color .1s;
+}
+/* Ink tracks readable contrast for whatever's behind the bar (see applyChromeInk) —
+   dark on a light wall like the Light theme, light on a dark one — not the theme's
+   accent color, which can be too close in tone to a light background to read. */
+.titlebar-btn:hover { background: color-mix(in srgb, var(--titlebar-ink) 14%, transparent); }
+.titlebar-btn-close:hover { background: #e81123; color: #fff; }
+
+/* Invisible edge/corner hit zones for resizing the frameless Windows window. */
+.resize-handle { position: fixed; z-index: 10001; }
+.rh-n { top: 0; left: 8px; right: 8px; height: 4px; cursor: n-resize; }
+.rh-s { bottom: 0; left: 8px; right: 8px; height: 4px; cursor: s-resize; }
+.rh-w { top: 0; bottom: 0; left: 0; width: 4px; cursor: w-resize; }
+.rh-e { top: 0; bottom: 0; right: 0; width: 4px; cursor: e-resize; }
+.rh-nw { top: 0; left: 0; width: 8px; height: 8px; cursor: nw-resize; }
+.rh-ne { top: 0; right: 0; width: 8px; height: 8px; cursor: ne-resize; }
+.rh-sw { bottom: 0; left: 0; width: 8px; height: 8px; cursor: sw-resize; }
+.rh-se { bottom: 0; right: 0; width: 8px; height: 8px; cursor: se-resize; }
+
+/* Clearance for floating top-anchored chrome that would otherwise sit under
+   the custom title bar. Scoped to html.has-custom-titlebar (toggled by
+   TitleBar) so Linux, which keeps the native title bar and none of this
+   extra webview space, is unaffected. */
+html.has-custom-titlebar .launch { top: calc(var(--titlebar-h) + 16px); }
+html.has-custom-titlebar .tb-launch { top: calc(var(--titlebar-h) + 16px); }
+html.has-custom-titlebar .cnvs-toolbar { top: calc(var(--titlebar-h) + 12px); }
+html.has-custom-titlebar .wall-shared-badge { top: calc(var(--titlebar-h) + 12px); }
+html.has-custom-titlebar .design-page { padding-top: var(--titlebar-h); }
+html.has-custom-titlebar .tb-columns { padding-top: calc(var(--titlebar-h) + 60px); }
+html.has-custom-titlebar .start-page { padding-top: calc(var(--titlebar-h) + 8px); }
