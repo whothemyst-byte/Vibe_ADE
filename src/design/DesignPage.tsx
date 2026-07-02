@@ -136,6 +136,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       width: appState.width,
       height: appState.height,
       activeType: (appState as { activeTool?: { type?: string } }).activeTool?.type ?? "selection",
+      snapOn: (appState as { objectsSnapModeEnabled?: boolean }).objectsSnapModeEnabled ?? true,
     });
     // serialization happens at debounce-fire time, not per frame
     saverRef.current?.schedule(() =>

@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   createDesignStore, EMPTY_SNAPSHOT, selectLayers, layersEqual,
-  selectInspector, inspectorEqual, type DesignSnapshot, type StoreElement,
+  selectInspector, inspectorEqual, selectSelection, selectionEqual, selectSnapOn,
+  type DesignSnapshot, type StoreElement,
 } from "./designStore";
 
 const el = (over: Partial<StoreElement> = {}): StoreElement => ({
@@ -105,5 +106,75 @@ describe("selectInspector", () => {
     expect(inspectorEqual(selectInspector(a), selectInspector(c))).toBe(false);
     expect(inspectorEqual(null, null)).toBe(true);
     expect(inspectorEqual(selectInspector(a), null)).toBe(false);
+  });
+});
+
+describe("selectSelection (multi)", () => {
+  it("is null when nothing is selected", () => {
+    expect(selectSelection(snap({ elements: [el()] }))).toBeNull();
+  });
+  it("mirrors the single-element values for a 1-selection", () => {
+    const s = snap({ elements: [el({ id: "a" })], selectedIds: { a: true } });
+    const m = selectSelection(s)!;
+    expect(m.ids).toEqual(["a"]);
+    expect(m.count).toBe(1);
+    expect(m.x).toBe(10);
+    expect(m.type).toBe("rectangle");
+    expect(m.fontSize).toBeNull();
+    expect(m.hasLinear).toBe(false);
+    expect(m.sharedGroup).toBeNull();
+  });
+  it("reports uniform values and marks differing ones as mixed", () => {
+    const s = snap({
+      elements: [
+        el({ id: "a", x: 0, opacity: 50 }),
+        el({ id: "b", x: 40, opacity: 50 }),
+      ],
+      selectedIds: { a: true, b: true },
+    });
+    const m = selectSelection(s)!;
+    expect(m.count).toBe(2);
+    expect(m.x).toBe("mixed");
+    expect(m.opacity).toBe(50);
+    expect(m.width).toBe(100);
+  });
+  it("flags linear types and shared groups", () => {
+    const s = snap({
+      elements: [
+        el({ id: "a", type: "arrow", groupIds: ["G"] }),
+        el({ id: "b", groupIds: ["G"] }),
+      ],
+      selectedIds: { a: true, b: true },
+    });
+    const m = selectSelection(s)!;
+    expect(m.hasLinear).toBe(true);
+    expect(m.sharedGroup).toBe("G");
+    expect(m.type).toBe("mixed");
+  });
+  it("fontSize: null without text, value when uniform, mixed when not", () => {
+    const noText = snap({ elements: [el({ id: "a" })], selectedIds: { a: true } });
+    expect(selectSelection(noText)!.fontSize).toBeNull();
+    const uniform = snap({
+      elements: [el({ id: "t", type: "text", fontSize: 24 }), el({ id: "u", type: "text", fontSize: 24 })],
+      selectedIds: { t: true, u: true },
+    });
+    expect(selectSelection(uniform)!.fontSize).toBe(24);
+    const mixed = snap({
+      elements: [el({ id: "t", type: "text", fontSize: 24 }), el({ id: "u", type: "text", fontSize: 12 })],
+      selectedIds: { t: true, u: true },
+    });
+    expect(selectSelection(mixed)!.fontSize).toBe("mixed");
+  });
+  it("selectionEqual compares by value, including ids", () => {
+    const a = snap({ elements: [el({ id: "a" })], selectedIds: { a: true } });
+    const b = snap({ elements: [el({ id: "a" })], selectedIds: { a: true } });
+    const c = snap({ elements: [el({ id: "a", x: 500 })], selectedIds: { a: true } });
+    expect(selectionEqual(selectSelection(a), selectSelection(b))).toBe(true);
+    expect(selectionEqual(selectSelection(a), selectSelection(c))).toBe(false);
+    expect(selectionEqual(null, null)).toBe(true);
+    expect(selectionEqual(selectSelection(a), null)).toBe(false);
+  });
+  it("snapOn defaults to true in the empty snapshot", () => {
+    expect(selectSnapOn(snap())).toBe(true);
   });
 });
