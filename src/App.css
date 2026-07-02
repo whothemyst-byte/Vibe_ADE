@@ -897,6 +897,12 @@ button.design-zoom-pct:hover { background: rgba(243,238,229,.06); color: var(--t
 .design-action-btn:hover { background: rgba(243,238,229,.06); color: var(--text); }
 .design-action-sep { width: 1px; height: 14px; background: var(--rule); margin: 0 3px; }
 .design-snap.active { color: var(--accent); }
+.design-shortcuts-backdrop { position: absolute; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: grid; place-items: center; }
+.design-shortcuts { min-width: 320px; background: var(--glass); backdrop-filter: blur(14px); border: 1px solid var(--rule); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 14px 16px; }
+.design-shortcuts-head { font: 500 12px var(--font-display); color: var(--text); margin-bottom: 10px; }
+.design-shortcuts-row { display: flex; justify-content: space-between; gap: 24px; padding: 3px 0; }
+.design-shortcuts-keys { font: 500 11px var(--font-mono); color: var(--text); white-space: nowrap; }
+.design-shortcuts-what { font: 400 11.5px var(--font-ui); color: var(--text-muted); }
 
 .design-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; text-align: center; color: var(--danger); font: 500 13px var(--font-mono); }
 .design-toast { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); background: var(--glass); border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 7px 14px; color: var(--text); font: 500 12px var(--font-ui); box-shadow: var(--shadow); z-index: 30; white-space: nowrap; }

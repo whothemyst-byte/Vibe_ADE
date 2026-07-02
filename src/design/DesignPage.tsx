@@ -16,6 +16,8 @@ import { DesignTopBar } from "./DesignTopBar";
 import { DesignLeftBar } from "./DesignLeftBar";
 import { DesignRightPanel } from "./DesignRightPanel";
 import { DesignZoomIsland } from "./DesignZoomIsland";
+import { fitAll, fitSelection } from "./viewport";
+import { DesignShortcuts } from "./DesignShortcuts";
 
 type Initial = { elements: ExcalidrawElement[]; appState: Partial<AppState> };
 
@@ -34,6 +36,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
   const [initial, setInitial] = useState<Initial | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -126,6 +129,30 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     };
   }, [wallId]);
 
+  // Capture phase + stopPropagation keeps Excalidraw's own "?" help dialog
+  // closed; typing targets are exempt.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable)) return;
+      const api = apiRef.current;
+      if (e.key === "?") {
+        e.preventDefault(); e.stopPropagation();
+        setShowShortcuts((v) => !v);
+      } else if (e.key === "Escape") {
+        setShowShortcuts(false); // no preventDefault: Escape still deselects on canvas
+      } else if (e.shiftKey && e.code === "Digit1" && api) {
+        e.preventDefault(); e.stopPropagation();
+        fitAll(api);
+      } else if (e.shiftKey && e.code === "Digit2" && api) {
+        e.preventDefault(); e.stopPropagation();
+        fitSelection(api, storeRef.current.get().selectedIds);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   function onChange(els: readonly ExcalidrawElement[], appState: AppState) {
     bgRef.current = appState.viewBackgroundColor ?? DEFAULT_BG;
     storeRef.current.set({
@@ -188,6 +215,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       </div>
 
       <DesignRightPanel store={storeRef.current} apiRef={apiRef} />
+      {showShortcuts && <DesignShortcuts onClose={() => setShowShortcuts(false)} />}
     </div>
   );
 }

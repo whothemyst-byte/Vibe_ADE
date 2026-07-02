@@ -1,6 +1,7 @@
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { anchoredZoom, stepZoom } from "./zoom";
 import { setViewport } from "./commit";
+import { fitAll, fitSelection } from "./viewport";
 import { selectZoom, type DesignStore } from "./designStore";
 import { useDesignSelector } from "./useDesignSelector";
 
@@ -20,22 +21,6 @@ export function DesignZoomIsland({ store, apiRef }: {
     ));
   }
 
-  function fitAll() {
-    apiRef.current?.scrollToContent(undefined, {
-      fitToViewport: true, viewportZoomFactor: 0.9, animate: true,
-    });
-  }
-
-  function fitSelection() {
-    const api = apiRef.current;
-    if (!api) return;
-    const sel = store.get().selectedIds;
-    const els = api.getSceneElements().filter((e) => sel[e.id]);
-    if (els.length) api.scrollToContent(els, {
-      fitToViewport: true, viewportZoomFactor: 0.7, animate: true,
-    });
-  }
-
   return (
     <div className="design-zoom-island">
       <button className="design-zoom-btn" onClick={() => applyZoom(stepZoom(zoom, -1))} title="Zoom out">–</button>
@@ -44,8 +29,8 @@ export function DesignZoomIsland({ store, apiRef }: {
       </button>
       <button className="design-zoom-btn" onClick={() => applyZoom(stepZoom(zoom, 1))} title="Zoom in">+</button>
       <span className="design-tool-sep" />
-      <button className="design-zoom-btn wide" onClick={fitAll} title="Zoom to fit everything">Fit</button>
-      <button className="design-zoom-btn wide" onClick={fitSelection} title="Zoom to selection">Sel</button>
+      <button className="design-zoom-btn wide" onClick={() => { const api = apiRef.current; if (api) fitAll(api); }} title="Zoom to fit everything (Shift+1)">Fit</button>
+      <button className="design-zoom-btn wide" onClick={() => { const api = apiRef.current; if (api) fitSelection(api, store.get().selectedIds); }} title="Zoom to selection (Shift+2)">Sel</button>
     </div>
   );
 }
