@@ -103,6 +103,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
           currentItemRoughness: 0,
           currentItemRoundness: "sharp",
           currentItemFontFamily: 2,
+          objectsSnapModeEnabled: true,
         },
       });
       const un = await watchDesignFile(path, async () => {
@@ -158,7 +159,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
 
   return (
     <div className="design-page">
-      <DesignTopBar store={storeRef.current} onBack={handleBack} onReference={() => void reference()} />
+      <DesignTopBar store={storeRef.current} apiRef={apiRef} onBack={handleBack} onReference={() => void reference()} />
       <DesignLeftBar store={storeRef.current} apiRef={apiRef} />
 
       <div className="design-canvas">

@@ -896,6 +896,7 @@ button.design-zoom-pct:hover { background: rgba(243,238,229,.06); color: var(--t
 .design-action-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 22px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); transition: background .12s, color .12s; }
 .design-action-btn:hover { background: rgba(243,238,229,.06); color: var(--text); }
 .design-action-sep { width: 1px; height: 14px; background: var(--rule); margin: 0 3px; }
+.design-snap.active { color: var(--accent); }
 
 .design-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; text-align: center; color: var(--danger); font: 500 13px var(--font-mono); }
 .design-toast { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); background: var(--glass); border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 7px 14px; color: var(--text); font: 500 12px var(--font-ui); box-shadow: var(--shadow); z-index: 30; white-space: nowrap; }
