@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Excalidraw, restoreElements } from "@excalidraw/excalidraw";
-import type { ExcalidrawImperativeAPI, AppState, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import { readDesignFile, writeDesignFile } from "../store/persistence";
@@ -9,30 +9,49 @@ import { serializeScene, parseScene, DEFAULT_BG, type SceneElement } from "./nor
 import { hashText, makeEchoGuard } from "./echoGuard";
 import { watchDesignFile } from "./watch";
 import { referenceInActiveTerminal } from "./reference";
+import { createDesignStore, type DesignStore, type StoreElement } from "./designStore";
+import { useDesignSelector } from "./useDesignSelector";
+import { applyExternalScene } from "./commit";
+import { makeSaver, type Saver } from "./saver";
 import { DesignTopBar } from "./DesignTopBar";
 import { DesignLeftBar } from "./DesignLeftBar";
 import { DesignRightPanel } from "./DesignRightPanel";
+import { DesignZoomIsland } from "./DesignZoomIsland";
 
 type Initial = { elements: ExcalidrawElement[]; appState: Partial<AppState> };
 
 const toEls = (e: SceneElement[]) =>
   restoreElements(e as unknown as ExcalidrawElement[], null);
 
+/** Temporary bridge to the pre-store DesignRightPanel props; Task 7 rewrites
+ *  the panel to subscribe itself and deletes this adapter. */
+function RightPanelAdapter({ store, apiRef }: {
+  store: DesignStore;
+  apiRef: React.RefObject<ExcalidrawImperativeAPI | null>;
+}) {
+  const elements = useDesignSelector(store, (s) => s.elements);
+  const selectedIds = useDesignSelector(store, (s) => s.selectedIds);
+  return (
+    <DesignRightPanel
+      elements={elements as unknown as readonly ExcalidrawElement[]}
+      selectedIds={selectedIds as Record<string, boolean>}
+      apiRef={apiRef}
+    />
+  );
+}
+
 export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const storeRef = useRef(createDesignStore());
   const pathRef = useRef<string | null>(null);
   const loadedHash = useRef<string>("");
   const echo = useRef(makeEchoGuard());
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bgRef = useRef<string>(DEFAULT_BG);
+  const saverRef = useRef<Saver | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [initial, setInitial] = useState<Initial | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-
-  const [elements, setElements] = useState<readonly ExcalidrawElement[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
-  const [zoom, setZoom] = useState(1);
-  const [activeType, setActiveType] = useState("selection");
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -45,15 +64,44 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     if (!r.ok) { setError(r.error); return; }
     setError(null);
     loadedHash.current = hashText(text);
-    apiRef.current?.updateScene({
-      elements: toEls(r.elements),
-      appState: { viewBackgroundColor: r.viewBackgroundColor },
-    });
+    bgRef.current = r.viewBackgroundColor;
+    const api = apiRef.current;
+    if (api) applyExternalScene(api, toEls(r.elements), r.viewBackgroundColor);
+  }
+
+  /** Saver write-through: skips no-ops, yields to newer on-disk agent edits,
+   *  owns echo-guard + loaded-hash bookkeeping. Rethrows write failures so
+   *  the saver keeps the payload dirty and retries. */
+  async function writeThrough(text: string) {
+    const path = pathRef.current;
+    if (!path) return;
+    if (hashText(text) === loadedHash.current) return;
+    const onDisk = await readDesignFile(path).catch(() => null);
+    if (onDisk !== null && hashText(onDisk) !== loadedHash.current && !echo.current.isOwnEcho(onDisk)) {
+      applyExternal(onDisk);
+      flash("reloaded — agent updated this UI");
+      return;
+    }
+    echo.current.markWritten(text);
+    loadedHash.current = hashText(text);
+    try {
+      await writeDesignFile(path, text);
+      setError(null);
+    } catch (e) {
+      loadedHash.current = ""; // the write didn't land; don't pretend it did
+      setError(String(e));
+      throw e;
+    }
   }
 
   useEffect(() => {
     let cancelled = false;
     let stop: (() => void) | undefined;
+    const saver = makeSaver(writeThrough);
+    saverRef.current = saver;
+    const flushNow = () => { void saver.flush(); };
+    window.addEventListener("blur", flushNow);
+    window.addEventListener("beforeunload", flushNow);
     void (async () => {
       const path = await resolveDesignPath(wallId);
       if (!path) { if (!cancelled) setError("This space has no project folder."); return; }
@@ -64,7 +112,17 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       const r = parseScene(text);
       if (!r.ok) { setError(r.error); return; }
       loadedHash.current = hashText(text);
-      setInitial({ elements: toEls(r.elements), appState: { viewBackgroundColor: r.viewBackgroundColor } });
+      bgRef.current = r.viewBackgroundColor;
+      setInitial({
+        elements: toEls(r.elements),
+        appState: {
+          viewBackgroundColor: r.viewBackgroundColor,
+          // UI mockups, not hand sketches: crisp strokes, sharp corners, clean type
+          currentItemRoughness: 0,
+          currentItemRoundness: "sharp",
+          currentItemFontFamily: 2,
+        },
+      });
       const un = await watchDesignFile(path, async () => {
         const t = await readDesignFile(path).catch(() => null);
         if (t === null || cancelled) return;
@@ -78,33 +136,29 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     return () => {
       cancelled = true;
       stop?.();
-      if (saveTimer.current) clearTimeout(saveTimer.current);
+      window.removeEventListener("blur", flushNow);
+      window.removeEventListener("beforeunload", flushNow);
+      void saver.flush();
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, [wallId]);
 
   function onChange(els: readonly ExcalidrawElement[], appState: AppState) {
-    setElements(els);
-    setSelectedIds(appState.selectedElementIds as Record<string, boolean>);
-    setZoom(appState.zoom.value);
-    setActiveType((appState as { activeTool?: { type?: string } }).activeTool?.type ?? "selection");
-
-    const path = pathRef.current;
-    if (!path) return;
-    const text = serializeScene(els as unknown as SceneElement[], appState.viewBackgroundColor ?? DEFAULT_BG);
-    if (hashText(text) === loadedHash.current) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      const onDisk = await readDesignFile(path).catch(() => null);
-      if (onDisk !== null && hashText(onDisk) !== loadedHash.current && !echo.current.isOwnEcho(onDisk)) {
-        applyExternal(onDisk);
-        flash("reloaded — agent updated this UI");
-        return;
-      }
-      echo.current.markWritten(text);
-      loadedHash.current = hashText(text);
-      await writeDesignFile(path, text).catch((e) => setError(String(e)));
-    }, 300);
+    bgRef.current = appState.viewBackgroundColor ?? DEFAULT_BG;
+    storeRef.current.set({
+      elements: els as unknown as readonly StoreElement[],
+      selectedIds: appState.selectedElementIds as Record<string, boolean>,
+      zoom: appState.zoom.value,
+      scrollX: appState.scrollX,
+      scrollY: appState.scrollY,
+      width: appState.width,
+      height: appState.height,
+      activeType: (appState as { activeTool?: { type?: string } }).activeTool?.type ?? "selection",
+    });
+    // serialization happens at debounce-fire time, not per frame
+    saverRef.current?.schedule(() =>
+      serializeScene(storeRef.current.get().elements as unknown as SceneElement[], bgRef.current),
+    );
   }
 
   async function reference() {
@@ -114,21 +168,19 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     flash(how === "sent" ? "added to the focused terminal" : "no terminal focused — path copied");
   }
 
-  function zoomBy(delta: number) {
-    const api = apiRef.current;
-    if (!api) return;
-    const next = Math.min(4, Math.max(0.1, zoom + delta));
-    api.updateScene({ appState: { zoom: { value: next as NormalizedZoomValue } } });
+  function handleBack() {
+    void saverRef.current?.flush();
+    onBack();
   }
 
   return (
     <div className="design-page">
-      <DesignTopBar zoom={zoom} onBack={onBack} onReference={() => void reference()} />
-      <DesignLeftBar activeType={activeType} apiRef={apiRef} />
+      <DesignTopBar store={storeRef.current} onBack={handleBack} onReference={() => void reference()} />
+      <DesignLeftBar store={storeRef.current} apiRef={apiRef} />
 
       <div className="design-canvas">
         {error && <div className="design-error">{error}</div>}
-        {initial && !error && (
+        {initial && (
           <Excalidraw
             excalidrawAPI={(api) => { apiRef.current = api; }}
             initialData={initial}
@@ -147,15 +199,11 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
             }}
           />
         )}
-        <div className="design-zoom-island">
-          <button className="design-zoom-btn" onClick={() => zoomBy(-0.1)} title="Zoom out">–</button>
-          <span className="design-zoom-pct">{Math.round(zoom * 100)}%</span>
-          <button className="design-zoom-btn" onClick={() => zoomBy(0.1)} title="Zoom in">+</button>
-        </div>
+        <DesignZoomIsland store={storeRef.current} apiRef={apiRef} />
         {toast && <div className="design-toast">{toast}</div>}
       </div>
 
-      <DesignRightPanel elements={elements} selectedIds={selectedIds} apiRef={apiRef} />
+      <RightPanelAdapter store={storeRef.current} apiRef={apiRef} />
     </div>
   );
 }

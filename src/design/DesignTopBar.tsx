@@ -1,14 +1,13 @@
 import { BackIcon } from "../wall/icons";
+import { selectZoom, type DesignStore } from "./designStore";
+import { useDesignSelector } from "./useDesignSelector";
 
-export function DesignTopBar({
-  zoom,
-  onBack,
-  onReference,
-}: {
-  zoom: number;
+export function DesignTopBar({ store, onBack, onReference }: {
+  store: DesignStore;
   onBack: () => void;
   onReference: () => void;
 }) {
+  const zoom = useDesignSelector(store, selectZoom);
   return (
     <div className="design-topbar">
       <button className="cnvs-btn" onClick={onBack} title="Back to wall">

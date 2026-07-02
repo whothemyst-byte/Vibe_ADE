@@ -2,6 +2,8 @@ import { Fragment } from "react";
 import { TOOLS } from "../wall/tools";
 import { TOOL_ICONS } from "../wall/icons";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { selectActiveType, type DesignStore } from "./designStore";
+import { useDesignSelector } from "./useDesignSelector";
 
 const GROUPS: Array<Array<typeof TOOLS[number]["type"]>> = [
   ["selection", "hand"],
@@ -9,13 +11,11 @@ const GROUPS: Array<Array<typeof TOOLS[number]["type"]>> = [
   ["frame"],
 ];
 
-export function DesignLeftBar({
-  activeType,
-  apiRef,
-}: {
-  activeType: string;
+export function DesignLeftBar({ store, apiRef }: {
+  store: DesignStore;
   apiRef: React.RefObject<ExcalidrawImperativeAPI | null>;
 }) {
+  const activeType = useDesignSelector(store, selectActiveType);
   return (
     <div className="design-leftbar" role="toolbar" aria-label="Drawing tools">
       {GROUPS.map((group, gi) => (
