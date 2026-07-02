@@ -2,11 +2,13 @@ import { useRef, useState } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { degToRad } from "./designUtils";
 import { hidePatch, unhidePatch, isHidden, type Patch } from "./commitCore";
-import { commitPatches, selectOnly } from "./commit";
+import { commitPatches, selectSmart } from "./commit";
 import {
-  selectInspector, inspectorEqual, selectLayers, layersEqual, type DesignStore,
+  selectSelection, selectionEqual, selectLayers, layersEqual,
+  type DesignStore, type MultiValue,
 } from "./designStore";
 import { useDesignSelector } from "./useDesignSelector";
+import { DesignSelectionActions } from "./DesignSelectionActions";
 import { TOOL_ICONS, SelectIcon } from "../wall/icons";
 
 function ShapeIcon({ type }: { type: string }) {
@@ -15,10 +17,11 @@ function ShapeIcon({ type }: { type: string }) {
 }
 
 /** Number field that tracks live canvas values while idle but never fights
- *  in-progress typing. Enter/blur commits, Escape cancels. */
+ *  in-progress typing. Enter/blur commits, Escape cancels. "mixed" renders
+ *  as an empty field with a Mixed placeholder; committing applies to all. */
 function NumInput({ label, value, onCommit, narrow }: {
   label: string;
-  value: number;
+  value: MultiValue<number>;
   onCommit: (v: number) => void;
   narrow?: boolean;
 }) {
@@ -30,13 +33,14 @@ function NumInput({ label, value, onCommit, narrow }: {
       <input
         type="number"
         className={`design-prop-input${narrow ? " narrow" : ""}`}
-        value={draft ?? String(value)}
+        placeholder={value === "mixed" ? "Mixed" : undefined}
+        value={draft ?? (value === "mixed" ? "" : String(value))}
         onFocus={(e) => setDraft(e.target.value)}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={(e) => {
           if (!cancelled.current) {
             const v = parseFloat(e.target.value);
-            if (!isNaN(v) && v !== value) onCommit(v);
+            if (!isNaN(v) && (value === "mixed" || v !== value)) onCommit(v);
           }
           cancelled.current = false;
           setDraft(null);
@@ -50,21 +54,27 @@ function NumInput({ label, value, onCommit, narrow }: {
   );
 }
 
-/** Width/height patches don't rescale linear elements' points, so W/H
- *  inputs are hidden for them (canvas-resize still works). */
-const NO_WH_TYPES = new Set(["line", "arrow", "freedraw"]);
+const colorValue = (v: MultiValue<string>): string =>
+  v === "mixed" ? "#888888" : v === "transparent" ? "#000000" : v;
 
 export function DesignRightPanel({ store, apiRef }: {
   store: DesignStore;
   apiRef: React.RefObject<ExcalidrawImperativeAPI | null>;
 }) {
-  const insp = useDesignSelector(store, selectInspector, inspectorEqual);
+  const sel = useDesignSelector(store, selectSelection, selectionEqual);
   const layers = useDesignSelector(store, selectLayers, layersEqual);
   const [opDraft, setOpDraft] = useState<number | null>(null);
 
-  function commit(id: string, patch: Patch, capture: "immediately" | "eventually" = "immediately") {
+  /** One patch for every selected element -> one undo step. */
+  function commitAll(patch: Patch, capture: "immediately" | "eventually" = "immediately") {
     const api = apiRef.current;
-    if (api) commitPatches(api, { [id]: patch }, capture);
+    if (!api || !sel) return;
+    commitPatches(api, Object.fromEntries(sel.ids.map((id) => [id, patch])), capture);
+  }
+
+  function commitOne(id: string, patch: Patch) {
+    const api = apiRef.current;
+    if (api) commitPatches(api, { [id]: patch });
   }
 
   function toggleHidden(id: string) {
@@ -78,21 +88,25 @@ export function DesignRightPanel({ store, apiRef }: {
     <div className="design-right">
       {/* ── Properties ── */}
       <div className="design-props">
-        {insp ? (
+        {sel ? (
           <>
-            <span className="design-section-label">Transform</span>
+            <DesignSelectionActions store={store} apiRef={apiRef} />
+
+            <span className="design-section-label">
+              {sel.count > 1 ? `Transform · ${sel.count} selected` : "Transform"}
+            </span>
             <div className="design-prop-section">
               <div className="design-prop-row">
-                <NumInput label="X" value={insp.x} onCommit={(v) => commit(insp.id, { x: v })} />
-                <NumInput label="Y" value={insp.y} onCommit={(v) => commit(insp.id, { y: v })} />
+                <NumInput label="X" value={sel.x} onCommit={(v) => commitAll({ x: v })} />
+                <NumInput label="Y" value={sel.y} onCommit={(v) => commitAll({ y: v })} />
               </div>
-              {!NO_WH_TYPES.has(insp.type) && (
+              {!sel.hasLinear && (
                 <div className="design-prop-row">
-                  <NumInput label="W" value={insp.width} onCommit={(v) => commit(insp.id, { width: v })} />
-                  <NumInput label="H" value={insp.height} onCommit={(v) => commit(insp.id, { height: v })} />
+                  <NumInput label="W" value={sel.width} onCommit={(v) => commitAll({ width: v })} />
+                  <NumInput label="H" value={sel.height} onCommit={(v) => commitAll({ height: v })} />
                 </div>
               )}
-              <NumInput label="°" value={insp.angleDeg} onCommit={(v) => commit(insp.id, { angle: degToRad(v) })} />
+              <NumInput label="°" value={sel.angleDeg} onCommit={(v) => commitAll({ angle: degToRad(v) })} />
             </div>
 
             <span className="design-section-label">Appearance</span>
@@ -102,21 +116,21 @@ export function DesignRightPanel({ store, apiRef }: {
                 <div className="design-color-swatch">
                   <input
                     type="color"
-                    value={insp.backgroundColor === "transparent" ? "#000000" : insp.backgroundColor}
-                    onChange={(e) => commit(insp.id, { backgroundColor: e.target.value }, "eventually")}
-                    onBlur={(e) => commit(insp.id, { backgroundColor: e.target.value })}
+                    value={colorValue(sel.backgroundColor)}
+                    onChange={(e) => commitAll({ backgroundColor: e.target.value }, "eventually")}
+                    onBlur={(e) => commitAll({ backgroundColor: e.target.value })}
                   />
                 </div>
                 <span className="design-prop-label">St</span>
                 <div className="design-color-swatch">
                   <input
                     type="color"
-                    value={insp.strokeColor}
-                    onChange={(e) => commit(insp.id, { strokeColor: e.target.value }, "eventually")}
-                    onBlur={(e) => commit(insp.id, { strokeColor: e.target.value })}
+                    value={colorValue(sel.strokeColor)}
+                    onChange={(e) => commitAll({ strokeColor: e.target.value }, "eventually")}
+                    onBlur={(e) => commitAll({ strokeColor: e.target.value })}
                   />
                 </div>
-                <NumInput label="" value={insp.strokeWidth} narrow onCommit={(v) => commit(insp.id, { strokeWidth: v })} />
+                <NumInput label="" value={sel.strokeWidth} narrow onCommit={(v) => commitAll({ strokeWidth: v })} />
               </div>
               <div className="design-prop-row">
                 <span className="design-prop-label">Op</span>
@@ -124,26 +138,28 @@ export function DesignRightPanel({ store, apiRef }: {
                   type="range"
                   min={0} max={100}
                   style={{ flex: 1 }}
-                  value={opDraft ?? insp.opacity}
+                  value={opDraft ?? (sel.opacity === "mixed" ? 100 : sel.opacity)}
                   onChange={(e) => {
                     const v = parseInt(e.target.value);
                     setOpDraft(v);
-                    commit(insp.id, { opacity: v }, "eventually"); // live preview, no undo spam
+                    commitAll({ opacity: v }, "eventually"); // live preview, no undo spam
                   }}
                   onPointerUp={() => {
-                    if (opDraft !== null) commit(insp.id, { opacity: opDraft }); // one undo step
+                    if (opDraft !== null) commitAll({ opacity: opDraft }); // one undo step
                     setOpDraft(null);
                   }}
                 />
-                <span className="design-prop-opacity">{opDraft ?? insp.opacity}%</span>
+                <span className="design-prop-opacity">
+                  {opDraft ?? (sel.opacity === "mixed" ? "–" : sel.opacity)}%
+                </span>
               </div>
             </div>
 
-            {insp.fontSize !== null && (
+            {sel.fontSize !== null && (
               <>
                 <span className="design-section-label">Text</span>
                 <div className="design-prop-section">
-                  <NumInput label="Sz" value={insp.fontSize} onCommit={(v) => commit(insp.id, { fontSize: v })} />
+                  <NumInput label="Sz" value={sel.fontSize} onCommit={(v) => commitAll({ fontSize: v })} />
                 </div>
               </>
             )}
@@ -161,7 +177,7 @@ export function DesignRightPanel({ store, apiRef }: {
             <div
               key={row.id}
               className={`design-layer-row${row.selected ? " ds-selected" : ""}`}
-              onClick={() => { const api = apiRef.current; if (api) selectOnly(api, row.id); }}
+              onClick={() => { const api = apiRef.current; if (api) selectSmart(api, row.id); }}
             >
               <ShapeIcon type={row.type} />
               <span className="design-layer-name">{row.label}</span>
@@ -179,7 +195,7 @@ export function DesignRightPanel({ store, apiRef }: {
                   disabled={row.hidden}
                   onPointerDown={(e) => {
                     e.stopPropagation();
-                    if (!row.hidden) commit(row.id, { locked: !row.locked });
+                    if (!row.hidden) commitOne(row.id, { locked: !row.locked });
                   }}
                 >
                   {row.locked ? "🔒" : "🔓"}

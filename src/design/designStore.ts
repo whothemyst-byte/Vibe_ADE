@@ -92,44 +92,6 @@ export function layersEqual(a: LayerRow[], b: LayerRow[]): boolean {
   return true;
 }
 
-export type InspectorSel = {
-  id: string; type: string;
-  x: number; y: number; width: number; height: number; angleDeg: number;
-  opacity: number; strokeColor: string; backgroundColor: string; strokeWidth: number;
-  fontSize: number | null;
-  hidden: boolean;
-};
-
-export function selectInspector(s: DesignSnapshot): InspectorSel | null {
-  const el = s.elements.find((e) => s.selectedIds[e.id] && e.isDeleted !== true);
-  if (!el) return null;
-  return {
-    id: el.id,
-    type: el.type,
-    x: Math.round(el.x),
-    y: Math.round(el.y),
-    width: Math.round(el.width),
-    height: Math.round(el.height),
-    angleDeg: Math.round((el.angle * 180) / Math.PI),
-    opacity: el.opacity,
-    strokeColor: el.strokeColor,
-    backgroundColor: el.backgroundColor,
-    strokeWidth: el.strokeWidth,
-    fontSize: el.type === "text" && typeof el.fontSize === "number" ? el.fontSize : null,
-    hidden: isHidden(el),
-  };
-}
-
-export function inspectorEqual(a: InspectorSel | null, b: InspectorSel | null): boolean {
-  if (a === b) return true;
-  if (a === null || b === null) return false;
-  return a.id === b.id && a.type === b.type &&
-    a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height &&
-    a.angleDeg === b.angleDeg && a.opacity === b.opacity &&
-    a.strokeColor === b.strokeColor && a.backgroundColor === b.backgroundColor &&
-    a.strokeWidth === b.strokeWidth && a.fontSize === b.fontSize && a.hidden === b.hidden;
-}
-
 export type MultiValue<T> = T | "mixed";
 
 export const LINEAR_TYPES: ReadonlySet<string> = new Set(["line", "arrow", "freedraw"]);
