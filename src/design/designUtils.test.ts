@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { radToDeg, degToRad, labelForElement, patchElements } from "./designUtils";
+import { radToDeg, degToRad, labelForElement } from "./designUtils";
 
 describe("radToDeg", () => {
   it("converts 0", () => expect(radToDeg(0)).toBe(0));
@@ -22,24 +22,4 @@ describe("labelForElement", () => {
     expect(label.length).toBeLessThanOrEqual(22);
   });
   it("handles empty text", () => expect(labelForElement({ type: "text", text: "" })).toBe('"…"'));
-});
-
-describe("patchElements", () => {
-  const els = [{ id: "a", x: 0 }, { id: "b", x: 5 }];
-  it("patches the target element", () => {
-    const result = patchElements(els, "a", { x: 99 });
-    expect((result[0] as { x: number }).x).toBe(99);
-  });
-  it("leaves other elements untouched", () => {
-    const result = patchElements(els, "a", { x: 99 });
-    expect(result[1]).toBe(els[1]);
-  });
-  it("returns a new array", () => {
-    expect(patchElements(els, "a", { x: 1 })).not.toBe(els);
-  });
-  it("is a no-op when id not found", () => {
-    const result = patchElements(els, "missing", { x: 99 });
-    expect(result[0]).toBe(els[0]);
-    expect(result[1]).toBe(els[1]);
-  });
 });

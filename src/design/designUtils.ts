@@ -10,11 +10,3 @@ export function labelForElement(el: { type: string; text?: string }): string {
   }
   return el.type.charAt(0).toUpperCase() + el.type.slice(1);
 }
-
-export function patchElements(
-  elements: readonly { id: string }[],
-  id: string,
-  patch: Record<string, unknown>
-): unknown[] {
-  return elements.map((el) => (el.id === id ? { ...el, ...patch } : el));
-}

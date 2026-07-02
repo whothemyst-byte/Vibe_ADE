@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { patchElements, labelForElement, radToDeg, degToRad } from "./designUtils";
+import { labelForElement, radToDeg, degToRad } from "./designUtils";
+import { applyPatches } from "./commitCore";
 import { TOOL_ICONS, SelectIcon } from "../wall/icons";
 
 function ShapeIcon({ type }: { type: string }) {
@@ -58,7 +59,10 @@ export function DesignRightPanel({
   function commit(id: string, patch: Record<string, unknown>) {
     const api = apiRef.current;
     if (!api) return;
-    const updated = patchElements(elements, id, patch) as ExcalidrawElement[];
+    const updated = applyPatches(
+      elements as unknown as import("./commitCore").El[],
+      { [id]: patch },
+    ) as unknown as ExcalidrawElement[];
     api.updateScene({ elements: updated });
   }
 
