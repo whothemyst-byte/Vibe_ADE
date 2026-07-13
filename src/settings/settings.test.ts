@@ -13,7 +13,14 @@ describe("mergeSettings", () => {
     expect(s.terminal.fontSize).toBe(16);
     expect(s.terminal.scrollback).toBe(DEFAULT_SETTINGS.terminal.scrollback);
     expect(s.terminal.shell).toBe(DEFAULT_SETTINGS.terminal.shell);
+    expect(s.terminal.glossy).toBe(DEFAULT_SETTINGS.terminal.glossy);
     expect(s.canvas).toEqual(DEFAULT_SETTINGS.canvas);
+  });
+
+  it("defaults glossy terminals to on, and honors a saved false", () => {
+    expect(DEFAULT_SETTINGS.terminal.glossy).toBe(true);
+    expect(mergeSettings({ terminal: { glossy: false } }).terminal.glossy).toBe(false);
+    expect(mergeSettings({ terminal: { glossy: "nope" } }).terminal.glossy).toBe(true);
   });
 
   it("keeps a saved default background", () => {
@@ -42,6 +49,7 @@ describe("vibe settings", () => {
       hotkey: "Ctrl+Shift+V",
       voice: "",
       deviceId: "",
+      dictation: "shaped",
     });
   });
 
@@ -51,6 +59,7 @@ describe("vibe settings", () => {
     });
     expect(merged.vibe).toEqual({
       enabled: true, groqApiKey: "gsk_x", hotkey: "Ctrl+Alt+V", voice: "Microsoft Zira", deviceId: "dev-9",
+      dictation: "shaped",
     });
   });
 
@@ -63,5 +72,18 @@ describe("vibe settings", () => {
     expect(mergeSettings({}).vibe.deviceId).toBe("");
     expect(mergeSettings({ vibe: { deviceId: "abc-123" } }).vibe.deviceId).toBe("abc-123");
     expect(mergeSettings({ vibe: { deviceId: 42 } }).vibe.deviceId).toBe("");
+  });
+
+  it("defaults vibe.dictation to shaped when missing", () => {
+    expect(mergeSettings({}).vibe.dictation).toBe("shaped");
+  });
+
+  it("keeps a saved verbatim dictation mode", () => {
+    expect(mergeSettings({ vibe: { dictation: "verbatim" } }).vibe.dictation).toBe("verbatim");
+  });
+
+  it("coerces junk dictation values to shaped", () => {
+    expect(mergeSettings({ vibe: { dictation: "yolo" } }).vibe.dictation).toBe("shaped");
+    expect(mergeSettings({ vibe: { dictation: 42 } }).vibe.dictation).toBe("shaped");
   });
 });

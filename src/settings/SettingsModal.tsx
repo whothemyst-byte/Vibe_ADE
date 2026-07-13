@@ -7,8 +7,8 @@ import type { Preset } from "../wall/presets";
 import { importBackground, pickBackgroundFile, savePresets } from "../store/persistence";
 import { uploadAvatar } from "../teams/avatarUpload";
 import type { Background } from "../store/types";
-import { CloseIcon, EllipseIcon, GearIcon, GridIcon, ImageIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon, TeamsIcon, UserIcon } from "../wall/icons";
-import { THEMES, isThemeActive } from "./themes";
+import { CloseIcon, EllipseIcon, GearIcon, GridIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon, TeamsIcon, UserIcon } from "../wall/icons";
+import { APPEARANCE_THEMES, VIDEO_THEMES, isThemeActive } from "./themes";
 import { connectedProviders, memberSince } from "../auth/profile";
 import { useEntitlements } from "../entitlements";
 import { useOrgStore } from "../teams/orgStore";
@@ -21,7 +21,7 @@ import { publishLocalSpace, openSharedSpace, unpublishSharedSpace } from "../tea
 import { setPresenceManualStatus } from "../teams/presence";
 
 type Section =
-  | "account" | "agents" | "terminal" | "themes" | "canvas" | "vibe" | "about"
+  | "account" | "agents" | "terminal" | "themes" | "vibe"
   | "organization" | "members" | "invites" | "projects" | "mycard";
 
 const APP_SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[] = [
@@ -29,9 +29,7 @@ const APP_SECTIONS: { key: Section; label: string; icon: () => React.ReactElemen
   { key: "agents", label: "Agents", icon: SelectIcon },
   { key: "terminal", label: "Terminal", icon: RectangleIcon },
   { key: "themes", label: "Themes", icon: PaletteIcon },
-  { key: "canvas", label: "Space", icon: ImageIcon },
   { key: "vibe", label: "Vibe", icon: EllipseIcon },
-  { key: "about", label: "About", icon: EllipseIcon },
 ];
 
 const TEAM_SECTIONS: { key: Section; label: string; icon: () => React.ReactElement }[] = [
@@ -43,7 +41,7 @@ const TEAM_SECTIONS: { key: Section; label: string; icon: () => React.ReactEleme
 ];
 
 /** Space-scoped sections that only make sense with an active wall. */
-const SPACE_ONLY: Section[] = ["themes", "canvas"];
+const SPACE_ONLY: Section[] = ["themes"];
 
 const extOf = (p: string) => p.split(".").pop()?.toLowerCase() ?? "bin";
 
@@ -211,6 +209,14 @@ function TerminalPane() {
           onChange={(e) => setTerm({ shell: e.target.value || "powershell.exe" })}
         />
       </div>
+      <div className="set-row">
+        <span className="set-label">Glossy terminals</span>
+        <input
+          type="checkbox"
+          checked={t.glossy}
+          onChange={(e) => setTerm({ glossy: e.target.checked })}
+        />
+      </div>
     </>
   );
 }
@@ -267,6 +273,17 @@ function VibePane() {
         />
       </div>
       <div className="set-row">
+        <span className="set-label">Dictation to agents</span>
+        <select
+          className="set-input"
+          value={v.dictation}
+          onChange={(e) => setVibe({ dictation: e.target.value as "shaped" | "verbatim" })}
+        >
+          <option value="shaped">Cleaned up (Vibe rewrites your speech)</option>
+          <option value="verbatim">Verbatim (your exact words)</option>
+        </select>
+      </div>
+      <div className="set-row">
         <span className="set-label">Voice</span>
         <select
           className="set-input"
@@ -297,59 +314,65 @@ function VibePane() {
   );
 }
 
+function ThemeCard({ theme, active, onSelect }: {
+  theme: { id: string; name: string; tagline: string; background: Background };
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const light = theme.background.kind === "color" && isLightColor(theme.background.color);
+  const swatchStyle = theme.background.kind === "color" ? { background: theme.background.color } : undefined;
+  return (
+    <button
+      className={`theme-card${active ? " active" : ""}`}
+      onClick={onSelect}
+    >
+      <span className="theme-preview" style={swatchStyle}>
+        {theme.background.kind === "video" && (
+          <video className="theme-preview-video" src={theme.background.url} autoPlay loop muted playsInline />
+        )}
+      </span>
+      <span className={`theme-meta${light ? " on-light" : ""}`} style={swatchStyle}>
+        <span className="theme-name">{theme.name}</span>
+        <span className="theme-tagline">{theme.tagline}</span>
+      </span>
+    </button>
+  );
+}
+
 function ThemesPane({ background, onChangeBackground }: {
   background: Background;
   onChangeBackground: (bg: Background) => void;
 }) {
+  const settings = useSettingsStore((s) => s.settings);
+  const save = useSettingsStore((s) => s.save);
+
   return (
     <>
       <h2 className="set-title">Themes</h2>
-      <p className="set-sub">Pick a theme for this space — or craft your own below.</p>
+      <p className="set-sub">Pick an appearance and a video theme for this space — or craft your own below.</p>
       <div className="theme-grid">
-        {THEMES.map((t) => {
-          const active = isThemeActive(background, t);
-          const light = t.background.kind === "color" && isLightColor(t.background.color);
-          return (
-            <button
-              key={t.id}
-              className={`theme-card${active ? " active" : ""}`}
-              onClick={() => onChangeBackground(t.background)}
-            >
-              <span
-                className="theme-preview"
-                style={{ background: t.background.kind === "color" ? t.background.color : undefined }}
-              >
-                {t.palette.map((c) => (
-                  <span key={c} className="theme-dot" style={{ background: c }} />
-                ))}
-              </span>
-              <span
-                className={`theme-meta${light ? " on-light" : ""}`}
-                style={{ background: t.background.kind === "color" ? t.background.color : undefined }}
-              >
-                <span className="theme-name">{t.name}</span>
-                <span className="theme-tagline">{t.tagline}</span>
-              </span>
-            </button>
-          );
-        })}
+        {APPEARANCE_THEMES.map((t) => (
+          <ThemeCard
+            key={t.id}
+            theme={t}
+            active={isThemeActive(background, t)}
+            onSelect={() => onChangeBackground(t.background)}
+          />
+        ))}
       </div>
       <div className="set-group">
-        <span className="set-label">Create your own</span>
-        <BackgroundPicker value={background} onChange={onChangeBackground} />
-        <span className="set-hint">A color, image, or video of your choice becomes this space’s theme.</span>
+        <span className="set-label">Video themes</span>
+        <div className="theme-grid">
+          {VIDEO_THEMES.map((t) => (
+            <ThemeCard
+              key={t.id}
+              theme={t}
+              active={isThemeActive(background, t)}
+              onSelect={() => onChangeBackground(t.background)}
+            />
+          ))}
+        </div>
       </div>
-    </>
-  );
-}
-
-function CanvasPane() {
-  const settings = useSettingsStore((s) => s.settings);
-  const save = useSettingsStore((s) => s.save);
-  return (
-    <>
-      <h2 className="set-title">Space</h2>
-      <p className="set-sub">Background and behavior for this space. Theme it from the Themes tab.</p>
       <div className="set-group">
         <span className="set-label">Default background for new spaces</span>
         <BackgroundPicker
@@ -357,19 +380,11 @@ function CanvasPane() {
           onChange={(bg) => save({ ...settings, canvas: { ...settings.canvas, defaultBackground: bg } })}
         />
       </div>
-    </>
-  );
-}
-
-function AboutPane() {
-  return (
-    <>
-      <h2 className="set-title">About</h2>
-      <p className="set-sub">
-        <strong>Vibe Space</strong> v1.0.0 — an infinite canvas for commanding a constellation of
-        coding agents. Draw, plan, and run Claude Code, Codex, and friends side by side.
-      </p>
-      <p className="set-hint">Quansynd · built with Tauri, Excalidraw, and xterm.js</p>
+      <div className="set-group">
+        <span className="set-label">Create your own</span>
+        <BackgroundPicker value={background} onChange={onChangeBackground} />
+        <span className="set-hint">A color, image, or video of your choice becomes this space’s theme.</span>
+      </div>
     </>
   );
 }
@@ -709,9 +724,7 @@ export function SettingsModal({ background, onChangeBackground, onClose, initial
           {section === "agents" && <AgentsPane />}
           {section === "terminal" && <TerminalPane />}
           {section === "themes" && background != null && onChangeBackground && <ThemesPane background={background} onChangeBackground={onChangeBackground} />}
-          {section === "canvas" && background != null && <CanvasPane />}
           {section === "vibe" && <VibePane />}
-          {section === "about" && <AboutPane />}
           {section === "organization" && <OrganizationPane />}
           {section === "members" && <MembersPane />}
           {section === "invites" && <InvitesPane />}

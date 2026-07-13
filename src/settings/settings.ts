@@ -1,15 +1,23 @@
 import { DEFAULT_BACKGROUND, type Background } from "../store/types";
 
 export type Settings = {
-  terminal: { fontSize: number; scrollback: number; shell: string };
+  terminal: { fontSize: number; scrollback: number; shell: string; glossy: boolean };
   canvas: { defaultBackground: Background };
-  vibe: { enabled: boolean; groqApiKey: string; hotkey: string; voice: string; deviceId: string };
+  vibe: {
+    enabled: boolean;
+    groqApiKey: string;
+    hotkey: string;
+    voice: string;
+    deviceId: string;
+    /** How dictated agent prompts arrive: the user's exact words, or rewritten by the model. */
+    dictation: "shaped" | "verbatim";
+  };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  terminal: { fontSize: 13, scrollback: 5000, shell: "powershell.exe" },
+  terminal: { fontSize: 13, scrollback: 5000, shell: "powershell.exe", glossy: true },
   canvas: { defaultBackground: DEFAULT_BACKGROUND },
-  vibe: { enabled: false, groqApiKey: "", hotkey: "Ctrl+Shift+V", voice: "", deviceId: "" },
+  vibe: { enabled: false, groqApiKey: "", hotkey: "Ctrl+Shift+V", voice: "", deviceId: "", dictation: "shaped" },
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -42,6 +50,7 @@ export function mergeSettings(raw: unknown): Settings {
       fontSize: num(term.fontSize, d.terminal.fontSize),
       scrollback: num(term.scrollback, d.terminal.scrollback),
       shell: str(term.shell, d.terminal.shell),
+      glossy: bool(term.glossy, d.terminal.glossy),
     },
     canvas: {
       defaultBackground: isBackground(canvas.defaultBackground)
@@ -54,6 +63,7 @@ export function mergeSettings(raw: unknown): Settings {
       hotkey: str(vibe.hotkey, d.vibe.hotkey),
       voice: typeof vibe.voice === "string" ? vibe.voice : d.vibe.voice,
       deviceId: typeof vibe.deviceId === "string" ? vibe.deviceId : d.vibe.deviceId,
+      dictation: vibe.dictation === "verbatim" ? "verbatim" : "shaped",
     },
   };
 }
