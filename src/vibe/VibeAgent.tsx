@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSettingsStore } from "../settings/settingsStore";
 import { VibePet, type VibeState } from "./VibePet";
+import { HintPill } from "./HintPill";
 import { useVoicePipeline } from "./useVoicePipeline";
 import { runAgent } from "./agentLoop";
 import { transcribe, chat, type ChatMessage, type GroqAuth } from "./groq";
@@ -218,11 +219,14 @@ export function VibeAgent() {
   if (!vibe.enabled) return null;
 
   return (
-    <VibePet
-      state={state}
-      caption={caption}
-      celebrating={celebrating}
-      onActivate={() => void listen()}
-    />
+    <>
+      <HintPill state={state} caption={caption} />
+      <VibePet
+        state={state}
+        caption={caption}
+        celebrating={celebrating}
+        onActivate={() => void listen()}
+      />
+    </>
   );
 }

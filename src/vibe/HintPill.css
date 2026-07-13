@@ -1,0 +1,35 @@
+.hint-pill {
+  position: fixed;
+  bottom: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(560px, 70vw);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(18, 17, 15, 0.72);
+  border: 1px solid rgba(215, 154, 61, 0.25);
+  backdrop-filter: blur(10px);
+  color: #f3eee5;
+  font-size: 13px;
+  font-style: italic;
+  z-index: 40;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.hint-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hint-pill-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(215, 154, 61, 0.5);
+  flex: none;
+}
+.hint-pill--listening .hint-pill-dot {
+  background: #d79a3d;
+  animation: hint-pulse 1s ease-in-out infinite;
+}
+.hint-pill--active { font-style: normal; }
+@keyframes hint-pulse {
+  50% { transform: scale(1.8); opacity: 0.6; }
+}
