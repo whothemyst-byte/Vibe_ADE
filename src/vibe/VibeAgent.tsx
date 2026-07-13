@@ -4,7 +4,9 @@ import { VibePet, type VibeState } from "./VibePet";
 import { useVoicePipeline } from "./useVoicePipeline";
 import { runAgent } from "./agentLoop";
 import { transcribe, chat, type ChatMessage, type GroqAuth } from "./groq";
-import { useVibeCommand, type ToolDef } from "./commands";
+import { useVibeCommand, runVibeCommand, type ToolDef } from "./commands";
+import { routeVerbatim } from "../wall/dictation";
+import { terminalsOf, useCardStore } from "../wall/cardStore";
 import { speak, cancelSpeech } from "./speech";
 import { buildSttPrompt } from "./vocab";
 
@@ -81,6 +83,27 @@ export function VibeAgent() {
   };
 
   const runUtterance = async (transcript: string) => {
+    // Verbatim mode: a clean "ask <name> …" prefix skips the LLM entirely —
+    // the user's exact words go to the agent. Anything else falls through.
+    if (vibe.dictation === "verbatim" && !conversation.current) {
+      const terminals = terminalsOf(useCardStore.getState().cards);
+      const routed = routeVerbatim(transcript, terminals);
+      if (routed) {
+        setState("thinking");
+        showCaption(`"${transcript}"`);
+        const result = await runVibeCommand("send_to_agent", {
+          agent_name: routed.agent.name,
+          prompt: routed.prompt,
+        });
+        const ok = result.startsWith("Sent to");
+        const text = ok ? `Sent to ${routed.agent.name}.` : result;
+        setState("speaking");
+        showCaption(text);
+        await speak(text, vibe.voice);
+        setState("idle");
+        return;
+      }
+    }
     setState("thinking");
     showCaption(`"${transcript}"`);
     try {
@@ -186,6 +209,7 @@ export function VibeAgent() {
   // Dev escape hatch: drive the full agent loop from the console without a mic:
   //   window.__vibeSay("open a terminal")
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
     (window as unknown as Record<string, unknown>).__vibeSay = (t: string) => void runUtterance(t);
     return () => { delete (window as unknown as Record<string, unknown>).__vibeSay; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
