@@ -26,11 +26,13 @@ import { ToolsIsland } from "./ToolsIsland";
 import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
 import { pickAgentName } from "./agentNames";
-import { wasSessionDead, sendToSession, focusSession } from "./sessions";
+import { wasSessionDead, sendToSession, focusSession, getActivityRef } from "./sessions";
+import { resolveAgent, updatePending, type PendingPing } from "./dictation";
+import { speak } from "../vibe/speech";
 import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
 import { findPresetByPhrase } from "./presets";
-import { THEMES, accentForBackground, applyAccent, syncTitlebar, DEFAULT_ACCENT } from "../settings/themes";
+import { THEMES, accentForBackground, applyAccent, applyChromeInk, DEFAULT_ACCENT } from "../settings/themes";
 import { setPresenceSpace } from "../teams/presence";
 import { useOrgStore } from "../teams/orgStore";
 import { pushSharedScene } from "../teams/spaceSync";
@@ -55,10 +57,22 @@ function applyScene(
   });
 }
 
+/** Screen-px bands covered by the wall's floating chrome: the titlebar plus
+ *  toolbar/launch row (top) and the tools island (bottom). Both rows are ~46px
+ *  tall including their offset; 56 leaves a small gap under them. */
+function chromeInsets(): { top: number; bottom: number } {
+  const html = document.documentElement;
+  const titlebar = html.classList.contains("has-custom-titlebar")
+    ? parseFloat(getComputedStyle(html).getPropertyValue("--titlebar-h")) || 0
+    : 0;
+  return { top: titlebar + 56, bottom: 56 };
+}
+
 export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams }: { wallId: string; onExit: () => void; onSwitch: (id: string) => void; onDesign: () => void; onTasks: () => void; onTeams: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const cameraRef = useRef<Camera>(DEFAULT_CAMERA);
   const layerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const rafPending = useRef(false);
   const [activeType, setActiveType] = useState<string>("selection");
   const [background, setBackground] = useState<Background>(DEFAULT_BACKGROUND);
@@ -76,6 +90,17 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   const saveTimer = useRef<number | null>(null);
   const savesEnabled = useRef(false);
   const lastThumbAt = useRef(0);
+
+  // Excalidraw's mount is the most expensive render in the app, and page swaps
+  // render the incoming page synchronously inside document.startViewTransition
+  // (see setView in App.tsx) while paint is frozen. Mounting the canvas one
+  // frame later keeps that capture light — the transition starts instantly and
+  // the canvas appears during the fade.
+  const [canvasReady, setCanvasReady] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setCanvasReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const buildDoc = (): WallDoc | null => {
     const api = apiRef.current;
@@ -115,7 +140,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         backgroundRef.current = res.doc.background;
         setBackground(res.doc.background);
         applyAccent(accentForBackground(res.doc.background));
-        syncTitlebar(res.doc.background);
+        applyChromeInk(res.doc.background);
         await saveWall(wallId, res.doc);
         setSharedNotice("Updated by a teammate — reloaded.");
         window.setTimeout(() => setSharedNotice(null), 4000);
@@ -129,6 +154,10 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     const api = apiRef.current;
     const doc = buildDoc();
     if (!api || !doc) return;
+    // Snapshot everything from the live editor before the first await: exit()
+    // lets this keep running after WallView unmounts, when the api is stale.
+    const appState = api.getAppState();
+    const files = api.getFiles();
     await saveWall(wallId, doc);
     // exportToBlob renders the whole scene - too expensive for every debounced
     // save, so throttle it (and force it once on exit).
@@ -137,9 +166,9 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       lastThumbAt.current = Date.now();
       try {
         const blob = await exportToBlob({
-          elements: [...api.getSceneElements()] as readonly ExcalidrawElement[],
-          appState: { ...api.getAppState(), exportBackground: false },
-          files: api.getFiles(),
+          elements: doc.scene.elements as readonly ExcalidrawElement[],
+          appState: { ...appState, exportBackground: false },
+          files,
           mimeType: "image/png",
           maxWidthOrHeight: 480,
         });
@@ -168,7 +197,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       backgroundRef.current = bg;
       setBackground(bg);
       applyAccent(accentForBackground(bg));
-      syncTitlebar(bg);
+      applyChromeInk(bg);
       // Docs saved before agent names existed lack `name` - assign unique ones.
       // Terminals whose PTY died while this wall was closed are dropped.
       const names: string[] = [];
@@ -188,12 +217,15 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
           x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
         });
       }
-      useCardStore.setState({ anchor: doc?.gridAnchor ?? null, cards });
+      // Scene (with its saved scroll/zoom) restores BEFORE cards: setting the
+      // cards fires the layout subscriber, whose camera fit must land after
+      // the saved camera, not be clobbered by it.
       pendingScene.current = doc
         ? { elements: doc.scene.elements, appState: doc.scene.appState as AppStateLike }
         : null;
       const api = apiRef.current;
       if (api && pendingScene.current) applyScene(api, pendingScene.current);
+      useCardStore.setState({ anchor: doc?.gridAnchor ?? null, cards });
       usePresetStore.getState().load();
       const index = await loadIndex();
       const meta = index.find((w) => w.id === wallId);
@@ -244,18 +276,80 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     });
   }, []);
 
+  /** Writes one camera to both worlds: the Excalidraw scene and the overlay layer. */
+  const setCamera = useCallback((cam: Camera) => {
+    apiRef.current?.updateScene({
+      appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
+    });
+    applyCamera(cam);
+  }, [applyCamera]);
+
+  // Camera glide: one tween at a time; user input (pan/zoom gesture) cancels it
+  // so the fit never fights the hand on the canvas.
+  const tweenStop = useRef<() => void>(() => {});
+  useEffect(() => () => tweenStop.current(), []);
+
+  /**
+   * Glides the camera to `to` over the same 0.3s ease the cards use for their
+   * re-flow transition, so the zoom-out-to-fit and the card slide move as one.
+   * Zoom interpolates in log space so the rate feels uniform.
+   */
+  const animateCamera = useCallback((to: Camera) => {
+    tweenStop.current();
+    const from = cameraRef.current;
+    if (from.x === to.x && from.y === to.y && from.z === to.z) return;
+    const D = 300; // matches .terminal-window's transform/size transition
+    const t0 = performance.now();
+    let frame = 0;
+    const stop = () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("pointerdown", stop, true);
+      window.removeEventListener("wheel", stop, true);
+      tweenStop.current = () => {};
+    };
+    tweenStop.current = stop;
+    window.addEventListener("pointerdown", stop, true);
+    window.addEventListener("wheel", stop, true);
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / D);
+      const e = 1 - Math.pow(1 - k, 3); // easeOutCubic ~ the cards' bezier
+      setCamera({
+        x: from.x + (to.x - from.x) * e,
+        y: from.y + (to.y - from.y) * e,
+        z: from.z * Math.pow(to.z / from.z, e),
+      });
+      if (k < 1) frame = requestAnimationFrame(step);
+      else stop();
+    };
+    frame = requestAnimationFrame(step);
+  }, [setCamera]);
+
   /**
    * Lays the managed grid out around the stable anchor and fits the camera
    * (zoom-out only). Writes only x/y/w/h, so the signature subscriber that
    * calls this never re-fires for layout writes.
    */
-  const layoutGrid = useCallback(() => {
+  const layoutGrid = useCallback((opts?: { animate?: boolean }) => {
+    const animate = opts?.animate ?? true;
     const { cards, anchor, maximizedId } = useCardStore.getState();
     if (cards.length === 0) return;
     const api = apiRef.current;
     const st = api?.getAppState() as AppStateLike | undefined;
-    const screen = { w: st?.width ?? window.innerWidth, h: st?.height ?? window.innerHeight };
-    const aspect = screen.w / screen.h;
+    // Measure the container directly rather than trusting Excalidraw's own
+    // appState.width/height: right after a native window resize, Excalidraw's
+    // internal ResizeObserver can still be stale for a frame, which previously
+    // fit the camera to the old size and threw every card off-screen.
+    const rect = rootRef.current?.getBoundingClientRect();
+    const screen = {
+      w: rect?.width ?? st?.width ?? window.innerWidth,
+      h: rect?.height ?? st?.height ?? window.innerHeight,
+    };
+    // Fit inside the band clear of floating chrome: titlebar + toolbar/launch
+    // row above, tools island below. Without this the fitted grid centers on
+    // the full window and slides under them.
+    const insets = chromeInsets();
+    const usable = { w: screen.w, h: Math.max(1, screen.h - insets.top - insets.bottom) };
+    const aspect = usable.w / usable.h;
     let a = anchor;
     if (!a) {
       // First layout on this wall: anchor the grid at the current viewport center.
@@ -301,13 +395,12 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         : bl
         ? bl.bbox
         : gridBBox(cards.length, aspect, a);
-      const cam = fitCamera(bbox, screen);
-      api.updateScene({
-        appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
-      });
-      applyCamera(cam);
+      const cam = fitCamera(bbox, usable);
+      cam.y += insets.top / cam.z; // recenter within the chrome-free band
+      if (animate) animateCamera(cam);
+      else setCamera(cam);
     }
-  }, [applyCamera]);
+  }, [animateCamera, setCamera]);
 
   // Re-layout whenever terminal membership, order, or maximized state changes.
   useEffect(() => {
@@ -319,6 +412,20 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       prevSig = sig;
       layoutGrid();
     });
+  }, [layoutGrid]);
+
+  // Re-fit the camera and re-tile the grid when the window itself resizes (e.g.
+  // dragging the Tauri window's edge), so terminals stay framed to the new
+  // viewport instead of the layout computed for the old size.
+  useEffect(() => {
+    let frame = 0;
+    const onResize = () => {
+      cancelAnimationFrame(frame);
+      // Instant: a drag-resize is already continuous, a tween would lag it.
+      frame = requestAnimationFrame(() => layoutGrid({ animate: false }));
+    };
+    window.addEventListener("resize", onResize);
+    return () => { window.removeEventListener("resize", onResize); cancelAnimationFrame(frame); };
   }, [layoutGrid]);
 
   const onChange = useCallback((_els: readonly unknown[], appState: AppStateLike) => {
@@ -343,16 +450,19 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   };
 
   const changeBg = (bg: Background) => {
-    backgroundRef.current = bg; setBackground(bg); applyAccent(accentForBackground(bg)); syncTitlebar(bg); scheduleSave();
+    backgroundRef.current = bg; setBackground(bg); applyAccent(accentForBackground(bg)); applyChromeInk(bg); scheduleSave();
   };
 
   // The accent is per-wall; restore the default amber when leaving the wall so
   // the start page / task board never inherit a space's accent.
-  useEffect(() => () => { applyAccent(DEFAULT_ACCENT); syncTitlebar(null); }, []);
+  useEffect(() => () => { applyAccent(DEFAULT_ACCENT); applyChromeInk(null); }, []);
 
-  const exit = async () => {
+  const exit = () => {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    if (savesEnabled.current) await doSave({ thumbnail: true });
+    // doSave snapshots the scene synchronously before its first await, so the
+    // fs writes + thumbnail export can finish in the background — awaiting
+    // them here made leaving a space visibly lag behind the click.
+    if (savesEnabled.current) void doSave({ thumbnail: true });
     onExit();
   };
 
@@ -433,6 +543,60 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     },
   });
 
+  // Prompts dictated to agents whose completion should be announced.
+  const pendingPings = useRef<PendingPing[]>([]);
+
+  useVibeCommand({
+    name: "send_to_agent",
+    description:
+      "Type a prompt into an agent's terminal and submit it (press Enter). Use when the user wants an agent to DO something ('ask Max to run the tests'). Pass the user's request as one clear, self-contained prompt. One call per target agent; never invent tasks the user didn't ask for.",
+    parameters: {
+      type: "object",
+      properties: {
+        agent_name: { type: "string", description: "Agent name shown on the terminal (e.g. 'Max')" },
+        prompt: { type: "string", description: "The prompt to type and submit" },
+      },
+      required: ["agent_name", "prompt"],
+    },
+    run: (args) => {
+      const terminals = terminalsOf(useCardStore.getState().cards);
+      const agent = resolveAgent(terminals, String(args.agent_name ?? ""));
+      if (!agent) {
+        const names = terminals.map((t) => t.name).join(", ") || "none";
+        return `Error: no agent called "${args.agent_name}". Open terminals: ${names}.`;
+      }
+      const prompt = String(args.prompt ?? "").trim();
+      if (!prompt) return "Error: prompt is empty.";
+      if (!sendToSession(agent.id, prompt, true)) {
+        return `Error: ${agent.name}'s terminal is not running anymore.`;
+      }
+      focusSession(agent.id);
+      pendingPings.current = [
+        ...pendingPings.current.filter((p) => p.id !== agent.id),
+        { id: agent.id, name: agent.name, sentAt: Date.now(), sawOutput: false },
+      ];
+      return `Sent to ${agent.name}.`;
+    },
+  });
+
+  // Completion pings: poll each pending prompt against its terminal's
+  // activity clock; speak once when the agent settles back to idle.
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      if (pendingPings.current.length === 0) return;
+      const now = Date.now();
+      const voice = useSettingsStore.getState().settings.vibe.voice;
+      const kept: PendingPing[] = [];
+      for (const p of pendingPings.current) {
+        const { next, ping } = updatePending(p, getActivityRef(p.id).current, now);
+        if (ping) void speak(`${p.name} finished its task.`, voice);
+        if (next) kept.push(next);
+      }
+      pendingPings.current = kept;
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, []);
+
   useVibeCommand({
     name: "focus_terminal",
     description:
@@ -460,10 +624,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
           48,
           FOCUS_MAX_ZOOM
         );
-        api.updateScene({
-          appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
-        });
-        applyCamera(cam);
+        animateCamera(cam);
       }
       focusSession(t.id);
       return `Focused on terminal ${t.name}.`;
@@ -559,10 +720,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
           48,
           FOCUS_MAX_ZOOM
         );
-        api.updateScene({
-          appState: { scrollX: cam.x, scrollY: cam.y, zoom: { value: cam.z as NormalizedZoomValue } },
-        });
-        applyCamera(cam);
+        animateCamera(cam);
       }
       return "Focused on the browser.";
     },
@@ -599,7 +757,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   useVibeCommand({
     name: "exit_wall",
     description: "Leave this space and return to the start page (saves first).",
-    run: async () => { await exit(); return "Left the space."; },
+    run: () => { exit(); return "Left the space."; },
   });
 
   const selectTool = (tool: ToolDef) => {
@@ -613,7 +771,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   };
 
   return (
-    <div className="wall-root">
+    <div className="wall-root" ref={rootRef}>
       <WallBackground background={background} />
       {isShared && <div className="wall-shared-badge">Shared</div>}
       {sharedNotice && <div className="wall-shared-notice">{sharedNotice}</div>}
@@ -622,7 +780,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       {gearOpen && (
         <SettingsModal background={background} onChangeBackground={changeBg} onClose={() => setGearOpen(false)} />
       )}
-      <Excalidraw
+      {canvasReady && <Excalidraw
         theme="dark"
         UIOptions={{
           canvasActions: {
@@ -639,10 +797,14 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
           apiRef.current = api;
           if (pendingScene.current) applyScene(api, pendingScene.current);
           applyCamera(excalidrawCamera(api.getAppState() as AppStateLike));
+          // Cards can restore before the API exists, in which case the layout
+          // pass above skipped the camera fit — re-fit now (no-op if no cards,
+          // preserving the wall's saved camera).
+          layoutGrid({ animate: false });
         }}
         onChange={onChange as Parameters<typeof Excalidraw>[0]["onChange"]}
         initialData={{ appState: { viewBackgroundColor: "transparent" } }}
-      />
+      />}
       <LaunchMenu
         presets={presets}
         onLaunch={addTerminal}
