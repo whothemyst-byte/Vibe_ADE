@@ -223,7 +223,9 @@ export function VibeAgent() {
       <HintPill state={state} caption={caption} />
       <VibePet
         state={state}
-        caption={caption}
+        // The pill owns spoken text now; the pet only bubbles while sleeping
+        // (the pill hides itself in that state).
+        caption={state === "sleeping" ? caption : null}
         celebrating={celebrating}
         onActivate={() => void listen()}
       />

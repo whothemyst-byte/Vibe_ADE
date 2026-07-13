@@ -1,35 +1,39 @@
+/* Sits above the .tools-island (bottom: 14px, ~36px tall) with a clear gap. */
 .hint-pill {
   position: fixed;
-  bottom: 44px;
+  bottom: 64px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
   max-width: min(560px, 70vw);
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: 999px;
-  background: rgba(18, 17, 15, 0.72);
-  border: 1px solid rgba(215, 154, 61, 0.25);
+  background: var(--glass);
+  border: 1px solid var(--rule);
   backdrop-filter: blur(10px);
-  color: #f3eee5;
-  font-size: 13px;
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
   font-style: italic;
-  z-index: 40;
+  z-index: 290; /* under the tools island (300) so it can never cover it */
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
 .hint-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hint-pill-dot {
   width: 6px; height: 6px; border-radius: 50%;
-  background: rgba(215, 154, 61, 0.5);
+  background: var(--accent-soft);
   flex: none;
 }
 .hint-pill--listening .hint-pill-dot {
-  background: #d79a3d;
+  background: var(--accent);
   animation: hint-pulse 1s ease-in-out infinite;
 }
-.hint-pill--active { font-style: normal; }
+.hint-pill--active { font-style: normal; color: var(--text); }
 @keyframes hint-pulse {
   50% { transform: scale(1.8); opacity: 0.6; }
 }
