@@ -26,9 +26,13 @@ One asset is still needed locally:
 
 Say **"Vibe"**, wait for the orb to pulse, then speak — or press **Ctrl+Shift+V**,
 or click the pet. Without the model file the hotkey/click still works. Vibe
-controls the UI only; it never types into terminals.
+can also dictate INTO agent terminals: "ask Max to run the tests" types the
+prompt into Max's terminal and submits it, and Vibe pings you ("Max finished
+its task.") when the agent settles. Settings → Vibe picks whether your words
+arrive verbatim or cleaned up by the model.
 
-It can: open Claude Code / Codex / plain terminals, close or focus them, change
+It can: dictate prompts to agent terminals by name, open Claude Code / Codex /
+plain terminals, close or focus them, change
 the wall background or apply a theme (Ember, Midnight, Parchment, Moss, Plum,
 Slate), zoom to fit, switch or CREATE walls (it asks where, or opens the folder
 picker), open the task board, create/move tasks, and answer questions. If it

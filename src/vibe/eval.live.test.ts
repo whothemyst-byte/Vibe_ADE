@@ -45,6 +45,14 @@ function fakeRegistry() {
     properties: { name: { type: "string", description: "Agent name shown on the terminal" } },
     required: ["name"],
   });
+  stub("send_to_agent", "Type a prompt into an agent's terminal and submit it. Use when the user wants an agent to DO something. Pass one clear, self-contained prompt. One call per target agent.", {
+    type: "object",
+    properties: {
+      agent_name: { type: "string", description: "Agent name shown on the terminal (e.g. 'Max')" },
+      prompt: { type: "string", description: "The prompt to type and submit" },
+    },
+    required: ["agent_name", "prompt"],
+  }, "Sent to Max.");
   stub("apply_theme", "Apply a pre-made theme to this wall. Themes: Dusk, Paper, Forest, Ocean, Mono, Ember.", {
     type: "object",
     properties: { name: { type: "string", description: "Theme name" } },
@@ -154,5 +162,25 @@ describe.runIf(KEY)("vibe agent eval (live Groq)", { retry: 1 }, () => {
     const out = await runAgent("make me a new space", liveChat);
     expect(out.kind).toBe("question");
     expect(calls.find((c) => c.name === "create_space")).toBeUndefined();
+  });
+
+  it("routes a task request to send_to_agent", async () => {
+    await runAgent("ask Max to run the test suite", liveChat);
+    const call = calls.find((c) => c.name === "send_to_agent");
+    expect(call?.args.agent_name).toMatch(/max/i);
+    expect(String(call?.args.prompt)).toMatch(/test/i);
+  });
+
+  it("fans out one utterance to two agents", async () => {
+    await runAgent("ask Max to run the tests and tell Ruby to check the build", liveChat);
+    const targets = calls.filter((c) => c.name === "send_to_agent").map((c) => String(c.args.agent_name).toLowerCase());
+    expect(targets).toContain("max");
+    expect(targets).toContain("ruby");
+  });
+
+  it("keeps UI commands away from send_to_agent", async () => {
+    await runAgent("open the task board", liveChat);
+    expect(calls.some((c) => c.name === "send_to_agent")).toBe(false);
+    expect(calls.some((c) => c.name === "open_task_board")).toBe(true);
   });
 });
