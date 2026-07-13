@@ -1,6 +1,5 @@
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { spawnPty, writePty, resizePty, killPty, onPtyExit } from "../pty/client";
 import { newActivity, recordOutput, type Activity } from "./agentStatus";
@@ -87,8 +86,17 @@ export function ensureSession(opts: {
     fontSize: termSettings.fontSize,
     scrollback: termSettings.scrollback,
     fontFamily: '"Geist Mono", ui-monospace, monospace',
+    // The webgl addon's ThemeService pre-blends theme colors to an opaque
+    // value before they reach the GPU (intentional, for contrast/accessibility
+    // — see https://github.com/xtermjs/xterm.js/discussions/4432), so a
+    // translucent background only composites through xterm's own DOM/canvas
+    // renderer. allowTransparency must also be set or alpha is dropped
+    // entirely (https://github.com/xtermjs/xterm.js/issues/1004).
+    allowTransparency: true,
     theme: {
-      background: "#12110f",
+      // Fully transparent: the card's glass (blur + tint) IS the terminal
+      // background; xterm must paint nothing behind the glyphs.
+      background: "rgba(0, 0, 0, 0)",
       foreground: "#f3eee5",
       cursor: "#d79a3d",
       cursorAccent: "#12110f",
@@ -98,14 +106,6 @@ export function ensureSession(opts: {
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.open(host);
-  try {
-    const webgl = new WebglAddon();
-    // On context loss, dispose the addon: xterm falls back to the DOM renderer.
-    webgl.onContextLoss(() => webgl.dispose());
-    term.loadAddon(webgl);
-  } catch {
-    // WebGL unavailable - DOM renderer fallback.
-  }
   fit.fit();
 
   const activity = getActivityRef(id);
@@ -187,16 +187,24 @@ useSettingsStore.subscribe((state) => {
   }
 });
 
+/** Enter must arrive as its own PTY read, not in the paste's input burst:
+    TUI agents (Claude Code, Codex) deliberately swallow an Enter that lands
+    with a bracketed paste — their guard against pasted trailing newlines
+    auto-submitting. 200ms is safely past their paste-burst window. */
+const SUBMIT_DELAY_MS = 200;
+
 /**
  * Types text into a terminal as if the user pasted it (bracketed paste keeps
- * multi-line prompts intact in TUI agents), optionally pressing Enter.
- * Returns false if no live session exists for the id.
+ * multi-line prompts intact in TUI agents), optionally pressing Enter shortly
+ * after (see SUBMIT_DELAY_MS). Returns false if no live session exists.
  */
 export function sendToSession(id: string, text: string, submit: boolean): boolean {
   const s = sessions.get(id);
   if (!s) return false;
   if (text) s.term.paste(text);
-  if (submit) s.term.input("\r");
+  if (submit) {
+    window.setTimeout(() => sessions.get(id)?.term.input("\r"), SUBMIT_DELAY_MS);
+  }
   return true;
 }
 
