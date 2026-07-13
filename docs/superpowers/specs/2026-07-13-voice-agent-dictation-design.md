@@ -67,15 +67,13 @@ PTY ids live), same pattern as existing wall commands.
 - Tool description tells the model: pass the user's request as a clear,
   self-contained prompt; do not invent tasks; one call per target agent.
 
-### 2. Prompt delivery — `encodePromptBytes` + `deliverPrompt`
+### 2. Prompt delivery — reuse `sendToSession`
 
-New module `src/wall/dictation.ts`:
-
-- `encodePromptBytes(text: string): Uint8Array` — pure. Wraps the text in
-  bracketed-paste escapes (`ESC[200~ … ESC[201~`) so multi-line prompts don't
-  self-submit line-by-line inside agent CLIs, then appends `\r` to submit.
-- `deliverPrompt(ptyId: string, text: string): Promise<void>` — thin wrapper
-  over `writePty`.
+`sessions.ts` already exports `sendToSession(id, text, submit)`, which types
+text via xterm's bracketed paste (multi-line prompts stay intact in TUI
+agents) and presses Enter when `submit` is true. Delivery is
+`sendToSession(id, prompt, true)` — no new encoding code. New module
+`src/wall/dictation.ts` holds only the pure routing/ping logic below.
 
 ### 3. Verbatim router — `routeVerbatim`
 
@@ -114,7 +112,8 @@ Floating pill, bottom-center of the wall, above the status footer. States:
 - **listening** — mic-level animation + "Listening…" (no live words; see
   out-of-scope).
 - **thinking** — the final transcript, styled as a quote, while the loop runs.
-- **acting/done** — the routed action or Vibe's spoken reply, fades after ~4s.
+- **acting/done** — the routed action or Vibe's spoken reply, fading with the
+  existing caption lifetime (`CAPTION_MS`, 5s).
 
 Driven by the same state machine in `VibeAgent.tsx` that today drives the pet
 (listening/thinking states already exist there); the pill subscribes rather
@@ -148,7 +147,7 @@ testability.
 ## Testing
 
 - **Unit (vitest):** `routeVerbatim` (prefixes, vocative, case, miss, empty),
-  `encodePromptBytes` (bracketed paste, trailing `\r`, multi-line),
+  `resolveAgent` (case-insensitive exact token, miss lists names),
   completion-ping bookkeeping (set → idle → ping once; 30s silent expiry),
   `buildHints` (uses live agent names, stable cycle), settings sanitizer
   round-trip for `dictation`.
@@ -164,7 +163,7 @@ testability.
 
 | File | Change |
 |---|---|
-| `src/wall/dictation.ts` | **new** — `encodePromptBytes`, `deliverPrompt`, `routeVerbatim` |
+| `src/wall/dictation.ts` | **new** — `routeVerbatim`, `resolveAgent`, `updatePending` (delivery reuses `sessions.sendToSession`) |
 | `src/wall/dictation.test.ts` | **new** — unit tests |
 | `src/vibe/HintPill.tsx` (+ CSS) | **new** — pill component, `buildHints` |
 | `src/vibe/hints.test.ts` | **new** — `buildHints` tests |
