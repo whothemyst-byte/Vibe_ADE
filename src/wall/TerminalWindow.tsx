@@ -4,10 +4,17 @@ import { useCardStore, type TerminalCard } from "./cardStore";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset } from "./presets";
 import { StatusFooter } from "./StatusFooter";
-import { CloseIcon } from "./icons";
+import { CloseIcon, MaximizeIcon, RestoreIcon } from "./icons";
 import { ensureSession, detachSession, destroySession, fitSession, getActivityRef } from "./sessions";
+import { trailingDebounce } from "./debounce";
 import { nearestSlotIndex } from "./gridLayout";
 import { removeCardWithFade } from "./removeCard";
+import { useSettingsStore } from "../settings/settingsStore";
+
+/** Quiet period after the last resize event before refitting. Only needs to
+    outlast the gap between the glide's per-frame events (~16ms), with margin
+    for dropped frames; the glide itself is 300ms. */
+const FIT_SETTLE_MS = 150;
 
 function TerminalWindowInner({
   terminal,
@@ -18,10 +25,14 @@ function TerminalWindowInner({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const { id, w, h, cwd } = terminal;
+  const { id, cwd } = terminal;
   const presets = usePresetStore((s) => s.presets);
   const preset = resolvePreset(presets, terminal.presetId);
   const activityRef = getActivityRef(id);
+  const maximizedId = useCardStore((s) => s.maximizedId);
+  const setMaximized = useCardStore((s) => s.setMaximized);
+  const isMaximized = maximizedId === id;
+  const glossy = useSettingsStore((s) => s.settings.terminal.glossy);
 
   // The session (xterm + PTY) lives in sessions.ts and survives unmounts; this
   // effect only parents its host element into this card's body.
@@ -32,13 +43,29 @@ function TerminalWindowInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Refit only after the card's size settles. The ResizeObserver fires every
+  // frame of the 300ms width/height glide; fitting at each transient size
+  // rewraps xterm's buffer and the ConPTY at widths that exist for one frame,
+  // permanently garbling the text (both reflows are lossy). One trailing fit
+  // at the final size keeps the text intact and still fixes the text cut when
+  // a second terminal opens and the card animates to its new dimensions.
   useEffect(() => {
-    fitSession(id);
-  }, [w, h, id]);
+    const el = bodyRef.current;
+    if (!el) return;
+    const fit = trailingDebounce(() => fitSession(id), FIT_SETTLE_MS);
+    const ro = new ResizeObserver(fit.bump);
+    ro.observe(el);
+    return () => { ro.disconnect(); fit.cancel(); };
+  }, [id]);
 
   const close = (e: ReactPointerEvent) => {
     e.stopPropagation();
     removeCardWithFade(id, () => destroySession(id));
+  };
+
+  const toggleMaximize = (e: ReactPointerEvent) => {
+    e.stopPropagation();
+    setMaximized(isMaximized ? null : id);
   };
 
   // Dragging follows the cursor (DOM-only, no per-frame React work); on release
@@ -86,6 +113,7 @@ function TerminalWindowInner({
       ref={wrapRef}
       className="terminal-window"
       data-card-id={id}
+      data-glossy={glossy}
       style={{
         transform: `translate(${terminal.x}px, ${terminal.y}px)`,
         width: terminal.w,
@@ -95,6 +123,9 @@ function TerminalWindowInner({
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
         <span className="terminal-status-dot" />
         <span className="terminal-title">{terminal.name} &middot; {preset.label}</span>
+        <button className="terminal-maximize" title={isMaximized ? "Restore" : "Maximize"} onPointerDown={toggleMaximize}>
+          {isMaximized ? <RestoreIcon /> : <MaximizeIcon />}
+        </button>
         <button className="terminal-close" title="Close" onPointerDown={close}>
           <CloseIcon />
         </button>

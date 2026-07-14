@@ -263,6 +263,11 @@
 /* Page swaps (start / space / taskboard / teams / design) run as view
    transitions (see setView in App.tsx): the old page fades out while the new
    one fades up, replacing the old hard cut. */
+/* The transition overlay sits in the top layer and would swallow clicks for
+   its whole duration; let input fall through to the live page beneath. */
+::view-transition {
+  pointer-events: none;
+}
 ::view-transition-old(root) {
   animation: page-out .2s ease both;
 }

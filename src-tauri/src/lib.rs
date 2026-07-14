@@ -3,7 +3,6 @@ mod design;
 mod oauth;
 mod pty;
 mod store;
-mod titlebar;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -71,7 +70,6 @@ pub fn run() {
             design::design_watch,
             design::design_unwatch,
             oauth::start_oauth_loopback,
-            titlebar::set_titlebar_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

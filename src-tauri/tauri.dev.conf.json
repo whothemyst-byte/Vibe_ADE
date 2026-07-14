@@ -1,0 +1,11 @@
+{
+  "productName": "Vibe Space Dev",
+  "identifier": "com.admin.vibe-space-dev",
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["vibespace-dev"]
+      }
+    }
+  }
+}

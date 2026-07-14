@@ -60,3 +60,10 @@
 .wall-root .layer-ui__wrapper__footer-left {
   display: none !important;
 }
+
+/* No "Loading scene…" splash: pages already fade via the view transition
+   (App.css), so the canvas should appear silently once ready. Unscoped on
+   purpose — it must also cover the design canvas, not just .wall-root. */
+.LoadingMessage {
+  display: none !important;
+}

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement, type SetStateAction } from "react";
+import { flushSync } from "react-dom";
 import "./App.css";
 import { StartPage } from "./start/StartPage";
 import { WallView } from "./wall/WallView";
@@ -13,7 +14,8 @@ import { LoginPage } from "./auth/LoginPage";
 import { TeamsBootstrap } from "./teams/TeamsBootstrap";
 import { TeamsView } from "./teams/TeamsView";
 import { DesignPage } from "./design/DesignPage";
-import { syncTitlebar } from "./settings/themes";
+import { TitleBar } from "./chrome/TitleBar";
+import { ResizeHandles } from "./chrome/ResizeHandles";
 
 type View =
   | { kind: "start" }
@@ -23,7 +25,14 @@ type View =
   | { kind: "design"; wallId: string; from: View };
 
 export default function App() {
-  const [view, setView] = useState<View>({ kind: "start" });
+  const [view, setViewRaw] = useState<View>({ kind: "start" });
+
+  // Every page swap goes through here: animate it as a view transition
+  // (Chromium/WebView2) so the old page cross-fades out instead of vanishing.
+  const setView = (next: SetStateAction<View>) => {
+    if (typeof document.startViewTransition !== "function") { setViewRaw(next); return; }
+    document.startViewTransition(() => { flushSync(() => setViewRaw(next)); });
+  };
 
   useEffect(() => {
     const open = () => setView((v) => (v.kind === "teams" ? v : { kind: "teams", from: v }));
@@ -36,9 +45,6 @@ export default function App() {
     void loadIndex().then((i) => { wallsRef.current = i; });
   }, [view]);
 
-  useEffect(() => {
-    if (view.kind !== "wall") syncTitlebar(null);
-  }, [view.kind]);
   useVibeContext("app", () => {
     const where =
       view.kind === "start" ? "start page"
@@ -173,6 +179,11 @@ export default function App() {
       <TaskBoard
         onBack={() => setView(view.from)}
         onOpenWall={(id) => setView({ kind: "wall", id })}
+        fromWallId={
+          view.from.kind === "wall" ? view.from.id
+          : view.from.kind === "design" ? view.from.wallId
+          : undefined
+        }
       />
     );
   } else if (view.kind === "teams") {
@@ -193,6 +204,8 @@ export default function App() {
   }
   return (
     <>
+      <TitleBar />
+      <ResizeHandles />
       <ClerkLoading>
         <div className="login-screen" />
       </ClerkLoading>

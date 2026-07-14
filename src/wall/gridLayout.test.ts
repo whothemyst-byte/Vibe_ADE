@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { HEADER_H } from "./transform";
 import {
   gridShape,
   gridPositions,
@@ -7,6 +8,7 @@ import {
   nearestSlotIndex,
   browserLayout,
   splitLayout,
+  maximizeLayout,
   STAGE,
   BROWSER_PANE,
   CELL,
@@ -228,5 +230,76 @@ describe("splitLayout", () => {
   it("derives quartered cells that equal CELL", () => {
     expect(HALF_W).toBe(CELL.w);
     expect(HALF_H).toBe(CELL.h);
+  });
+});
+
+describe("maximizeLayout", () => {
+  const A = { x: 0, y: 0 };
+
+  it("fills the stage alone when there are no other cards", () => {
+    const L = maximizeLayout(0, 1, A);
+    expect(L.rects).toEqual([{ x: A.x - STAGE.w / 2, y: A.y - STAGE.h / 2, w: STAGE.w, h: STAGE.h }]);
+    expect(L.bbox.w).toBe(STAGE.w);
+    expect(L.bbox.h).toBe(STAGE.h);
+  });
+
+  it("places a lone other terminal flush beside the stage, vertically centered, with no offset", () => {
+    const L = maximizeLayout(0, 2, A);
+    const maxRect = L.rects[0];
+    expect(L.rects[1]).toEqual({
+      x: maxRect.x + maxRect.w + GUTTER,
+      y: L.bbox.y + (L.bbox.h - CELL.h) / 2,
+      w: CELL.w,
+      h: CELL.h,
+    });
+  });
+
+  it("keeps the maximized card at STAGE size while few enough others are stacked to fit within it", () => {
+    const L = maximizeLayout(0, 6, A); // 5 others
+    expect(L.rects[0].w).toBe(STAGE.w);
+    expect(L.rects[0].h).toBe(STAGE.h);
+    expect(L.bbox.h).toBe(STAGE.h);
+  });
+
+  it("spreads just a couple of stacked terminals across the full stage height instead of clumping small", () => {
+    const L = maximizeLayout(0, 3, A); // 2 others
+    const [a, b] = [L.rects[1], L.rects[2]];
+    // They should span the maximized card's whole height, not sit bunched in the middle.
+    expect(a.y).toBe(L.rects[0].y);
+    expect(b.y + b.h).toBe(L.rects[0].y + L.rects[0].h);
+  });
+
+  it("does not spread other cards into a tall non-overlapping column once there are enough of them", () => {
+    // Regression guard for the original bug: many stacked others must not each
+    // need a full CELL height plus gutter of vertical room.
+    const L = maximizeLayout(0, 20, A); // 19 others
+    expect(L.bbox.h).toBeLessThan(19 * CELL.h);
+  });
+
+  it("falls back to the minimum header-height peek once there are too many to fit in the stage", () => {
+    const L = maximizeLayout(0, 20, A); // 19 others
+    const step = L.rects[2].y - L.rects[1].y;
+    expect(step).toBe(HEADER_H);
+    expect(L.bbox.h).toBeGreaterThan(STAGE.h); // overflows once clamped
+  });
+
+  it("stacks other cards in a vertical peek column, not a diagonal cascade", () => {
+    const L = maximizeLayout(0, 4, A); // others at rects[1..3]
+    expect(L.rects[1].x).toBe(L.rects[2].x);
+    expect(L.rects[2].x).toBe(L.rects[3].x);
+    const step = L.rects[2].y - L.rects[1].y;
+    expect(L.rects[3].y - L.rects[2].y).toBe(step);
+  });
+
+  it("puts later others (array order) further down, overlapping the ones above", () => {
+    const L = maximizeLayout(0, 4, A); // others at rects[1..3]
+    expect(L.rects[1].y).toBeLessThan(L.rects[2].y);
+    expect(L.rects[2].y).toBeLessThan(L.rects[3].y);
+  });
+
+  it("centers on a non-origin anchor", () => {
+    const L = maximizeLayout(0, 3, { x: 100, y: -50 });
+    expect(L.bbox.x + L.bbox.w / 2).toBe(100);
+    expect(L.rects[0].x).toBe(100 - L.bbox.w / 2);
   });
 });

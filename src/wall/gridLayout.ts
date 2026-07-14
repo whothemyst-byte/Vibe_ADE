@@ -1,7 +1,7 @@
-import type { Camera, Rect } from "./transform";
+import { HEADER_H, type Camera, type Rect } from "./transform";
 
 /** Fixed terminal cell size (world px) — terminals are uniform in the grid. */
-export const CELL = { w: 340, h: 210 };
+export const CELL = { w: 600, h: 440 };
 export const GUTTER = 24;
 
 export type Point = { x: number; y: number };
@@ -139,6 +139,48 @@ export function browserLayout(
     y: y + (i % 2) * (CELL.h + GUTTER),
   }));
   return { browser, terminals, bbox: { x, y, w, h } };
+}
+
+/** Floor on the vertical offset between successive cards in the maximize
+ *  deck — never shrinks past a full header, so each card's header stays
+ *  legible and clickable above the one overlapping it from below. */
+const DECK_MIN_PEEK = HEADER_H;
+
+/**
+ * Layout when one terminal is maximized: the maximized card fills the full
+ * STAGE and the remaining cards form a peek stack to its right, spaced to
+ * exactly fill the stage's height — a couple of terminals spread out with
+ * room between them instead of clumping small, while enough terminals to
+ * outgrow the stage fall back to DECK_MIN_PEEK overlapping tabs (array
+ * order, so later cards render on top and overlap the ones above).
+ */
+export function maximizeLayout(
+  maximizedIndex: number,
+  totalCards: number,
+  anchor: Point
+): { rects: Rect[]; bbox: Rect } {
+  const othersCount = totalCards - 1;
+  const peek = othersCount > 1 ? Math.max(DECK_MIN_PEEK, (STAGE.h - CELL.h) / (othersCount - 1)) : 0;
+  const deckH = othersCount > 0 ? CELL.h + (othersCount - 1) * peek : 0;
+  const rightColW = othersCount > 0 ? GUTTER + CELL.w : 0;
+  const totalW = STAGE.w + rightColW;
+  const totalH = Math.max(STAGE.h, deckH);
+  const x0 = anchor.x - totalW / 2;
+  const y0 = anchor.y - totalH / 2;
+  const maxRect: Rect = { x: x0, y: anchor.y - STAGE.h / 2, w: STAGE.w, h: STAGE.h };
+  const deckX = x0 + STAGE.w + GUTTER;
+  const deckY = y0 + (totalH - deckH) / 2;
+  const rects: Rect[] = [];
+  let otherIdx = 0;
+  for (let i = 0; i < totalCards; i++) {
+    if (i === maximizedIndex) {
+      rects.push(maxRect);
+    } else {
+      rects.push({ x: deckX, y: deckY + otherIdx * peek, w: CELL.w, h: CELL.h });
+      otherIdx++;
+    }
+  }
+  return { rects, bbox: { x: x0, y: y0, w: totalW, h: totalH } };
 }
 
 /** Index of the rect whose center is nearest to `p` (drop-target slot); -1 if none. */

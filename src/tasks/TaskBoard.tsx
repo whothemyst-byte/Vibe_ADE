@@ -1,7 +1,9 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import { useTaskStore, normalizeTasks, type Task, type TaskStatus, type Priority } from "./taskStore";
-import { loadTasks, saveTasks, loadIndex } from "../store/persistence";
-import type { WallMeta } from "../store/types";
+import { loadTasks, saveTasks, loadIndex, loadWall } from "../store/persistence";
+import type { Background, WallMeta } from "../store/types";
+import { WallBackground } from "../wall/WallBackground";
+import { accentForBackground, applyAccent, applyChromeInk, DEFAULT_ACCENT } from "../settings/themes";
 import { BackIcon, GridIcon, MoreIcon, PlusIcon } from "../wall/icons";
 import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
@@ -145,11 +147,12 @@ const TaskCard = memo(function TaskCard({
 });
 
 export function TaskBoard({
-  onBack, onOpenWall,
-}: { onBack: () => void; onOpenWall: (id: string) => void }) {
+  onBack, onOpenWall, fromWallId,
+}: { onBack: () => void; onOpenWall: (id: string) => void; fromWallId?: string }) {
   const tasks = useTaskStore((s) => s.tasks);
   const ent = useEntitlements();
   const [walls, setWalls] = useState<WallMeta[]>([]);
+  const [background, setBackground] = useState<Background | null>(null);
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -171,6 +174,14 @@ export function TaskBoard({
       useTaskStore.getState().setAll(normalizeTasks(t));
       setWalls(idx);
       ready.current = true;
+      // Theme the board like the space it was opened from (or the current space).
+      const themeWallId = fromWallId ?? idx.find((w) => w.isCurrent)?.id;
+      const doc = themeWallId ? await loadWall(themeWallId) : null;
+      if (doc?.background) {
+        setBackground(doc.background);
+        applyAccent(accentForBackground(doc.background));
+        applyChromeInk(doc.background);
+      }
     })();
     const unsub = useTaskStore.subscribe(() => {
       if (!ready.current) return; // don't save during the initial load
@@ -181,6 +192,9 @@ export function TaskBoard({
     });
     return () => { unsub(); if (saveTimer.current) window.clearTimeout(saveTimer.current); };
   }, []);
+
+  // Hand the accent/ink back to the app defaults when leaving (same as WallView).
+  useEffect(() => () => { applyAccent(DEFAULT_ACCENT); applyChromeInk(null); }, []);
 
   useVibeContext("tasks", () => {
     const all = useTaskStore.getState().tasks;
@@ -257,7 +271,8 @@ export function TaskBoard({
   };
 
   return (
-    <div className="taskboard">
+    <div className={`taskboard${background ? " themed" : ""}`}>
+      {background && <WallBackground background={background} />}
       <div className="cnvs-toolbar tb-toolbar">
         <button className="cnvs-btn" onClick={onBack} title="Back"><BackIcon /></button>
         <span className="cnvs-name tb-name"><GridIcon /> Taskboard</span>

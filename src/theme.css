@@ -21,6 +21,10 @@
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 
+  /* title bar ink — readable color for whatever's behind the glassy bar (see
+     applyChromeInk); defaults to --text until a wall sets it. */
+  --titlebar-ink: #f3eee5;
+
   /* status / tiers */
   --ok: #7fa55a;
   --info: #5d8fb3;
@@ -31,6 +35,10 @@
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 10px 30px -18px rgba(0, 0, 0, .6);
+  /* height of the custom title bar (see src/chrome/), matching the native
+     Windows 11 caption height. Only reserved via html.has-custom-titlebar —
+     native Linux chrome doesn't need clearance. */
+  --titlebar-h: 26px;
 
   /* type */
   --font-ui: "Geist", system-ui, sans-serif;

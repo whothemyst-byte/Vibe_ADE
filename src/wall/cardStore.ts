@@ -45,6 +45,8 @@ type CardStore = {
   cards: Card[];
   /** World-space center of the managed grid; null until the first layout. */
   anchor: { x: number; y: number } | null;
+  /** ID of the currently maximized terminal, or null. */
+  maximizedId: string | null;
   add: (c: Card) => void;
   update: (
     id: string,
@@ -56,17 +58,23 @@ type CardStore = {
   remove: (id: string) => void;
   /** Reorders a card to `index` (grid order = array order). */
   moveToIndex: (id: string, index: number) => void;
+  setMaximized: (id: string | null) => void;
 };
 
 export const useCardStore = create<CardStore>((set) => ({
   cards: [],
   anchor: null,
+  maximizedId: null,
   add: (c) => set((s) => ({ cards: [...s.cards, c] })),
   update: (id, patch) =>
     set((s) => ({
       cards: s.cards.map((c) => (c.id === id ? ({ ...c, ...patch } as Card) : c)),
     })),
-  remove: (id) => set((s) => ({ cards: s.cards.filter((c) => c.id !== id) })),
+  remove: (id) =>
+    set((s) => ({
+      cards: s.cards.filter((c) => c.id !== id),
+      maximizedId: s.maximizedId === id ? null : s.maximizedId,
+    })),
   moveToIndex: (id, index) =>
     set((s) => {
       const from = s.cards.findIndex((c) => c.id === id);
@@ -76,4 +84,5 @@ export const useCardStore = create<CardStore>((set) => ({
       next.splice(Math.max(0, Math.min(index, next.length)), 0, moved);
       return { cards: next };
     }),
+  setMaximized: (id) => set({ maximizedId: id }),
 }));

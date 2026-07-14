@@ -1,7 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { Background } from "../store/types";
 
-/** A pre-made wall theme: a background plus a preview palette for the card. */
+/** A pre-made wall theme: a background plus the accent it drives. */
 export type Theme = {
   id: string;
   name: string;
@@ -9,71 +8,117 @@ export type Theme = {
   background: Background;
   /** Drives every accent in the UI (buttons, highlights, focus rings). */
   accent: string;
-  /** Decorative swatch dots shown on the preview card. */
-  palette: string[];
 };
 
 /** Accent used when no theme matches (custom backgrounds) — quansynd amber. */
 export const DEFAULT_ACCENT = "#d79a3d";
 
-export const THEMES: Theme[] = [
+const DARK_BG = "#12110f";
+const LIGHT_BG = "#f3ead8";
+const DARK_ACCENT = "#d79a3d";
+const LIGHT_ACCENT = "#b8802b";
+
+const prefersDark = () =>
+  typeof matchMedia === "undefined" || matchMedia("(prefers-color-scheme: dark)").matches;
+
+/** Appearance: solid dark/light backgrounds. "System" resolves to whichever matches the OS at click time. */
+export const APPEARANCE_THEMES: Theme[] = [
   {
-    id: "ember",
-    name: "Ember",
-    tagline: "quansynd · warm dark",
-    background: { kind: "color", color: "#12110f" },
-    accent: "#d79a3d",
-    palette: ["#d79a3d", "#b1a692", "#7fa55a", "#c0563f", "#f3eee5"],
+    id: "dark",
+    name: "Dark",
+    tagline: "warm dark",
+    background: { kind: "color", color: DARK_BG },
+    accent: DARK_ACCENT,
   },
   {
-    id: "midnight",
-    name: "Midnight",
-    tagline: "cool night · focused",
-    background: { kind: "color", color: "#0c0f14" },
-    accent: "#5d8fb3",
-    palette: ["#5d8fb3", "#8aa7bd", "#3d5a73", "#d79a3d", "#e8edf2"],
+    id: "light",
+    name: "Light",
+    tagline: "warm daylight",
+    background: { kind: "color", color: LIGHT_BG },
+    accent: LIGHT_ACCENT,
   },
   {
-    id: "parchment",
-    name: "Parchment",
-    tagline: "paper studio · daylight",
-    background: { kind: "color", color: "#f3ead8" },
-    accent: "#b8802b",
-    palette: ["#b8802b", "#6f6960", "#7fa55a", "#c0563f", "#2a2620"],
-  },
-  {
-    id: "moss",
-    name: "Moss",
-    tagline: "herbarium · quiet green",
-    background: { kind: "color", color: "#0f1410" },
-    accent: "#7fa55a",
-    palette: ["#7fa55a", "#a8c08a", "#4a6b3a", "#d79a3d", "#e9efe2"],
-  },
-  {
-    id: "plum",
-    name: "Plum",
-    tagline: "dusk · moody",
-    background: { kind: "color", color: "#15101a" },
-    accent: "#9a7ab0",
-    palette: ["#9a7ab0", "#c4a8d4", "#5d4a73", "#d79a3d", "#efe8f2"],
-  },
-  {
-    id: "slate",
-    name: "Slate",
-    tagline: "graphite · neutral",
-    background: { kind: "color", color: "#141417" },
-    accent: "#8a8a92",
-    palette: ["#8a8a92", "#b8b8c0", "#55555e", "#d79a3d", "#ededf0"],
+    id: "system",
+    name: "System",
+    tagline: "match your OS",
+    background: { kind: "color", color: prefersDark() ? DARK_BG : LIGHT_BG },
+    accent: prefersDark() ? DARK_ACCENT : LIGHT_ACCENT,
   },
 ];
 
-/** True when the wall's background matches a theme (color themes only). */
+/** Premade looping video backgrounds, bundled under public/themes/. */
+export const VIDEO_THEMES: Theme[] = [
+  {
+    id: "room",
+    name: "Room",
+    tagline: "pixel bedroom loop",
+    background: { kind: "video", url: "/themes/room.mp4" },
+    accent: DEFAULT_ACCENT,
+  },
+  {
+    id: "moody-night",
+    name: "Moody Night",
+    tagline: "snowy nightlight",
+    background: { kind: "video", url: "/themes/moody_night.mp4" },
+    accent: DEFAULT_ACCENT,
+  },
+  {
+    id: "japanese-day",
+    name: "Japanese Day",
+    tagline: "sakura daylight",
+    background: { kind: "video", url: "/themes/Japanese_Day_Theme.mp4" },
+    accent: DEFAULT_ACCENT,
+  },
+  {
+    id: "japanese-night",
+    name: "Japanese Night",
+    tagline: "sakura moonlight",
+    background: { kind: "video", url: "/themes/Japanese_Night_Theme.mp4" },
+    accent: DEFAULT_ACCENT,
+  },
+  {
+    id: "candlelit-room",
+    name: "Candlelit Room",
+    tagline: "cozy night window",
+    background: { kind: "video", url: "/themes/Candlelit_Room.mp4" },
+    accent: DEFAULT_ACCENT,
+  },
+  {
+    id: "rain-window",
+    name: "Rain Window",
+    tagline: "quiet watch, rainfall",
+    background: { kind: "video", url: "/themes/Rain_Window.mp4" },
+    accent: DEFAULT_ACCENT,
+  },
+  {
+    id: "neon-rooftop",
+    name: "Neon Rooftop",
+    tagline: "cyberpunk skyline",
+    background: { kind: "video", url: "/themes/Neon_Rooftop.mp4" },
+    accent: DEFAULT_ACCENT,
+  },
+  {
+    id: "neon-street",
+    name: "Neon Street",
+    tagline: "synthwave night",
+    background: { kind: "video", url: "/themes/Neon_Street.mp4" },
+    accent: DEFAULT_ACCENT,
+  },
+];
+
+export const THEMES: Theme[] = [...APPEARANCE_THEMES, ...VIDEO_THEMES];
+
+/** True when the wall's background matches a theme (by color, or by video/image src). */
 export function isThemeActive(bg: Background, theme: Theme): boolean {
-  return (
-    bg.kind === "color" &&
-    theme.background.kind === "color" &&
-    bg.color.toLowerCase() === theme.background.color.toLowerCase()
-  );
+  if (bg.kind === "color" && theme.background.kind === "color") {
+    return bg.color.toLowerCase() === theme.background.color.toLowerCase();
+  }
+  if (bg.kind === theme.background.kind && (bg.kind === "video" || bg.kind === "image")) {
+    const a = "url" in bg ? bg.url : undefined;
+    const b = "url" in theme.background ? theme.background.url : undefined;
+    return a != null && a === b;
+  }
+  return false;
 }
 
 /** The accent a background should use — its theme's, or the default for custom. */
@@ -101,27 +146,19 @@ export function applyAccent(accent: string): void {
   root.style.setProperty("--on-accent", readableTextColor(accent));
 }
 
-/** Caption color used when no wall is open, or its background isn't a solid color. */
-export const DEFAULT_TITLEBAR_BG = "#12110f";
-
-/** Colors to paint the native Windows title bar with, mirroring the current view. */
-export function resolveTitlebarColors(
-  background: Background | null,
-  accent: string
-): { bg: string; text: string; border: string } {
-  const bg = background?.kind === "color" ? background.color : DEFAULT_TITLEBAR_BG;
-  return { bg, text: readableTextColor(bg), border: accent };
-}
+/** Default title bar ink — matches the app's static --text; used outside a wall and for image/video walls. */
+const DEFAULT_CHROME_INK = "#f3eee5";
 
 /**
- * Pushes the resolved colors to the native title bar. Windows-only; the
- * backend command no-ops elsewhere or on unsupported Windows builds, and any
- * failure (including running outside Tauri, e.g. `npm run dev` in a browser)
- * is swallowed since this is a purely cosmetic sync.
+ * Sets --titlebar-ink to a readable color for whatever's actually behind the
+ * glassy title bar: dark ink on a light solid-color wall (e.g. the Light
+ * theme), light ink on a dark one. Image/video walls fall back to the
+ * default light ink — sampling a live video frame for this is the kind of
+ * complexity this cosmetic bar isn't worth (most premade video themes are
+ * dark/moody anyway).
  */
-export function syncTitlebar(background: Background | null): void {
-  const accent =
-    getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || DEFAULT_ACCENT;
-  const colors = resolveTitlebarColors(background, accent);
-  void invoke("set_titlebar_theme", colors).catch(() => {});
+export function applyChromeInk(background: Background | null): void {
+  const ink = background?.kind === "color" ? readableTextColor(background.color) : DEFAULT_CHROME_INK;
+  document.documentElement.style.setProperty("--titlebar-ink", ink);
 }
+
