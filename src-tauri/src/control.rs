@@ -236,7 +236,9 @@ const VIBECTL_CMD: &str =
 
 const VIBECTL_PS1: &str = r#"# vibectl - control the Vibe Space canvas from an agent terminal.
 # VIBECTL_URL / VIBECTL_TOKEN are injected into every Vibe Space terminal.
-param([Parameter(Position = 0)][string]$Verb = "")
+# NOTE: plain param() only - a [Parameter()] attribute would make this an
+# advanced script, which rejects unbound args instead of passing them to $args.
+param([string]$Verb = "")
 
 $usage = @"
 vibectl - control the Vibe Space canvas from an agent terminal
