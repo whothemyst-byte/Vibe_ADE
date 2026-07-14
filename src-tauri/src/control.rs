@@ -206,6 +206,108 @@ pub fn control_reply(id: u64, ok: bool, body: String) -> bool {
     }
 }
 
+// ---- generated CLI bundle -------------------------------------------------
+// vibectl.cmd is the PATH entry point (PATHEXT resolves .cmd, not .ps1); it
+// delegates to vibectl.ps1, which builds JSON with ConvertTo-Json so quoting
+// in `--run "npm run dev"` can never break. Files are rewritten every launch.
+
+const VIBECTL_CMD: &str =
+    "@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0vibectl.ps1\" %*\r\n";
+
+const VIBECTL_PS1: &str = r#"# vibectl - control the Vibe Space canvas from an agent terminal.
+# VIBECTL_URL / VIBECTL_TOKEN are injected into every Vibe Space terminal.
+param([Parameter(Position = 0)][string]$Verb = "")
+
+$usage = @"
+vibectl - control the Vibe Space canvas from an agent terminal
+
+Usage:
+  vibectl state                              Wall snapshot as JSON
+  vibectl browser <url>                      Open/navigate the wall browser (http/https only)
+  vibectl terminal [--preset <name>] [--run "<cmd>"]
+                                             Spawn a terminal node on the wall; --run types
+                                             the command into it (use for dev servers)
+"@
+
+if (-not $env:VIBECTL_URL -or -not $env:VIBECTL_TOKEN) {
+  Write-Output "vibectl: VIBECTL_URL/VIBECTL_TOKEN are not set - run this inside a Vibe Space terminal."
+  exit 1
+}
+
+function Invoke-Vibe([string]$Method, [string]$Route, $BodyObj) {
+  $params = @{
+    Method  = $Method
+    Uri     = "$env:VIBECTL_URL$Route"
+    Headers = @{ "X-Vibe-Token" = $env:VIBECTL_TOKEN }
+  }
+  if ($null -ne $BodyObj) {
+    $params.ContentType = "application/json"
+    $params.Body = ($BodyObj | ConvertTo-Json -Compress)
+  }
+  try {
+    Invoke-RestMethod @params | ConvertTo-Json -Compress -Depth 8
+  } catch {
+    if ($_.ErrorDetails.Message) { Write-Output $_.ErrorDetails.Message }
+    else { Write-Output "vibectl: $($_.Exception.Message)" }
+    exit 1
+  }
+}
+
+switch ($Verb) {
+  "state" { Invoke-Vibe "GET" "/state" $null }
+  "browser" {
+    if (-not $args[0]) { Write-Output $usage; exit 1 }
+    Invoke-Vibe "POST" "/browser" @{ url = "$($args[0])" }
+  }
+  "terminal" {
+    $body = @{}
+    for ($i = 0; $i -lt $args.Count; $i++) {
+      switch ($args[$i]) {
+        "--preset" { $i++; $body.preset = "$($args[$i])" }
+        "--run"    { $i++; $body.run = "$($args[$i])" }
+        default    { Write-Output $usage; exit 1 }
+      }
+    }
+    Invoke-Vibe "POST" "/terminal" $body
+  }
+  default { Write-Output $usage; if ($Verb) { exit 1 } }
+}
+"#;
+
+const AGENT_GUIDE: &str = r#"# Vibe Space canvas control (vibectl)
+
+You are running inside a Vibe Space terminal. The `vibectl` CLI (already on
+PATH) lets you inspect and control the canvas around you.
+
+## Commands
+
+- `vibectl state` - JSON snapshot of the wall: open terminals (agent names +
+  presets), the browser card, and a summary line.
+- `vibectl browser <url>` - open the wall's browser (or navigate it) to an
+  http(s) URL, e.g. `vibectl browser http://localhost:5173`.
+- `vibectl terminal [--preset <name>] [--run "<command>"]` - spawn a new
+  terminal node on the wall. `--preset` picks an agent preset by name
+  (e.g. `claude`); omit it for a plain shell. `--run` types the command into
+  the new terminal once it starts.
+
+## Rules
+
+- **Never run dev servers or watchers in your own terminal.** Use
+  `vibectl terminal --run "<cmd>"` so they get their own node on the canvas
+  and your terminal stays free for reasoning and edits.
+- Only http/https URLs open in the browser.
+- Quote --run commands: `vibectl terminal --run "npm run dev"`.
+"#;
+
+/// Writes the CLI bundle; rewritten every launch to heal edits.
+pub fn write_cli_files(dir: &std::path::Path) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    std::fs::write(dir.join("vibectl.cmd"), VIBECTL_CMD)?;
+    std::fs::write(dir.join("vibectl.ps1"), VIBECTL_PS1)?;
+    std::fs::write(dir.join("agent-guide.md"), AGENT_GUIDE)?;
+    Ok(())
+}
+
 /// Binds the loopback server, stores ControlInfo, and spawns the accept loop.
 /// Called once from app setup; failure is non-fatal (agents just lack vibectl).
 pub fn start(app: AppHandle) -> anyhow::Result<()> {
@@ -216,6 +318,7 @@ pub fn start(app: AppHandle) -> anyhow::Result<()> {
     let token = hex(&raw);
     let dir = app.path().app_data_dir()?.join("vibectl");
     let _ = CONTROL.set(ControlInfo { port, token: token.clone(), dir });
+    write_cli_files(&control_info().expect("just set").dir)?;
     std::thread::spawn(move || {
         for conn in listener.incoming() {
             let Ok(stream) = conn else { continue };
@@ -309,6 +412,29 @@ mod tests {
     #[test]
     fn control_reply_is_false_for_unknown_or_timed_out_ids() {
         assert!(!control_reply(999_999, true, "{}".into()));
+    }
+
+    #[test]
+    fn writes_the_cli_bundle() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("vibectl");
+        write_cli_files(&dir).unwrap();
+        let cmd = std::fs::read_to_string(dir.join("vibectl.cmd")).unwrap();
+        let ps1 = std::fs::read_to_string(dir.join("vibectl.ps1")).unwrap();
+        let guide = std::fs::read_to_string(dir.join("agent-guide.md")).unwrap();
+        assert!(cmd.contains("vibectl.ps1"));
+        assert!(ps1.contains("/state") && ps1.contains("X-Vibe-Token") && ps1.contains("--run"));
+        assert!(guide.contains("vibectl terminal --run"));
+    }
+
+    #[test]
+    fn rewrites_heal_edited_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("vibectl");
+        write_cli_files(&dir).unwrap();
+        std::fs::write(dir.join("vibectl.ps1"), "broken").unwrap();
+        write_cli_files(&dir).unwrap();
+        assert!(std::fs::read_to_string(dir.join("vibectl.ps1")).unwrap().contains("/state"));
     }
 
     #[test]
