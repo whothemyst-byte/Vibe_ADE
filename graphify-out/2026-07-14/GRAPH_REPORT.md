@@ -1,16 +1,16 @@
 # Graph Report - vibe-space  (2026-07-14)
 
 ## Corpus Check
-- 271 files · ~249,798 words
+- 271 files · ~250,477 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1987 nodes · 3273 edges · 147 communities (140 shown, 7 thin omitted)
+- 1984 nodes · 3272 edges · 151 communities (144 shown, 7 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 32 edges (avg confidence: 0.78)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7d1faf10`
+- Built from commit: `67e1fb59`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -151,35 +151,40 @@
 - [[_COMMUNITY_Community 142|Community 142]]
 - [[_COMMUNITY_Community 143|Community 143]]
 - [[_COMMUNITY_Community 144|Community 144]]
+- [[_COMMUNITY_Community 145|Community 145]]
+- [[_COMMUNITY_Community 147|Community 147]]
+- [[_COMMUNITY_Community 148|Community 148]]
 - [[_COMMUNITY_Community 149|Community 149]]
 - [[_COMMUNITY_Community 150|Community 150]]
+- [[_COMMUNITY_Community 151|Community 151]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `String` - 21 edges
 2. `Result` - 19 edges
-3. `useCardStore` - 18 edges
-4. `base()` - 18 edges
-5. `useOrgStore` - 18 edges
+3. `base()` - 18 edges
+4. `useOrgStore` - 18 edges
+5. `useCardStore` - 18 edges
 6. `compilerOptions` - 16 edges
 7. `File Map` - 16 edges
 8. `useEntitlements()` - 15 edges
 9. `Task overview` - 15 edges
-10. `TerminalWindowInner()` - 14 edges
+10. `String` - 14 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `run_script()` --references--> `Value`  [EXTRACTED]
-  vibe-space/src-tauri/src/browser/commands.rs → src-tauri/src/control.rs
-- `SpawnConfig` --references--> `Channel`  [EXTRACTED]
-  src-tauri/src/pty/actor.rs → vibe-space/src-tauri/src/pty/actor.rs
-- `SpawnConfig` --references--> `InvokeResponseBody`  [EXTRACTED]
-  src-tauri/src/pty/actor.rs → vibe-space/src-tauri/src/pty/actor.rs
-- `SpawnConfig` --references--> `Option`  [EXTRACTED]
-  src-tauri/src/pty/actor.rs → vibe-space/src-tauri/src/pty/actor.rs
-- `SpawnConfig` --references--> `String`  [EXTRACTED]
-  src-tauri/src/pty/actor.rs → vibe-space/src-tauri/src/pty/actor.rs
+- `pty_spawn()` --calls--> `spawn()`  [INFERRED]
+  vibe-space/src-tauri/src/pty/commands.rs → src-tauri/src/pty/actor.rs
+- `index_save()` --calls--> `write_atomic()`  [INFERRED]
+  src-tauri/src/store/commands.rs → vibe-space/src-tauri/src/store/atomic.rs
+- `presets_save()` --calls--> `write_atomic()`  [INFERRED]
+  src-tauri/src/store/commands.rs → vibe-space/src-tauri/src/store/atomic.rs
+- `settings_save()` --calls--> `write_atomic()`  [INFERRED]
+  src-tauri/src/store/commands.rs → vibe-space/src-tauri/src/store/atomic.rs
+- `space_save()` --calls--> `write_atomic()`  [INFERRED]
+  src-tauri/src/store/commands.rs → vibe-space/src-tauri/src/store/atomic.rs
 
 ## Import Cycles
 - 1-file cycle: `src-tauri/src/control.rs -> src-tauri/src/control.rs`
+- 1-file cycle: `vibe-space/src-tauri/src/pty/registry.rs -> vibe-space/src-tauri/src/pty/registry.rs`
 
 ## Hyperedges (group relationships)
 - **Vibe Voice Agent Pipeline (wake to speak)** — plans_2026_06_11_vibe_pet_voice_agent_voice_pipeline, plans_2026_06_11_vibe_pet_voice_agent_groq_client, plans_2026_06_11_vibe_pet_voice_agent_agent_loop, plans_2026_06_11_vibe_pet_voice_agent_command_registry [EXTRACTED 0.90]
@@ -189,39 +194,39 @@
 - **Teams Collaboration Supabase Stack** — specs_2026_06_15_vibe_space_teams_collab_design_clerk_third_party_auth, specs_2026_06_15_vibe_space_teams_collab_design_org_data_model, specs_2026_06_15_vibe_space_teams_collab_design_rls, specs_2026_06_15_vibe_space_teams_collab_design_presence [EXTRACTED 0.95]
 - **Performance Overhaul Five Fixes** — specs_2026_06_10_perf_overhaul_design_imperative_world_space_overlay, specs_2026_06_10_perf_overhaul_design_gesture_local_drag, specs_2026_06_10_perf_overhaul_design_webgl_terminal_renderer, specs_2026_06_10_perf_overhaul_design_binary_pty_transport, specs_2026_06_10_perf_overhaul_design_throttled_thumbnails [EXTRACTED 1.00]
 
-## Communities (147 total, 7 thin omitted)
+## Communities (151 total, 7 thin omitted)
 
 ### Community 0 - "Browser Client + Agent Names"
-Cohesion: 0.07
-Nodes (39): designPath(), ensureDesignFile(), formatReference(), resolveDesignPath(), mocked, DesignPage(), Initial, DesignShortcuts() (+31 more)
+Cohesion: 0.09
+Nodes (28): applyExternalScene(), designPath(), ensureDesignFile(), formatReference(), resolveDesignPath(), mocked, DesignPage(), Initial (+20 more)
 
 ### Community 1 - "Settings + App Shell"
-Cohesion: 0.35
-Nodes (8): clerkAppearance, App(), View, TaskBoard(), useVibeCommand(), useVibeContext(), VibeAgent(), WallView()
+Cohesion: 0.38
+Nodes (9): clampPosition(), defaultVibePosition(), loadVibePosition(), saveVibePosition(), VibePosition, positionTransform(), readInitialPosition(), VibeMascot (+1 more)
 
 ### Community 2 - "Vibe Agent Loop + Commands"
-Cohesion: 0.06
-Nodes (54): ControlDeps, ControlResult, handleControlRequest(), initControlBridge(), LIVE_DEPS, StatePayload, stateSnapshot(), SNAPSHOT (+46 more)
+Cohesion: 0.08
+Nodes (38): snap(), AgentOptions, AgentResult, ASK_USER, ChatFn, runAgent(), systemPrompt(), _clearRegistryForTests() (+30 more)
 
 ### Community 3 - "Rust Atomic Store"
 Cohesion: 0.11
 Nodes (48): AppHandle, Option, PathBuf, Result, String, Vec, write_atomic(), writes_and_overwrites_atomically() (+40 more)
 
 ### Community 4 - "PTY Client + Agent Status"
-Cohesion: 0.14
-Nodes (17): exitChannel(), killPty(), onPtyExit(), resizePty(), spawnPty(), toBytes(), writePty(), activityRefs (+9 more)
+Cohesion: 0.12
+Nodes (26): exitChannel(), killPty(), onPtyExit(), resizePty(), spawnPty(), toBytes(), writePty(), AgentsPane() (+18 more)
 
 ### Community 5 - "Package Dependencies"
 Cohesion: 0.05
 Nodes (40): dependencies, @clerk/clerk-react, @excalidraw/excalidraw, @fontsource/geist, @fontsource/geist-mono, @fontsource/instrument-serif, @picovoice/web-voice-processor, react (+32 more)
 
 ### Community 6 - "Teams Collab Plans"
-Cohesion: 0.25
-Nodes (8): Clerk-to-Supabase Token Bridge, Supabase Client Factory, canUseTeams Entitlement, Tier-Aware UpgradePill, Clerk publicMetadata.tier Claim, Tier Entitlements Module, Task Model Deltas + Reorder + normalizeTasks, UpgradePill Component
+Cohesion: 0.40
+Nodes (5): canUseTeams Entitlement, Tier-Aware UpgradePill, Tier Entitlements Module, Task Model Deltas + Reorder + normalizeTasks, UpgradePill Component
 
 ### Community 7 - "Rust PTY Actor"
-Cohesion: 0.08
-Nodes (34): Channel, InvokeResponseBody, drain_pending(), drain_pending_stops_at_the_batch_cap(), exit_channel(), spawn(), SpawnConfig, pty_kill() (+26 more)
+Cohesion: 0.10
+Nodes (27): Channel, InvokeResponseBody, drain_pending(), drain_pending_stops_at_the_batch_cap(), exit_channel(), spawn(), SpawnConfig, pty_kill() (+19 more)
 
 ### Community 8 - "Canvas/Tools + Teams Specs"
 Cohesion: 0.09
@@ -232,20 +237,20 @@ Cohesion: 0.08
 Nodes (24): app, security, windows, enable, scope, build, beforeBuildCommand, beforeDevCommand (+16 more)
 
 ### Community 10 - "Rust Browser/PTY Registry"
-Cohesion: 0.05
-Nodes (64): AppHandle, BrowserState, execute_script(), HashMap, Mutex, Option, Path, PathBuf (+56 more)
+Cohesion: 0.09
+Nodes (45): HashMap, Mutex, Path, PathBuf, Sender, accepts_a_valid_state_request(), control_env(), control_info() (+37 more)
 
 ### Community 11 - "Rust Browser Commands"
-Cohesion: 0.29
-Nodes (20): browser_back(), browser_close(), browser_navigate(), browser_open(), browser_read(), browser_reload(), browser_set_rect(), browser_set_visible() (+12 more)
+Cohesion: 0.27
+Nodes (21): browser_back(), browser_close(), browser_navigate(), browser_open(), browser_read(), browser_reload(), browser_set_rect(), browser_set_visible() (+13 more)
 
 ### Community 12 - "Voice Agent + Browser Specs"
 Cohesion: 0.06
 Nodes (34): Agent Loop, Command Registry, Groq Free-Tier Brain (whisper + llama), VibePet UI, Vibe Pet Global Voice Agent, Voice Pipeline, Vosk Wake-Word Detection, Vibe Browser Commands (+26 more)
 
 ### Community 13 - "Realtime Presence"
-Cohesion: 0.14
-Nodes (18): attachActivityListeners(), detachActivityListeners(), joinOrgPresence(), lastActivity, leavePresence(), onVisibility(), PresenceStore, retrack() (+10 more)
+Cohesion: 0.18
+Nodes (13): attachActivityListeners(), detachActivityListeners(), joinOrgPresence(), lastActivity, leavePresence(), onVisibility(), PresenceStore, retrack() (+5 more)
 
 ### Community 14 - "Supabase Client + Clerk Token"
 Cohesion: 0.11
@@ -268,8 +273,8 @@ Cohesion: 0.11
 Nodes (18): compilerOptions, allowImportingTsExtensions, isolatedModules, jsx, lib, module, moduleResolution, noEmit (+10 more)
 
 ### Community 19 - "Silence Detector + WAV"
-Cohesion: 0.17
-Nodes (12): createSilenceDetector(), SilenceDetectorOptions, SilenceState, frame(), loud(), noise(), plain(), quiet() (+4 more)
+Cohesion: 0.18
+Nodes (11): createSilenceDetector(), SilenceDetectorOptions, SilenceState, frame(), loud(), noise(), plain(), quiet() (+3 more)
 
 ### Community 20 - "Org Store + Identity"
 Cohesion: 0.18
@@ -296,8 +301,8 @@ Cohesion: 0.07
 Nodes (29): Agent Card Polish (cnvs-inspired), Binary Coalesced PTY Transport, Gesture-Local Drag/Resize, Imperative World-Space Overlay, Performance Overhaul + Agent Card Polish, Throttled Thumbnail Export, WebGL Terminal Renderer, Architecture (+21 more)
 
 ### Community 26 - "Browser OAuth Sign-In"
-Cohesion: 0.16
-Nodes (20): MembersPane(), MyCardPane(), OrganizationPane(), ProjectsPane(), SettingsModal(), coerceTier(), Entitlements, entitlementsFor() (+12 more)
+Cohesion: 0.18
+Nodes (13): coerceTier(), Entitlements, entitlementsFor(), Tier, TIERS, useEntitlements(), parseJoinUrl(), TeamsBootstrap() (+5 more)
 
 ### Community 27 - "Vibe Pet Positioning"
 Cohesion: 0.13
@@ -360,8 +365,8 @@ Cohesion: 0.25
 Nodes (7): compilerOptions, allowSyntheticDefaultImports, composite, module, moduleResolution, skipLibCheck, include
 
 ### Community 42 - "Account Profile Providers"
-Cohesion: 0.18
-Nodes (12): loadTasks(), saveTasks(), COLUMNS, PRIORITIES, TaskCard, normalizeTasks(), Priority, Task (+4 more)
+Cohesion: 0.10
+Nodes (24): accentForBackground(), APPEARANCE_THEMES, applyAccent(), applyChromeInk(), isThemeActive(), readableTextColor(), Theme, THEMES (+16 more)
 
 ### Community 43 - "Org Invites Pane"
 Cohesion: 0.11
@@ -380,8 +385,8 @@ Cohesion: 0.33
 Nodes (5): description, identifier, permissions, $schema, windows
 
 ### Community 47 - "Community 47"
-Cohesion: 0.15
-Nodes (13): browserBack(), browserNavigate(), browserRead(), BrowserRect, browserSetVisible(), autoOpenFromTerminal(), browserCard(), closeBrowser() (+5 more)
+Cohesion: 0.16
+Nodes (12): browserBack(), browserNavigate(), browserRead(), BrowserRect, browserSetVisible(), autoOpenFromTerminal(), browserCard(), closeBrowser() (+4 more)
 
 ### Community 48 - "Canvas Engine Plan"
 Cohesion: 0.50
@@ -433,7 +438,7 @@ Nodes (3): PermissionEntry, anyOf, description
 
 ### Community 62 - "Community 62"
 Cohesion: 0.09
-Nodes (22): 1. Context, 2. Package A — Voice → Agent Dictation (DONE — reference for style), 3. Package B — Agent Canvas Control, 4. Package C — Cursor Agent Preset + Boot Recipe, 5. Package D — Looks & Delight, 6. Working conventions (apply to every package), C1 — Cursor preset, C2 — Boot recipe (+14 more)
+Nodes (22): 1. Context, 2. Package A — Voice → Agent Dictation (DONE — reference for style), 3. Package B — Agent Canvas Control (DONE), 4. Package C — Cursor Agent Preset + Boot Recipe, 5. Package D — Looks & Delight, 6. Working conventions (apply to every package), C1 — Cursor preset, C2 — Boot recipe (+14 more)
 
 ### Community 63 - "Preset Tier Color"
 Cohesion: 0.13
@@ -460,8 +465,8 @@ Cohesion: 0.15
 Nodes (12): 1. Pet UI (`VibePet.tsx`, `VibePet.css`, `vibePosition.ts`), 2. Voice pipeline (`useVoicePipeline.ts`, `silence.ts`), 3. Command registry (`commands.ts`), 4. Agent loop (`agentLoop.ts`), 5. Settings & keys, Architecture (Approach A — webview-only), Components (all new code under `src/vibe/`), Error handling (+4 more)
 
 ### Community 77 - "Community 77"
-Cohesion: 0.13
-Nodes (15): ClerkUser, ClerkWindow, currentProfile(), openableSpaceFor(), OrbitPos, orbitPositions(), RING_CAPACITY, RING_FRACTION (+7 more)
+Cohesion: 0.18
+Nodes (10): ClerkUser, ClerkWindow, currentProfile(), openableSpaceFor(), Invite, Member, Org, OrgStore (+2 more)
 
 ### Community 78 - "Community 78"
 Cohesion: 0.17
@@ -472,8 +477,8 @@ Cohesion: 0.17
 Nodes (11): Decisions (locked during brainstorming), Deferred & out of scope, Goals & non-goals, Risks, Section 1 — Architecture & the identity bridge, Section 2 — Data model (Supabase schema + storage), Section 3 — Publish & open-shared-space flow, Section 4 — Presence & the solar-system Teams view (+3 more)
 
 ### Community 80 - "Community 80"
-Cohesion: 0.14
-Nodes (17): applyExternalScene(), commitPatches(), commitReorder(), selectOnly(), selectSmart(), setSelectedGroup(), setViewport(), applyPatches() (+9 more)
+Cohesion: 0.20
+Nodes (9): CompositeTypes, Constants, DatabaseWithoutInternals, DefaultSchema, Enums, Json, Tables, TablesInsert (+1 more)
 
 ### Community 81 - "Community 81"
 Cohesion: 0.18
@@ -528,8 +533,8 @@ Cohesion: 0.25
 Nodes (7): Task 1: Brain swap to `openai/gpt-oss-120b`, Task 2: Live eval harness (`npm run vibe:eval`), Task 3: App-state context registry, Task 4: Conversation mechanics — `ask_user` tool, graceful round cap, bad-JSON feedback, Task 5: Voice accuracy — Whisper vocabulary biasing + capture tuning, Task 6: Full verification, Vibe Agent Harness Hardening Implementation Plan
 
 ### Community 94 - "Community 94"
-Cohesion: 0.33
-Nodes (7): Org/Member/Invite/Space Schema, RLS Policies + SECURITY DEFINER Helpers, Membership RPCs (create/join/invite/accept), vibespace:// Deep Link Scheme, Join URL Parser, Static Invite Landing Page, inviteLinkFor Util
+Cohesion: 0.50
+Nodes (4): vibespace:// Deep Link Scheme, Join URL Parser, Static Invite Landing Page, inviteLinkFor Util
 
 ### Community 95 - "Community 95"
 Cohesion: 0.33
@@ -560,8 +565,8 @@ Cohesion: 0.40
 Nodes (5): Org Storage Buckets + Membership Policies, Cloud-Background Helpers + Remote URL Rendering, Last-Write-Wins Version Guard, Projects Panel (share/open/unpublish), Space Sync Engine (publish/open/push)
 
 ### Community 102 - "Community 102"
-Cohesion: 0.24
-Nodes (9): accentForBackground(), APPEARANCE_THEMES, applyAccent(), applyChromeInk(), isThemeActive(), readableTextColor(), Theme, THEMES (+1 more)
+Cohesion: 0.48
+Nodes (5): agoText(), deriveSelfStatus(), LiveStatus, statusLine(), StatusLineInput
 
 ### Community 107 - "Community 107"
 Cohesion: 0.14
@@ -569,7 +574,7 @@ Nodes (13): Components, Design Page — Figma-Style Redesign, `DesignLeftBar.tsx
 
 ### Community 108 - "Community 108"
 Cohesion: 0.15
-Nodes (18): setBrowserSyncHandler(), syncBrowserRect(), useBrowserBlockers, BrowserWindow, BrowserWindowInner(), AppStateLike, excalidrawCamera(), excalidrawViewport() (+10 more)
+Nodes (17): setBrowserSyncHandler(), syncBrowserRect(), useBrowserBlockers, BrowserWindow, BrowserWindowInner(), AppStateLike, excalidrawCamera(), excalidrawViewport() (+9 more)
 
 ### Community 109 - "Community 109"
 Cohesion: 0.17
@@ -584,20 +589,20 @@ Cohesion: 0.18
 Nodes (10): Design Page Figma-Style Redesign — Implementation Plan, File Map, Global Constraints, Self-Review, Task 1: CSS — grid layout + Excalidraw chrome suppression, Task 2: Pure utilities — designUtils.ts, Task 3: DesignLeftBar component, Task 4: DesignTopBar component (+2 more)
 
 ### Community 112 - "Community 112"
-Cohesion: 0.32
-Nodes (11): BROWSER_PANE, browserLayout(), CELL, fitCamera(), gridBBox(), gridPositions(), gridShape(), maximizeLayout() (+3 more)
+Cohesion: 0.19
+Nodes (17): saveThumbnail(), useBlocksBrowser(), BROWSER_PANE, browserLayout(), CELL, fitCamera(), gridBBox(), gridPositions() (+9 more)
 
 ### Community 113 - "Community 113"
 Cohesion: 0.18
 Nodes (10): Goals & non-goals, Migration: removing the rejected approach, Open questions / deferred, Reference-in-terminal affordance, Summary, Surface & navigation, Testing, The editor (+2 more)
 
 ### Community 114 - "Community 114"
-Cohesion: 0.33
-Nodes (6): colorValue(), DesignRightPanel(), MultiValue, degToRad(), labelForElement(), radToDeg()
+Cohesion: 0.19
+Nodes (14): createDesignStore(), DesignSnapshot, EMPTY_SNAPSHOT, LayerRow, layersEqual(), LINEAR_TYPES, MultiValue, selectionEqual() (+6 more)
 
 ### Community 115 - "Community 115"
-Cohesion: 0.17
-Nodes (14): AlignEl, AlignMode, alignPatches(), bboxOf(), Box, buildUnits(), Delta, deltasToPatches() (+6 more)
+Cohesion: 0.19
+Nodes (13): AlignEl, AlignMode, alignPatches(), bboxOf(), Box, buildUnits(), Delta, deltasToPatches() (+5 more)
 
 ### Community 116 - "Community 116"
 Cohesion: 0.15
@@ -608,12 +613,12 @@ Cohesion: 0.17
 Nodes (11): Design Page Precision Editing (Phase 2) Implementation Plan, Global Constraints, Phase 2 acceptance (from the spec), Task 1: `align.ts` — rotated bboxes, group units, align/distribute patches, Task 2: `groups.ts` — group/ungroup patches, Task 3: `zorder.ts` — z-order reordering, Task 4: `designStore.ts` — multi-select selector + snap state, Task 5: `commit.ts` additions + `DesignSelectionActions.tsx` (+3 more)
 
 ### Community 118 - "Community 118"
-Cohesion: 0.24
-Nodes (8): Background, DEFAULT_BACKGROUND, SavedBrowser, SavedTerminal, WallDoc, WallScene, srcOf(), WallBackground()
+Cohesion: 0.23
+Nodes (11): dummy_handle(), insert_remove_roundtrip(), PtyCommand, PtyHandle, PtyRegistry, Self, HashMap, Mutex (+3 more)
 
 ### Community 119 - "Community 119"
-Cohesion: 0.06
-Nodes (32): DirEntry, openFolder(), readDir(), useBlocksBrowser(), FileExplorer(), ChevronDownIcon(), ChevronRightIcon(), ChevronUpIcon() (+24 more)
+Cohesion: 0.07
+Nodes (25): DirEntry, readDir(), FileExplorer(), ChevronDownIcon(), ChevronRightIcon(), ChevronUpIcon(), DesignIcon(), EllipseIcon() (+17 more)
 
 ### Community 120 - "Community 120"
 Cohesion: 0.22
@@ -652,8 +657,8 @@ Cohesion: 0.50
 Nodes (3): app, windows, $schema
 
 ### Community 130 - "Community 130"
-Cohesion: 0.44
-Nodes (5): anchoredZoom(), clampZoom(), stepZoom(), view, Viewport
+Cohesion: 0.25
+Nodes (9): setViewport(), selectZoom(), fitAll(), fitSelection(), anchoredZoom(), clampZoom(), stepZoom(), view (+1 more)
 
 ### Community 131 - "Community 131"
 Cohesion: 0.50
@@ -664,28 +669,28 @@ Cohesion: 0.20
 Nodes (9): Global Constraints, Task 1: `vibe.dictation` setting + Settings UI toggle, Task 2: Pure routing helpers — `routeVerbatim` + `resolveAgent`, Task 3: Completion-ping bookkeeping — `updatePending`, Task 4: `send_to_agent` command + completion-ping loop in WallView, Task 5: Verbatim fast-path in VibeAgent + system-prompt update, Task 6: Hint pill — `buildHints` + `HintPill` component, Task 7: Live-eval routing cases, README, final verification (+1 more)
 
 ### Community 133 - "Community 133"
-Cohesion: 0.12
-Nodes (16): ClerkWindow, getClerkToken(), W, supabase, CompositeTypes, Constants, Database, DatabaseWithoutInternals (+8 more)
+Cohesion: 0.24
+Nodes (7): ClerkWindow, getClerkToken(), W, supabase, Database, avatarPath(), uploadAvatar()
 
 ### Community 134 - "Community 134"
 Cohesion: 0.18
 Nodes (10): Design Page Stability Core (Phase 1) Implementation Plan, Global Constraints, Phase 1 acceptance (from the spec), Task 1: `commitCore.ts` — pure element mutation helpers, Task 2: `designStore.ts` + `useDesignSelector.ts` — external store and selectors, Task 3: `zoom.ts` — anchored zoom math, Task 4: `saver.ts` — debounced saver with flush and retry, Task 5: `commit.ts` wrapper + `DesignZoomIsland.tsx` (+2 more)
 
 ### Community 135 - "Community 135"
-Cohesion: 0.20
-Nodes (10): relativeTime(), WallCard(), deleteWall(), isDir(), loadThumbnailUrl(), pickFolder(), basename(), spaceFromFolder() (+2 more)
+Cohesion: 0.14
+Nodes (19): View, relativeTime(), StartPage(), WallCard(), deleteWall(), isDir(), loadTasks(), loadThumbnailUrl() (+11 more)
 
 ### Community 137 - "Community 137"
 Cohesion: 0.20
 Nodes (9): Design Page Frames & Export (Phase 3) Implementation Plan, Global Constraints, Phase 3 acceptance (from the spec), Task 1: Rust `write_export_file` + TS wrapper, Task 2: `exportScene.ts` — scope detection + element collection; `framePngPath`, Task 3: Layers tree — frames as parents, children nested, Task 4: `renderExport.ts` + `DesignExportMenu.tsx` — PNG/SVG/copy export UI, Task 5: Inline frame rename in the layers panel (+1 more)
 
 ### Community 138 - "Community 138"
-Cohesion: 0.36
-Nodes (4): GroupEl, groupPatches(), sharedOuterGroup(), ungroupPatches()
+Cohesion: 0.14
+Nodes (9): commitReorder(), ICONS, GroupEl, groupPatches(), sharedOuterGroup(), ungroupPatches(), reorderElements(), els (+1 more)
 
 ### Community 139 - "Community 139"
-Cohesion: 0.21
-Nodes (13): createDesignStore(), DesignSnapshot, EMPTY_SNAPSHOT, LayerRow, layersEqual(), LINEAR_TYPES, selectionEqual(), SelectionSel (+5 more)
+Cohesion: 0.18
+Nodes (16): commitPatches(), selectOnly(), selectSmart(), setSelectedGroup(), applyPatches(), bumpElement(), El, hidePatch() (+8 more)
 
 ### Community 140 - "Community 140"
 Cohesion: 0.22
@@ -696,44 +701,60 @@ Cohesion: 0.25
 Nodes (7): Command Palette Implementation Plan, Final: graph update, Global Constraints, Task 1: Fuzzy scorer and ranking, Task 2: Action registry, Task 3: CommandPalette overlay component + styles, Task 4: Wire into WallView — hotkey, toolbar button, deps
 
 ### Community 142 - "Community 142"
-Cohesion: 0.11
-Nodes (23): connectedProviders(), KNOWN, memberSince(), providerLabel(), AccountPane(), AgentsPane(), APP_SECTIONS, BackgroundPicker() (+15 more)
+Cohesion: 0.10
+Nodes (31): connectedProviders(), KNOWN, memberSince(), providerLabel(), AccountPane(), APP_SECTIONS, BackgroundPicker(), CARD_EMOJI (+23 more)
 
 ### Community 143 - "Community 143"
-Cohesion: 0.43
-Nodes (5): InvitesPane(), isValidEmail(), OrgLike, resolveCurrentOrg(), orgs
+Cohesion: 0.53
+Nodes (4): isValidEmail(), OrgLike, resolveCurrentOrg(), orgs
 
 ### Community 144 - "Community 144"
-Cohesion: 0.53
-Nodes (3): parseJoinUrl(), joinNow(), openTeams()
+Cohesion: 0.40
+Nodes (6): Clerk-to-Supabase Token Bridge, Org/Member/Invite/Space Schema, RLS Policies + SECURITY DEFINER Helpers, Supabase Client Factory, Membership RPCs (create/join/invite/accept), Clerk publicMetadata.tier Claim
+
+### Community 145 - "Community 145"
+Cohesion: 0.16
+Nodes (12): clerkAppearance, DEFAULT_SETTINGS, isBackground(), isRecord(), mergeSettings(), num(), Settings, SettingsStore (+4 more)
+
+### Community 147 - "Community 147"
+Cohesion: 0.33
+Nodes (5): BrowserState, execute_script(), Result, String, Webview
+
+### Community 148 - "Community 148"
+Cohesion: 0.43
+Nodes (6): design_unwatch(), design_watch(), DesignWatcher, AppHandle, Result, String
 
 ### Community 149 - "Community 149"
-Cohesion: 0.19
-Nodes (11): setSnapMode(), DesignLeftBar(), GROUPS, DesignSelectionActions(), DesignStore, selectActiveType(), selectZoom(), DesignTopBar() (+3 more)
+Cohesion: 0.15
+Nodes (14): setSnapMode(), DesignLeftBar(), GROUPS, DesignSelectionActions(), DesignStore, selectActiveType(), DesignTopBar(), DesignZoomIsland() (+6 more)
 
 ### Community 150 - "Community 150"
-Cohesion: 0.21
-Nodes (14): loadPresets(), trailingDebounce(), nearestSlotIndex(), DEFAULT_PRESETS, findPresetByPhrase(), Preset, resolvePreset(), spawnCommand() (+6 more)
+Cohesion: 0.14
+Nodes (18): ControlDeps, ControlResult, handleControlRequest(), initControlBridge(), LIVE_DEPS, StatePayload, stateSnapshot(), SNAPSHOT (+10 more)
+
+### Community 151 - "Community 151"
+Cohesion: 0.38
+Nodes (4): OrbitPos, orbitPositions(), RING_CAPACITY, RING_FRACTION
 
 ## Knowledge Gaps
-- **836 isolated node(s):** `Path`, `View`, `SNAPSHOT`, `ControlResult`, `LIVE_DEPS` (+831 more)
+- **833 isolated node(s):** `Mutex`, `Sender`, `Path`, `Option`, `Channel` (+828 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Webview` connect `Rust Browser/PTY Registry` to `Community 135`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
-- **What connects `Path`, `View`, `SNAPSHOT` to the rest of the system?**
-  _839 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `definitions` connect `Desktop Schema (defs)` to `Desktop Schema (identifier)`, `Desktop Schema (capability remote)`, `Desktop Schema (capability)`, `Desktop Schema (number)`, `Desktop Schema (permission entry)`?**
+  _High betweenness centrality (0.002) - this node is a cross-community bridge._
+- **Why does `SelectIcon()` connect `Community 119` to `Community 139`, `Community 142`?**
+  _High betweenness centrality (0.002) - this node is a cross-community bridge._
+- **What connects `Mutex`, `Sender`, `Path` to the rest of the system?**
+  _836 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Browser Client + Agent Names` be split into smaller, more focused modules?**
-  _Cohesion score 0.06666666666666667 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09191583610188261 - nodes in this community are weakly interconnected._
 - **Should `Vibe Agent Loop + Commands` be split into smaller, more focused modules?**
-  _Cohesion score 0.05555555555555555 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07948568088836938 - nodes in this community are weakly interconnected._
 - **Should `Rust Atomic Store` be split into smaller, more focused modules?**
   _Cohesion score 0.1146051712089448 - nodes in this community are weakly interconnected._
 - **Should `PTY Client + Agent Status` be split into smaller, more focused modules?**
-  _Cohesion score 0.14285714285714285 - nodes in this community are weakly interconnected._
-- **Should `Package Dependencies` be split into smaller, more focused modules?**
-  _Cohesion score 0.04878048780487805 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11586452762923351 - nodes in this community are weakly interconnected._

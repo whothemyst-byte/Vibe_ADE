@@ -88,7 +88,7 @@ Built and verified 2026-07-14 on `V1.0.0`. Spec:
 
 What exists now: a loopback control server (`src-tauri/src/control.rs`,
 OS-assigned port, per-run 32-byte hex token, `X-Vibe-Token` header) forwards
-`GET /state`, `POST /browser`, `POST /terminal` to the webview bridge
+`GET /state`, `POST /browser`, `POST /terminal`, `POST /send` to the webview bridge
 (`src/control/bridge.ts` — allowlisted dispatch, NOT the whole Vibe registry).
 A generated CLI bundle in `<app-data>/vibectl/` (`vibectl.cmd` →
 `vibectl.ps1` via Invoke-RestMethod, plus `agent-guide.md`) is exposed to
@@ -97,8 +97,13 @@ every PTY through injected env (`VIBECTL_URL`, `VIBECTL_TOKEN`,
 `open_terminal` gained an optional `run` arg: the command rides
 `SpawnConfig.command` (the preset warm-up path) into the fresh shell, and
 `TerminalCard.command` is runtime-only so reopening a wall never silently
-relaunches dev servers (explicit replay is Package C's boot recipe). Vibe's
-system prompt tells agents (via send_to_agent) to read `$VIBE_AGENT_GUIDE`.
+relaunches dev servers (explicit replay is Package C's boot recipe).
+Agent-to-agent messaging (added 2026-07-14 after live testing): `vibectl send
+<agent> "<msg>"` rides the send_to_agent path; `VIBE_AGENT_ID` (per-PTY env)
+identifies the sender so delivered messages carry "reply with `vibectl send
+<name>`" instructions. Vibe's system prompt embeds the exact vibectl command
+when the user relays between agents ("ask Charlie to ask Ellie X") — agents
+know nothing about vibectl or each other unless the dictated prompt says so.
 
 Original scope notes follow.
 

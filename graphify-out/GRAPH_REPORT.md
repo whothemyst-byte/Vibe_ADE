@@ -1,7 +1,7 @@
 # Graph Report - vibe-space  (2026-07-14)
 
 ## Corpus Check
-- 271 files · ~249,798 words
+- 271 files · ~250,535 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7d1faf10`
+- Built from commit: `67e1fb59`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -714,16 +714,16 @@ Cohesion: 0.43
 Nodes (5): InvitesPane(), isValidEmail(), OrgLike, resolveCurrentOrg(), orgs
 
 ### Community 144 - "Community 144"
-Cohesion: 0.53
-Nodes (3): parseJoinUrl(), joinNow(), openTeams()
+Cohesion: 0.29
+Nodes (7): setBrowserSyncHandler(), syncBrowserRect(), useBrowserBlockers, BrowserWindow, BrowserWindowInner(), BrowserCard, CloseIcon()
 
 ### Community 145 - "Community 145"
 Cohesion: 0.24
 Nodes (9): DEFAULT_SETTINGS, isBackground(), isRecord(), mergeSettings(), num(), Settings, SettingsStore, loadSettings() (+1 more)
 
 ### Community 146 - "Community 146"
-Cohesion: 0.29
-Nodes (7): setBrowserSyncHandler(), syncBrowserRect(), useBrowserBlockers, BrowserWindow, BrowserWindowInner(), BrowserCard, CloseIcon()
+Cohesion: 0.53
+Nodes (3): parseJoinUrl(), joinNow(), openTeams()
 
 ### Community 147 - "Community 147"
 Cohesion: 0.33
@@ -753,7 +753,7 @@ Nodes (4): OrbitPos, orbitPositions(), RING_CAPACITY, RING_FRACTION
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `BackIcon()` connect `Community 149` to `Community 135`, `Account Profile Providers`, `Community 77`, `Community 114`, `Community 146`, `Community 119`?**
+- **Why does `BackIcon()` connect `Community 149` to `Community 135`, `Account Profile Providers`, `Community 77`, `Community 144`, `Community 114`, `Community 119`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
 - **Why does `useSettingsStore` connect `Community 142` to `Settings + App Shell`, `Vibe Agent Loop + Commands`, `PTY Client + Agent Status`, `Community 136`, `Community 145`, `Community 150`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._

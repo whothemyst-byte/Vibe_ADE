@@ -75,8 +75,8 @@
     "semantic_hash": "d01a9461231a9eb576b8259afb88bcb6"
   },
   "src-tauri/src/pty/actor.rs": {
-    "mtime": 1784034144.418659,
-    "ast_hash": "eeee1f27339f49969771ca9e81a64781",
+    "mtime": 1784036848.4619555,
+    "ast_hash": "3ac168679017435009d2f61457dce244",
     "semantic_hash": ""
   },
   "src-tauri/src/pty/commands.rs": {
@@ -430,8 +430,8 @@
     "semantic_hash": "101382f1ce9202e2e11cbbac96f5ecd8"
   },
   "src/vibe/agentLoop.ts": {
-    "mtime": 1784034394.2748568,
-    "ast_hash": "d2d7192bfcf19a59b3331ac7236e548d",
+    "mtime": 1784037074.3785079,
+    "ast_hash": "e540ccf3c0083de4daea911af8886abf",
     "semantic_hash": ""
   },
   "src/vibe/commands.test.ts": {
@@ -455,8 +455,8 @@
     "semantic_hash": "8a8702ce3efef7071e2bb98f63da5245"
   },
   "src/vibe/eval.live.test.ts": {
-    "mtime": 1783946845.8778706,
-    "ast_hash": "07fd92f210f49e255908bf39cd54944b",
+    "mtime": 1784037189.1347406,
+    "ast_hash": "b3fd4475d809d4fa8e2f284cf566d764",
     "semantic_hash": ""
   },
   "src/vibe/groq.test.ts": {
@@ -1450,8 +1450,8 @@
     "semantic_hash": ""
   },
   "docs/cnvs-parity-roadmap.md": {
-    "mtime": 1784034520.361288,
-    "ast_hash": "f70a51b70f244779b7dfdc8e2a392ef8",
+    "mtime": 1784037381.0766475,
+    "ast_hash": "a83431eaef70c915f5ee91f79b5c42bd",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-13-agent-canvas-control-design.md": {
@@ -1465,18 +1465,18 @@
     "semantic_hash": ""
   },
   "src-tauri/src/control.rs": {
-    "mtime": 1784034853.3295686,
-    "ast_hash": "564d20f5220dfbed23971156766c2925",
+    "mtime": 1784036846.0441208,
+    "ast_hash": "3724fc4fba3e7b94f0cbbe40b5df57f9",
     "semantic_hash": ""
   },
   "src/control/bridge.test.ts": {
-    "mtime": 1784034349.7778838,
-    "ast_hash": "d5e75f72380c6a635d62f448794a22f4",
+    "mtime": 1784037012.2524185,
+    "ast_hash": "26fc3d56c7d88249c212516095dbd258",
     "semantic_hash": ""
   },
   "src/control/bridge.ts": {
-    "mtime": 1784034381.3960931,
-    "ast_hash": "9ee76a0a0c17af056ac7ea9879757a6b",
+    "mtime": 1784037058.896346,
+    "ast_hash": "fed881260b20e7f24a85d59673c162c3",
     "semantic_hash": ""
   }
 }
