@@ -61,6 +61,13 @@ pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
     if let Some(dir) = cfg.cwd.clone() {
         cmd.cwd(dir);
     }
+    // Expose the canvas-control CLI (vibectl) to whatever runs in this shell.
+    if let Some(info) = crate::control::control_info() {
+        let existing = std::env::var("PATH").ok();
+        for (k, v) in crate::control::control_env(info, existing.as_deref()) {
+            cmd.env(k, v);
+        }
+    }
     let mut child = pair.slave.spawn_command(cmd).context("spawn_command failed")?;
 
     let writer = Arc::new(Mutex::new(pair.master.take_writer().context("take_writer")?));

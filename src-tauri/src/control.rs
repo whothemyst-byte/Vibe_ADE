@@ -206,6 +206,26 @@ pub fn control_reply(id: u64, ok: bool, body: String) -> bool {
     }
 }
 
+/// Env vars injected into every spawned PTY so agents can discover vibectl.
+/// `;` is the Windows PATH separator (the app ships Windows-first; POSIX CLI
+/// scripts are a deferred follow-up per the spec).
+pub fn control_env(info: &ControlInfo, existing_path: Option<&str>) -> Vec<(String, String)> {
+    let dir = info.dir.to_string_lossy().into_owned();
+    let path = match existing_path {
+        Some(p) if !p.is_empty() => format!("{dir};{p}"),
+        _ => dir.clone(),
+    };
+    vec![
+        ("VIBECTL_URL".into(), format!("http://127.0.0.1:{}", info.port)),
+        ("VIBECTL_TOKEN".into(), info.token.clone()),
+        (
+            "VIBE_AGENT_GUIDE".into(),
+            info.dir.join("agent-guide.md").to_string_lossy().into_owned(),
+        ),
+        ("PATH".into(), path),
+    ]
+}
+
 // ---- generated CLI bundle -------------------------------------------------
 // vibectl.cmd is the PATH entry point (PATHEXT resolves .cmd, not .ps1); it
 // delegates to vibectl.ps1, which builds JSON with ConvertTo-Json so quoting
@@ -412,6 +432,28 @@ mod tests {
     #[test]
     fn control_reply_is_false_for_unknown_or_timed_out_ids() {
         assert!(!control_reply(999_999, true, "{}".into()));
+    }
+
+    fn info() -> ControlInfo {
+        ControlInfo { port: 4321, token: "tok".into(), dir: PathBuf::from(r"C:\data\vibectl") }
+    }
+
+    #[test]
+    fn env_exposes_url_token_and_guide() {
+        let env = control_env(&info(), Some(r"C:\Windows"));
+        let get = |k: &str| env.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap();
+        assert_eq!(get("VIBECTL_URL"), "http://127.0.0.1:4321");
+        assert_eq!(get("VIBECTL_TOKEN"), "tok");
+        assert_eq!(get("VIBE_AGENT_GUIDE"), r"C:\data\vibectl\agent-guide.md");
+    }
+
+    #[test]
+    fn env_prepends_the_cli_dir_to_path() {
+        let env = control_env(&info(), Some(r"C:\Windows;C:\bin"));
+        let path = &env.iter().find(|(n, _)| n == "PATH").unwrap().1;
+        assert_eq!(path, r"C:\data\vibectl;C:\Windows;C:\bin");
+        let env = control_env(&info(), None);
+        assert_eq!(env.iter().find(|(n, _)| n == "PATH").unwrap().1, r"C:\data\vibectl");
     }
 
     #[test]
