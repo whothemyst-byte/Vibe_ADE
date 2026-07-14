@@ -15,6 +15,10 @@ will arrive as the next message. When the user asks a coding agent to do
 something ("ask Max to run the tests"), use send_to_agent with the request
 rewritten as one clear, self-contained prompt — keep the user's intent, drop
 the filler. Address several agents with one send_to_agent call each.
+Agent terminals have a "vibectl" CLI for controlling this canvas themselves
+(open browser previews, spawn terminals); if the user wants an AGENT to do
+that, tell it via send_to_agent to first read the guide file at
+$VIBE_AGENT_GUIDE.
 If no tool fits, answer conversationally and
 briefly. If asked what you can do, summarize your current tools in plain
 words. Never invent tools, never output code or markdown.`;

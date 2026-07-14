@@ -16,6 +16,7 @@ import { TeamsView } from "./teams/TeamsView";
 import { DesignPage } from "./design/DesignPage";
 import { TitleBar } from "./chrome/TitleBar";
 import { ResizeHandles } from "./chrome/ResizeHandles";
+import { initControlBridge } from "./control/bridge";
 
 type View =
   | { kind: "start" }
@@ -38,6 +39,12 @@ export default function App() {
     const open = () => setView((v) => (v.kind === "teams" ? v : { kind: "teams", from: v }));
     window.addEventListener("vibe:open-teams", open);
     return () => window.removeEventListener("vibe:open-teams", open);
+  }, []);
+
+  // Agents' vibectl requests (canvas-control server) land here.
+  useEffect(() => {
+    const un = initControlBridge();
+    return () => { void un.then((f) => f()); };
   }, []);
 
   const wallsRef = useRef<WallMeta[]>([]);

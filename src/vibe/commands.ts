@@ -50,6 +50,12 @@ export async function runVibeCommand(
   }
 }
 
+/** True while a command is registered. Wall-scoped commands (open_terminal, …)
+    exist exactly while a space is open — the control bridge keys off that. */
+export function hasVibeCommand(name: string): boolean {
+  return registry.has(name);
+}
+
 export function _clearRegistryForTests(): void {
   registry.clear();
 }
