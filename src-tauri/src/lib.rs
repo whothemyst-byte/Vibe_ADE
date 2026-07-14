@@ -30,6 +30,9 @@ pub fn run() {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 let _ = app.deep_link().register("vibespace");
             }
+            if let Err(e) = control::start(app.handle().clone()) {
+                eprintln!("canvas-control server failed to start: {e}");
+            }
             Ok(())
         })
         .manage(pty::registry::PtyRegistry::new())
@@ -71,6 +74,7 @@ pub fn run() {
             design::design_watch,
             design::design_unwatch,
             oauth::start_oauth_loopback,
+            control::control_reply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
