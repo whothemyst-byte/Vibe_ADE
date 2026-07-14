@@ -62,6 +62,9 @@ pub fn spawn(app: AppHandle, cfg: SpawnConfig) -> Result<PtyHandle> {
         cmd.cwd(dir);
     }
     // Expose the canvas-control CLI (vibectl) to whatever runs in this shell.
+    // VIBE_AGENT_ID identifies this terminal to `vibectl send` (the bridge
+    // resolves it to the agent's display name for reply instructions).
+    cmd.env("VIBE_AGENT_ID", &cfg.id);
     if let Some(info) = crate::control::control_info() {
         let existing = std::env::var("PATH").ok();
         for (k, v) in crate::control::control_env(info, existing.as_deref()) {

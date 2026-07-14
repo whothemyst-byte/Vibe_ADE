@@ -70,6 +70,7 @@ fn route(method: &str, path: &str) -> Option<&'static str> {
         ("GET", "/state") => Some("state"),
         ("POST", "/browser") => Some("browser"),
         ("POST", "/terminal") => Some("terminal"),
+        ("POST", "/send") => Some("send"),
         _ => None,
     }
 }
@@ -249,6 +250,8 @@ Usage:
   vibectl terminal [--preset <name>] [--run "<cmd>"]
                                              Spawn a terminal node on the wall; --run types
                                              the command into it (use for dev servers)
+  vibectl send <agent> "<message>"           Type a message into another agent's terminal
+                                             and submit it (agent name as shown on its card)
 "@
 
 if (-not $env:VIBECTL_URL -or -not $env:VIBECTL_TOKEN) {
@@ -292,6 +295,12 @@ switch ($Verb) {
     }
     Invoke-Vibe "POST" "/terminal" $body
   }
+  "send" {
+    if ($args.Count -lt 2) { Write-Output $usage; exit 1 }
+    $body = @{ agent = "$($args[0])"; prompt = ($args[1..($args.Count - 1)] -join " ") }
+    if ($env:VIBE_AGENT_ID) { $body.from = $env:VIBE_AGENT_ID }
+    Invoke-Vibe "POST" "/send" $body
+  }
   default { Write-Output $usage; if ($Verb) { exit 1 } }
 }
 "#;
@@ -311,12 +320,20 @@ PATH) lets you inspect and control the canvas around you.
   terminal node on the wall. `--preset` picks an agent preset by name
   (e.g. `claude`); omit it for a plain shell. `--run` types the command into
   the new terminal once it starts.
+- `vibectl send <agent> "<message>"` - type a message into another agent's
+  terminal and submit it. The agent name is the one shown on its card (also
+  listed by `vibectl state`), e.g. `vibectl send Ellie "What color do you
+  like?"`. There is no return value: the other agent answers by sending a
+  message back to you.
 
 ## Rules
 
 - **Never run dev servers or watchers in your own terminal.** Use
   `vibectl terminal --run "<cmd>"` so they get their own node on the canvas
   and your terminal stays free for reasoning and edits.
+- **When another agent messages you** (the message says who it is from),
+  reply with `vibectl send <their name> "<your answer>"` - do not answer in
+  your own terminal, they cannot see it.
 - Only http/https URLs open in the browser.
 - Quote --run commands: `vibectl terminal --run "npm run dev"`.
 "#;
@@ -406,11 +423,12 @@ mod tests {
     }
 
     #[test]
-    fn routes_all_three_verbs_and_404s_the_rest() {
+    fn routes_all_verbs_and_404s_the_rest() {
         for (m, p, v) in [
             ("GET", "/state", "state"),
             ("POST", "/browser", "browser"),
             ("POST", "/terminal", "terminal"),
+            ("POST", "/send", "send"),
         ] {
             let h = head(&[&format!("{m} {p} HTTP/1.1"), "X-Vibe-Token: secret"]);
             assert_eq!(process_request(&h, b"", TOKEN).unwrap().0, v);
@@ -468,7 +486,9 @@ mod tests {
         let guide = std::fs::read_to_string(dir.join("agent-guide.md")).unwrap();
         assert!(cmd.contains("vibectl.ps1"));
         assert!(ps1.contains("/state") && ps1.contains("X-Vibe-Token") && ps1.contains("--run"));
+        assert!(ps1.contains("/send") && ps1.contains("VIBE_AGENT_ID"));
         assert!(guide.contains("vibectl terminal --run"));
+        assert!(guide.contains("vibectl send"));
     }
 
     #[test]

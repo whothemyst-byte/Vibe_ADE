@@ -178,6 +178,15 @@ describe.runIf(KEY)("vibe agent eval (live Groq)", { retry: 1 }, () => {
     expect(targets).toContain("ruby");
   });
 
+  it("relays agent-to-agent requests with an explicit vibectl send command", async () => {
+    await runAgent("ask Charlie to ask Ellie what color she likes", liveChat);
+    const call = calls.find((c) => c.name === "send_to_agent");
+    expect(String(call?.args.agent_name)).toMatch(/charlie/i);
+    // The dictated prompt must teach Charlie the channel, not just relay words.
+    expect(String(call?.args.prompt)).toMatch(/vibectl send Ellie/i);
+    expect(String(call?.args.prompt)).toMatch(/color/i);
+  });
+
   it("keeps UI commands away from send_to_agent", async () => {
     await runAgent("open the task board", liveChat);
     expect(calls.some((c) => c.name === "send_to_agent")).toBe(false);

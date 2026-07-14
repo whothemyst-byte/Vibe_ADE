@@ -25,6 +25,9 @@ export type ControlDeps = {
   stateSnapshot: () => StatePayload;
   openBrowser: (url: string) => Promise<string>;
   openTerminal: (preset: string | undefined, run: string | undefined) => Promise<string>;
+  sendToAgent: (agent: string, prompt: string) => Promise<string>;
+  /** Display name for a terminal's PTY id ($VIBE_AGENT_ID) — the send verb's sender. */
+  agentNameById: (id: string) => string | undefined;
 };
 
 export type ControlResult = { ok: boolean; body: unknown };
@@ -35,7 +38,7 @@ export async function handleControlRequest(
   deps: ControlDeps
 ): Promise<ControlResult> {
   if (verb === "state") return { ok: true, body: deps.stateSnapshot() };
-  if (verb !== "browser" && verb !== "terminal") {
+  if (verb !== "browser" && verb !== "terminal" && verb !== "send") {
     return { ok: false, body: { error: `unknown verb "${verb}"` } };
   }
   if (!deps.wallOpen()) return { ok: true, body: { error: "no space is open" } };
@@ -43,6 +46,20 @@ export async function handleControlRequest(
     const url = String(args.url ?? "").trim();
     if (!/^https?:\/\//i.test(url)) return { ok: true, body: { error: "only http(s) urls" } };
     return { ok: true, body: { result: await deps.openBrowser(url) } };
+  }
+  if (verb === "send") {
+    const agent = String(args.agent ?? "").trim();
+    const prompt = String(args.prompt ?? "").trim();
+    if (!agent || !prompt) {
+      return { ok: true, body: { error: 'usage: vibectl send <agent> "<message>"' } };
+    }
+    // Name the sender so the receiving agent knows how to answer; without it
+    // agents reply into their own terminal, where nobody is listening.
+    const sender = args.from === undefined ? undefined : deps.agentNameById(String(args.from));
+    const full = sender
+      ? `[Message from agent ${sender} on this canvas. Reply by running: vibectl send ${sender} "<your reply>" - do not just answer in your own terminal.] ${prompt}`
+      : prompt;
+    return { ok: true, body: { result: await deps.sendToAgent(agent, full) } };
   }
   const preset = args.preset === undefined ? undefined : String(args.preset);
   const run = args.run === undefined ? undefined : String(args.run);
@@ -79,6 +96,10 @@ const LIVE_DEPS: ControlDeps = {
       preset: preset ?? "",
       ...(run === undefined ? {} : { run }),
     }),
+  sendToAgent: (agent, prompt) =>
+    runVibeCommand("send_to_agent", { agent_name: agent, prompt }),
+  agentNameById: (id) =>
+    terminalsOf(useCardStore.getState().cards).find((t) => t.id === id)?.name,
 };
 
 /** Listens for control-request events for the app's lifetime. Returns unlisten. */

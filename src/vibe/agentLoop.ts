@@ -15,10 +15,14 @@ will arrive as the next message. When the user asks a coding agent to do
 something ("ask Max to run the tests"), use send_to_agent with the request
 rewritten as one clear, self-contained prompt — keep the user's intent, drop
 the filler. Address several agents with one send_to_agent call each.
-Agent terminals have a "vibectl" CLI for controlling this canvas themselves
-(open browser previews, spawn terminals); if the user wants an AGENT to do
-that, tell it via send_to_agent to first read the guide file at
-$VIBE_AGENT_GUIDE.
+Agent terminals have a "vibectl" CLI on their PATH for controlling this
+canvas: vibectl send <Agent> "<message>" messages another agent's terminal,
+vibectl browser <url> opens a preview, vibectl terminal spawns a node (the
+file at $VIBE_AGENT_GUIDE documents it). Agents do NOT know about vibectl or
+each other unless told. So when the user relays between agents ("ask Charlie
+to ask Ellie what color she likes"), send_to_agent the FIRST agent a prompt
+with the exact command, e.g.: 'Ask Ellie her favorite color by running:
+vibectl send Ellie "What color do you like?" - she will reply the same way.'
 If no tool fits, answer conversationally and
 briefly. If asked what you can do, summarize your current tools in plain
 words. Never invent tools, never output code or markdown.`;
