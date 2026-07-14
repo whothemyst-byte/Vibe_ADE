@@ -43,7 +43,7 @@ Four work packages, each its own brainstorm → spec → plan → build cycle
 | Package | Theme | Status |
 |---|---|---|
 | A | Voice → Agent dictation | **DONE** (2026-07-13) |
-| B | Agent canvas control | Not started |
+| B | Agent canvas control | **DONE** (2026-07-14) |
 | C | Cursor preset + boot recipe | Not started |
 | D | Looks & delight | Not started |
 
@@ -80,7 +80,27 @@ colocated tests; live LLM routing cases in `src/vibe/eval.live.test.ts`
 clicks) — and the voice pipeline can be driven end-to-end by playing Windows
 TTS through the speakers (the mic picks it up; this actually works).
 
-## 3. Package B — Agent Canvas Control
+## 3. Package B — Agent Canvas Control (DONE)
+
+Built and verified 2026-07-14 on `V1.0.0`. Spec:
+`docs/superpowers/specs/2026-07-13-agent-canvas-control-design.md`. Plan:
+`docs/superpowers/plans/2026-07-14-agent-canvas-control.md`.
+
+What exists now: a loopback control server (`src-tauri/src/control.rs`,
+OS-assigned port, per-run 32-byte hex token, `X-Vibe-Token` header) forwards
+`GET /state`, `POST /browser`, `POST /terminal` to the webview bridge
+(`src/control/bridge.ts` — allowlisted dispatch, NOT the whole Vibe registry).
+A generated CLI bundle in `<app-data>/vibectl/` (`vibectl.cmd` →
+`vibectl.ps1` via Invoke-RestMethod, plus `agent-guide.md`) is exposed to
+every PTY through injected env (`VIBECTL_URL`, `VIBECTL_TOKEN`,
+`VIBE_AGENT_GUIDE`, prepended `PATH` — `src-tauri/src/pty/actor.rs`).
+`open_terminal` gained an optional `run` arg: the command rides
+`SpawnConfig.command` (the preset warm-up path) into the fresh shell, and
+`TerminalCard.command` is runtime-only so reopening a wall never silently
+relaunches dev servers (explicit replay is Package C's boot recipe). Vibe's
+system prompt tells agents (via send_to_agent) to read `$VIBE_AGENT_GUIDE`.
+
+Original scope notes follow.
 
 **One line:** agents running in Vibe Space terminals can inspect and control
 the wall themselves — open browser previews, spawn terminal nodes, read canvas

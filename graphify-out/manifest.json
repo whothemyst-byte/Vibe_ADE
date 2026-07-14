@@ -60,8 +60,8 @@
     "semantic_hash": "e2fe700f38a90781ac293693158428ff"
   },
   "src-tauri/src/lib.rs": {
-    "mtime": 1782922239.8559864,
-    "ast_hash": "2d382abf27684c4599fe878431e418e0",
+    "mtime": 1784033652.5015903,
+    "ast_hash": "ab38db07cddb104a50a7585c792b7593",
     "semantic_hash": ""
   },
   "src-tauri/src/main.rs": {
@@ -75,9 +75,9 @@
     "semantic_hash": "d01a9461231a9eb576b8259afb88bcb6"
   },
   "src-tauri/src/pty/actor.rs": {
-    "mtime": 1781167906.3615887,
-    "ast_hash": "7b9a1c056401e3fd504623e8825db9cf",
-    "semantic_hash": "7b9a1c056401e3fd504623e8825db9cf"
+    "mtime": 1784034144.418659,
+    "ast_hash": "eeee1f27339f49969771ca9e81a64781",
+    "semantic_hash": ""
   },
   "src-tauri/src/pty/commands.rs": {
     "mtime": 1781167906.3626294,
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "src/App.tsx": {
-    "mtime": 1782992082.5596502,
-    "ast_hash": "39f73e9aa5064f3c26fc0b56daf8419d",
+    "mtime": 1784034391.5231392,
+    "ast_hash": "dd14ab5ec0e02288f33033da8704332d",
     "semantic_hash": ""
   },
   "src/auth/LoginPage.tsx": {
@@ -430,8 +430,8 @@
     "semantic_hash": "101382f1ce9202e2e11cbbac96f5ecd8"
   },
   "src/vibe/agentLoop.ts": {
-    "mtime": 1783946572.4404335,
-    "ast_hash": "90e90e4586e8be4542f08a3da0f0c8ad",
+    "mtime": 1784034394.2748568,
+    "ast_hash": "d2d7192bfcf19a59b3331ac7236e548d",
     "semantic_hash": ""
   },
   "src/vibe/commands.test.ts": {
@@ -440,9 +440,9 @@
     "semantic_hash": "5d79320fe9058ea0a80599b4ef304236"
   },
   "src/vibe/commands.ts": {
-    "mtime": 1781182681.6686747,
-    "ast_hash": "a776a74c307ec031c0b4d01ee83e6c78",
-    "semantic_hash": "a776a74c307ec031c0b4d01ee83e6c78"
+    "mtime": 1784034369.9007823,
+    "ast_hash": "611b057516d7ebf429c474c7d3f6cb43",
+    "semantic_hash": ""
   },
   "src/vibe/context.test.ts": {
     "mtime": 1781294659.8473108,
@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "src/wall/TerminalWindow.tsx": {
-    "mtime": 1782972046.2462628,
-    "ast_hash": "c0acf300babcc8da279e74fcacb76305",
+    "mtime": 1784034262.5125654,
+    "ast_hash": "70639c8d41a504b7d9766f997bb3baad",
     "semantic_hash": ""
   },
   "src/wall/Toolbar.tsx": {
@@ -565,8 +565,8 @@
     "semantic_hash": "385e19755f9704e460303d3c7fa3bb00"
   },
   "src/wall/WallView.tsx": {
-    "mtime": 1783946488.6601825,
-    "ast_hash": "3491ac049fc7af0404b4e3439cd6e084",
+    "mtime": 1784034279.1588619,
+    "ast_hash": "1c916ef840db563fe97e219c6d94e343",
     "semantic_hash": ""
   },
   "src/wall/agentNames.test.ts": {
@@ -615,8 +615,8 @@
     "semantic_hash": "99db749ad5bfbd6247e2a6cf34e00043"
   },
   "src/wall/cardStore.ts": {
-    "mtime": 1782836231.4907253,
-    "ast_hash": "f585395a94a56866acddab57448b4b02",
+    "mtime": 1784034259.4480484,
+    "ast_hash": "22b09a688beb68203f3cdbab435a1f4a",
     "semantic_hash": ""
   },
   "src/wall/excalidrawCamera.test.ts": {
@@ -660,14 +660,14 @@
     "semantic_hash": "07836c520d622c36393eb087d257298a"
   },
   "src/wall/presets.test.ts": {
-    "mtime": 1781186612.9885006,
-    "ast_hash": "974767dc80a6a1a0d1c6015ef2fbbf85",
-    "semantic_hash": "974767dc80a6a1a0d1c6015ef2fbbf85"
+    "mtime": 1784034233.57468,
+    "ast_hash": "5aaaec7c56868a3efe28cc6a3296db59",
+    "semantic_hash": ""
   },
   "src/wall/presets.ts": {
-    "mtime": 1781186612.9906154,
-    "ast_hash": "70f780c7eaa291afb97da74eaca07da2",
-    "semantic_hash": "70f780c7eaa291afb97da74eaca07da2"
+    "mtime": 1784034257.142402,
+    "ast_hash": "b1534bc91853e9bf7447e850ebecff7d",
+    "semantic_hash": ""
   },
   "src/wall/removeCard.ts": {
     "mtime": 1781294659.9012363,
@@ -1450,13 +1450,33 @@
     "semantic_hash": ""
   },
   "docs/cnvs-parity-roadmap.md": {
-    "mtime": 1784026109.2466054,
-    "ast_hash": "61e99c282da4db46e744abd354513ec1",
+    "mtime": 1784034520.361288,
+    "ast_hash": "f70a51b70f244779b7dfdc8e2a392ef8",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-13-agent-canvas-control-design.md": {
     "mtime": 1784030808.9656942,
     "ast_hash": "7d4fc6f72b2e00194122f07e7f3f48e4",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/plans/2026-07-14-agent-canvas-control.md": {
+    "mtime": 1784034855.463756,
+    "ast_hash": "d342dc69c8061501a543696c86d7c2fd",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/control.rs": {
+    "mtime": 1784034853.3295686,
+    "ast_hash": "564d20f5220dfbed23971156766c2925",
+    "semantic_hash": ""
+  },
+  "src/control/bridge.test.ts": {
+    "mtime": 1784034349.7778838,
+    "ast_hash": "d5e75f72380c6a635d62f448794a22f4",
+    "semantic_hash": ""
+  },
+  "src/control/bridge.ts": {
+    "mtime": 1784034381.3960931,
+    "ast_hash": "9ee76a0a0c17af056ac7ea9879757a6b",
     "semantic_hash": ""
   }
 }
