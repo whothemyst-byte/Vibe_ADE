@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PRESETS, resolvePreset, findPresetByPhrase } from "./presets";
+import { DEFAULT_PRESETS, resolvePreset, findPresetByPhrase, spawnCommand } from "./presets";
 
 describe("presets", () => {
   it("ships plain + claude + codex defaults; plain has no command", () => {
@@ -42,5 +42,20 @@ describe("findPresetByPhrase", () => {
 
   it("returns undefined for no match (caller reports the error)", () => {
     expect(findPresetByPhrase(DEFAULT_PRESETS, "gemini")).toBeUndefined();
+  });
+});
+
+describe("spawnCommand", () => {
+  const claude = DEFAULT_PRESETS.find((p) => p.id === "claude")!;
+  const plain = DEFAULT_PRESETS.find((p) => p.id === "plain")!;
+
+  it("uses the preset's command by default", () => {
+    expect(spawnCommand({}, claude)).toBe("claude");
+    expect(spawnCommand({}, plain)).toBeUndefined();
+  });
+
+  it("a per-card command overrides the preset", () => {
+    expect(spawnCommand({ command: "npm run dev" }, plain)).toBe("npm run dev");
+    expect(spawnCommand({ command: "npm run dev" }, claude)).toBe("npm run dev");
   });
 });

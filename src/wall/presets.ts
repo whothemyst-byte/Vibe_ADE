@@ -17,6 +17,12 @@ export function resolvePreset(presets: Preset[], id: string): Preset {
   return presets.find((p) => p.id === id) ?? presets[0] ?? DEFAULT_PRESETS[0];
 }
 
+/** The command typed into a fresh terminal's shell: an explicit per-card
+    command (e.g. vibectl terminal --run) wins over the preset's. */
+export function spawnCommand(card: { command?: string }, preset: Preset): string | undefined {
+  return card.command ?? preset.command;
+}
+
 /**
  * Loose natural-language preset lookup ("a claude code terminal please").
  * Empty phrase = no preference = first preset. No match = undefined, so the

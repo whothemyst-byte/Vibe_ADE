@@ -435,7 +435,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     scheduleSave();
   }, [applyCamera, scheduleSave]);
 
-  const addTerminal = async (presetId: string) => {
+  const addTerminal = async (presetId: string, run?: string) => {
     // Default cwd to the wall folder. If the path hasn't resolved yet (click during
     // the initial load), look it up on demand so agents never start in the wrong dir.
     let cwd = wallPath;
@@ -445,7 +445,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       id: crypto.randomUUID(),
       name: pickAgentName(terminalsOf(useCardStore.getState().cards).map((t) => t.name)),
       x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
-      presetId, cwd,
+      presetId, cwd, command: run,
     });
   };
 
@@ -485,7 +485,10 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       `Spawn a new agent terminal on this space. Available presets: ${presets.map((p) => p.label).join(", ")}. Omit preset for a plain shell.`,
     parameters: {
       type: "object",
-      properties: { preset: { type: "string", description: "Preset name (fuzzy matched)" } },
+      properties: {
+        preset: { type: "string", description: "Preset name (fuzzy matched)" },
+        run: { type: "string", description: "Optional shell command typed into the new terminal once it starts (e.g. a dev server)" },
+      },
     },
     run: async (args) => {
       const wanted = String(args.preset ?? "");
@@ -493,10 +496,13 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       if (!preset) {
         return `Error: no preset matches "${wanted}". Available presets: ${presets.map((p) => p.label).join(", ")}.`;
       }
-      await addTerminal(preset.id);
+      const run = args.run === undefined ? undefined : String(args.run);
+      await addTerminal(preset.id, run);
       const all = terminalsOf(useCardStore.getState().cards);
       const name = all[all.length - 1]?.name;
-      return `Opened a ${preset.label} terminal named ${name}.`;
+      return run
+        ? `Opened a ${preset.label} terminal named ${name} running "${run}".`
+        : `Opened a ${preset.label} terminal named ${name}.`;
     },
   });
 

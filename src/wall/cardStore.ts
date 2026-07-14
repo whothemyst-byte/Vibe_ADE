@@ -10,6 +10,10 @@ export type TerminalCard = {
   h: number;
   presetId: string;
   cwd: string;
+  /** One-shot command typed into the shell on spawn (overrides the preset's).
+      Runtime-only: not saved to WallDoc, so reopening a wall never silently
+      relaunches dev servers. */
+  command?: string;
 };
 
 /** The wall's single browser; occupies a grid cell like any terminal. */

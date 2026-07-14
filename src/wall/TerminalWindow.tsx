@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent, type R
 import { HEADER_H, FOOTER_H, type Camera } from "./transform";
 import { useCardStore, type TerminalCard } from "./cardStore";
 import { usePresetStore } from "./presetStore";
-import { resolvePreset } from "./presets";
+import { resolvePreset, spawnCommand } from "./presets";
 import { StatusFooter } from "./StatusFooter";
 import { CloseIcon, MaximizeIcon, RestoreIcon } from "./icons";
 import { ensureSession, detachSession, destroySession, fitSession, getActivityRef } from "./sessions";
@@ -38,7 +38,7 @@ function TerminalWindowInner({
   // effect only parents its host element into this card's body.
   useEffect(() => {
     if (!bodyRef.current) return;
-    ensureSession({ id, cwd: cwd || undefined, command: preset.command, container: bodyRef.current });
+    ensureSession({ id, cwd: cwd || undefined, command: spawnCommand(terminal, preset), container: bodyRef.current });
     return () => detachSession(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
