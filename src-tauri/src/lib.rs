@@ -1,4 +1,5 @@
 mod browser;
+mod control;
 mod design;
 mod oauth;
 mod pty;
