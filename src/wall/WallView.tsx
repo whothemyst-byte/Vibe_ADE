@@ -33,6 +33,7 @@ import { speak } from "../vibe/speech";
 import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
 import { findPresetByPhrase } from "./presets";
+import { recipeEntries, runRecipe, summarizeRun } from "./recipe";
 import { THEMES, accentForBackground, applyAccent, applyChromeInk, DEFAULT_ACCENT } from "../settings/themes";
 import { setPresenceSpace } from "../teams/presence";
 import { useOrgStore } from "../teams/orgStore";
@@ -583,6 +584,20 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         { id: agent.id, name: agent.name, sentAt: Date.now(), sawOutput: false },
       ];
       return `Sent to ${agent.name}.`;
+    },
+  });
+
+  useVibeCommand({
+    name: "run_boot_recipe",
+    description:
+      "Run this space's boot recipe: replay each terminal's saved startup command (e.g. dev servers, watchers). Use when the user asks to run/start the boot recipe or restart the saved dev servers.",
+    parameters: { type: "object", properties: {} },
+    run: () => {
+      const result = runRecipe(
+        recipeEntries(useCardStore.getState().cards),
+        (id, cmd) => sendToSession(id, cmd, true)
+      );
+      return summarizeRun(result);
     },
   });
 

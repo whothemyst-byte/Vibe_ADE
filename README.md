@@ -32,7 +32,8 @@ its task.") when the agent settles. Settings → Vibe picks whether your words
 arrive verbatim or cleaned up by the model.
 
 It can: dictate prompts to agent terminals by name, open Claude Code / Codex /
-plain terminals, close or focus them, change
+Cursor / Gemini / plain terminals, close or focus them, run the boot recipe
+(replay each terminal's saved startup command — never run automatically), change
 the wall background or apply a theme (Ember, Midnight, Parchment, Moss, Plum,
 Slate), zoom to fit, switch or CREATE walls (it asks where, or opens the folder
 picker), open the task board, create/move tasks, and answer questions. If it

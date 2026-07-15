@@ -53,6 +53,7 @@ function fakeRegistry() {
     },
     required: ["agent_name", "prompt"],
   }, "Sent to Max.");
+  stub("run_boot_recipe", "Run this space's boot recipe: replay each terminal's saved startup command (e.g. dev servers, watchers).", undefined, "Ran 1 command: npm run dev in Dev.");
   stub("apply_theme", "Apply a pre-made theme to this wall. Themes: Dusk, Paper, Forest, Ocean, Mono, Ember.", {
     type: "object",
     properties: { name: { type: "string", description: "Theme name" } },
@@ -113,6 +114,11 @@ describe.runIf(KEY)("vibe agent eval (live Groq)", { retry: 1 }, () => {
   it("goes back to the start page", async () => {
     await runAgent("take me back to the start page", liveChat);
     expect(calls.map((c) => c.name)).toContain("go_to_start_page");
+  });
+
+  it("runs the boot recipe", async () => {
+    await runAgent("run the boot recipe", liveChat);
+    expect(calls.map((c) => c.name)).toContain("run_boot_recipe");
   });
 
   it("applies a theme", async () => {
