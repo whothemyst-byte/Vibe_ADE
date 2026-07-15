@@ -36,7 +36,7 @@ function fakeRegistry() {
     },
     required: ["location"],
   });
-  stub("open_terminal", "Spawn a new agent terminal on this wall. Available presets: Claude Code, Codex, Plain shell. Omit preset for a plain shell.", {
+  stub("open_terminal", "Spawn a new agent terminal on this wall. Available presets: Claude Code, Codex, Cursor, Gemini, Plain shell. Omit preset for a plain shell.", {
     type: "object",
     properties: { preset: { type: "string", description: "Preset name (fuzzy matched)" } },
   }, "Opened a Claude Code terminal named Ada.");

@@ -6,11 +6,30 @@ export type Preset = {
   command?: string;
 };
 
+/** Claude Code starts with the vibectl guide appended to its system prompt, so
+    agents know the canvas channel (vibectl send / state / …) without anyone
+    having to mention it in a message. PowerShell syntax: the default shell is
+    powershell.exe, and VIBE_AGENT_GUIDE is injected into every Vibe Space PTY. */
+const CLAUDE_COMMAND = 'claude --append-system-prompt-file "$env:VIBE_AGENT_GUIDE"';
+
 export const DEFAULT_PRESETS: Preset[] = [
   { id: "plain", label: "Plain shell", icon: "▷" },
-  { id: "claude", label: "Claude Code", icon: "✦", command: "claude" },
+  { id: "claude", label: "Claude Code", icon: "✦", command: CLAUDE_COMMAND },
   { id: "codex", label: "Codex", icon: "◆", command: "codex" },
+  // Cursor CLI's Windows-native binary is `agent` (renamed from cursor-agent).
+  { id: "cursor", label: "Cursor", icon: "▸", command: "agent" },
+  { id: "gemini", label: "Gemini", icon: "◈", command: "gemini" },
 ];
+
+/** Heal presets persisted before the vibectl-aware launch command: a claude
+    preset still running bare `claude` was never customized, so it picks up the
+    new default. Anything else (user edits included) is returned by identity,
+    letting the caller detect "changed" via `!==`. */
+export function upgradeLegacyPresets(presets: Preset[]): Preset[] {
+  return presets.map((p) =>
+    p.id === "claude" && p.command === "claude" ? { ...p, command: CLAUDE_COMMAND } : p
+  );
+}
 
 /** Resolve a preset by id, falling back to the first preset (plain) if not found. */
 export function resolvePreset(presets: Preset[], id: string): Preset {

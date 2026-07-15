@@ -6,6 +6,8 @@ describe("presetTierColor", () => {
     expect(presetTierColor("plain")).toBe("var(--text-faint)");
     expect(presetTierColor("claude")).toBe("var(--accent)");
     expect(presetTierColor("codex")).toBe("var(--info)");
+    expect(presetTierColor("cursor")).toBe("var(--ok)");
+    expect(presetTierColor("gemini")).toBe("#8a68c9");
   });
   it("falls back to muted for unknown presets", () => {
     expect(presetTierColor("anything-else")).toBe("var(--text-muted)");

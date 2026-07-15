@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PRESETS, resolvePreset, findPresetByPhrase, spawnCommand } from "./presets";
+import { DEFAULT_PRESETS, resolvePreset, findPresetByPhrase, spawnCommand, upgradeLegacyPresets } from "./presets";
+
+const CLAUDE_COMMAND = 'claude --append-system-prompt-file "$env:VIBE_AGENT_GUIDE"';
 
 describe("presets", () => {
-  it("ships plain + claude + codex defaults; plain has no command", () => {
-    expect(DEFAULT_PRESETS.map((p) => p.id)).toEqual(["plain", "claude", "codex"]);
+  it("ships plain + claude + codex + cursor + gemini defaults; plain has no command", () => {
+    expect(DEFAULT_PRESETS.map((p) => p.id)).toEqual(["plain", "claude", "codex", "cursor", "gemini"]);
     expect(DEFAULT_PRESETS[0].command).toBeUndefined();
-    expect(DEFAULT_PRESETS[1].command).toBe("claude");
+  });
+
+  it("cursor and gemini launch their CLIs", () => {
+    expect(DEFAULT_PRESETS.find((p) => p.id === "cursor")?.command).toBe("agent");
+    expect(DEFAULT_PRESETS.find((p) => p.id === "gemini")?.command).toBe("gemini");
+  });
+
+  it("claude launches with the vibectl guide appended to its system prompt", () => {
+    expect(DEFAULT_PRESETS[1].command).toBe(CLAUDE_COMMAND);
   });
 
   it("resolves a preset by id", () => {
@@ -41,7 +51,31 @@ describe("findPresetByPhrase", () => {
   });
 
   it("returns undefined for no match (caller reports the error)", () => {
-    expect(findPresetByPhrase(DEFAULT_PRESETS, "gemini")).toBeUndefined();
+    expect(findPresetByPhrase(DEFAULT_PRESETS, "aider")).toBeUndefined();
+  });
+});
+
+describe("upgradeLegacyPresets", () => {
+  it("upgrades a stored claude preset still on the bare command", () => {
+    const stored = [
+      { id: "plain", label: "Plain shell", icon: "▷" },
+      { id: "claude", label: "Claude Code", icon: "✦", command: "claude" },
+    ];
+    const up = upgradeLegacyPresets(stored);
+    expect(up[1].command).toBe(CLAUDE_COMMAND);
+    expect(up[0]).toBe(stored[0]); // untouched entries keep identity (= no re-save)
+  });
+
+  it("leaves a user-customized claude command alone", () => {
+    const stored = [{ id: "claude", label: "Claude Code", icon: "✦", command: "claude --model opus" }];
+    expect(upgradeLegacyPresets(stored)).toEqual(stored);
+    expect(upgradeLegacyPresets(stored)[0]).toBe(stored[0]);
+  });
+
+  it("is a no-op on already-current presets", () => {
+    const up = upgradeLegacyPresets(DEFAULT_PRESETS);
+    expect(up).toEqual(DEFAULT_PRESETS);
+    expect(up.every((p, i) => p === DEFAULT_PRESETS[i])).toBe(true);
   });
 });
 
@@ -50,7 +84,7 @@ describe("spawnCommand", () => {
   const plain = DEFAULT_PRESETS.find((p) => p.id === "plain")!;
 
   it("uses the preset's command by default", () => {
-    expect(spawnCommand({}, claude)).toBe("claude");
+    expect(spawnCommand({}, claude)).toBe(CLAUDE_COMMAND);
     expect(spawnCommand({}, plain)).toBeUndefined();
   });
 
