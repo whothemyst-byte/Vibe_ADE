@@ -38,9 +38,11 @@ Ships to all tiers (mirrors Packages A–C). Branch `V1.0.0`, commit per task.
 blue-led; cool hues only as small accents inside a warm scene). Rendered
 procedurally by a Node script (`scripts/render-scenes.mjs`): each scene is
 drawn at 480×270 with deterministic pixel-art primitives (gradient skies,
-dithering, silhouettes, stars, glow dots), upscaled nearest-neighbor to
-1920×1080, and encoded as WebP ≤ 500KB into `public/themes/scenes/<id>.webp`.
-The script is committed so scenes can be re-rendered and tuned; the WebPs are
+dithering, silhouettes, stars, glow dots) and encoded as PNG ≤ 500KB into
+`public/themes/scenes/<id>.png` (pure `node:zlib`, no native deps); scenes
+render full-bleed via CSS `image-rendering: pixelated`, which keeps the
+pixels crisp at any window size with far smaller files than an upscaled WebP.
+The script is committed so scenes can be re-rendered and tuned; the PNGs are
 committed too (build output, but tiny and stable).
 
 Subjects (final look tuned at build time, names indicative):
@@ -59,7 +61,7 @@ Subjects (final look tuned at build time, names indicative):
 ### Theme wiring (`src/settings/themes.ts`)
 
 New `SCENE_THEMES: Theme[]` — one entry per scene,
-`background: { kind: "image", url: "/themes/scenes/<id>.webp" }`, and a
+`background: { kind: "image", url: "/themes/scenes/<id>.png" }`, and a
 per-scene `accent` hand-picked from the artwork's own palette (all must pass
 the existing readability contract — `readableTextColor` drives `--on-accent`).
 `THEMES` becomes `[...APPEARANCE_THEMES, ...SCENE_THEMES, ...VIDEO_THEMES]`.
@@ -76,7 +78,7 @@ video previews.
 
 ### Voice
 
-Zero work: the `set_theme` Vibe command in `WallView.tsx` lists and matches
+Zero work: the `apply_theme` Vibe command in `WallView.tsx` lists and matches
 over `THEMES`, so "switch to meadow night" works as soon as the entries exist.
 
 ## D2 — Chrome quieting + working glow
