@@ -23,6 +23,7 @@ import { useSettingsStore } from "../settings/settingsStore";
 import { LaunchMenu } from "./LaunchMenu";
 import { FileExplorer } from "./FileExplorer";
 import { ToolsIsland } from "./ToolsIsland";
+import { BootRecipe } from "./BootRecipe";
 import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
 import { pickAgentName } from "./agentNames";
@@ -817,6 +818,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         onLaunchBrowser={() => { void openBrowser(); }}
       />
       <ToolsIsland activeType={activeType} onSelect={selectTool} />
+      <BootRecipe />
       <TerminalOverlay layerRef={layerRef} cameraRef={cameraRef} />
     </div>
   );

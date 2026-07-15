@@ -47,6 +47,50 @@
 .tool-key:hover { color: var(--text); transform: translateY(-1px); }
 .tool-key.active { background: var(--accent); color: var(--on-accent); }
 .tool-key svg { display: block; }
+.boot-recipe { position: absolute; bottom: 14px; left: 14px; z-index: 300; }
+.boot-recipe-pill {
+  background: var(--glass); backdrop-filter: blur(10px); color: var(--text-muted);
+  border: 1px solid var(--rule); border-radius: var(--radius); cursor: pointer;
+  padding: 7px 12px; font-size: 11.5px; font-weight: 600; font-family: var(--font-ui);
+  box-shadow: var(--shadow); transition: color .14s;
+}
+.boot-recipe-pill:hover { color: var(--text); }
+.boot-recipe-pop {
+  position: absolute; bottom: 100%; left: 0; margin-bottom: 8px; width: 340px;
+  background: var(--glass); backdrop-filter: blur(10px); border: 1px solid var(--rule);
+  border-radius: var(--radius-sm); padding: 6px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.boot-recipe-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; }
+.boot-recipe-name {
+  font-size: 12.5px; color: var(--text); width: 64px; flex: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.boot-recipe-cmd {
+  flex: 1; min-width: 0; background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--rule); border-radius: 6px; padding: 5px 8px;
+  font-size: 12px; font-family: var(--font-mono);
+}
+.boot-recipe-cmd::placeholder { color: var(--text-faint); }
+.boot-recipe-cmd:focus { outline: none; border-color: var(--accent-dim); }
+.boot-recipe-run {
+  background: transparent; color: var(--text-muted); border: none; cursor: pointer;
+  font-size: 11px; padding: 4px 6px; border-radius: 6px; flex: none;
+}
+.boot-recipe-run:hover:not(:disabled) { background: rgba(243, 238, 229, .06); color: var(--text); }
+.boot-recipe-run:disabled { color: var(--text-faint); cursor: default; }
+.boot-recipe-foot {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 6px 6px 2px; border-top: 1px solid var(--rule); margin-top: 4px;
+}
+.boot-recipe-notice { font-size: 11.5px; color: var(--text-muted); flex: 1; }
+.boot-recipe-all {
+  background: var(--accent); color: var(--on-accent); border: none; cursor: pointer;
+  border-radius: var(--radius-sm); padding: 6px 12px; font-size: 11.5px; font-weight: 600;
+  font-family: var(--font-ui);
+}
+.boot-recipe-all:hover:not(:disabled) { background: var(--accent-hover); }
+.boot-recipe-all:disabled { background: var(--surface-2); color: var(--text-faint); cursor: default; }
 .terminal-overlay { position: absolute; inset: 0; z-index: 250; pointer-events: none; }
 .terminal-layer { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
 .terminal-window {
