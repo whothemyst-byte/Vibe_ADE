@@ -44,7 +44,7 @@ Four work packages, each its own brainstorm → spec → plan → build cycle
 |---|---|---|
 | A | Voice → Agent dictation | **DONE** (2026-07-13) |
 | B | Agent canvas control | **DONE** (2026-07-14) |
-| C | Cursor preset + boot recipe | Not started |
+| C | Cursor preset + boot recipe | **DONE** (2026-07-15) |
 | D | Looks & delight | Not started |
 
 ---
@@ -170,7 +170,36 @@ state — the deepest architectural piece of CNVS's moat.
   guidance ("use cnvs_run_shell for servers/watchers").
 - Does the canvas-control token live per-wall or per-app-run?
 
-## 4. Package C — Cursor Agent Preset + Boot Recipe
+## 4. Package C — Cursor Agent Preset + Boot Recipe (DONE)
+
+Built and verified 2026-07-15 on `V1.0.0`. Spec:
+`docs/superpowers/specs/2026-07-15-cursor-preset-boot-recipe-design.md`. Plan:
+`docs/superpowers/plans/2026-07-15-cursor-preset-boot-recipe.md`.
+
+What exists now:
+
+- **Cursor + Gemini presets** in `DEFAULT_PRESETS` (`cursor` → `agent`,
+  Cursor CLI's Windows-native binary name; `gemini` → `gemini`), tier colors
+  green/violet. `mergeNewDefaults` (`src/wall/presets.ts`) appends new default
+  presets to a stored presets.json on load, so existing installs see them.
+  CAUTION: on this machine `agent.exe` currently resolves to Grok's CLI
+  (`~/.grok/bin/agent.exe`) — Cursor CLI isn't installed; the user chose to
+  keep `agent` (official Cursor name) anyway; presets are user-editable.
+- **Boot recipe:** `SavedTerminal.run` / `TerminalCard.run` — a persisted
+  per-terminal startup command, auto-captured from `open_terminal --run`
+  (Vibe or vibectl) and editable in the UI. NEVER executed on wall load
+  (terminals still respawn preset-only); replay is explicit via the
+  bottom-left "▶ Boot recipe" popover (`src/wall/BootRecipe.tsx`, per-row ▶ +
+  Run recipe), or the `run_boot_recipe` Vibe command. Pure logic in
+  `src/wall/recipe.ts` (recipeEntries/runRecipe/summarizeRun). Replay types
+  into the live shell via `sendToSession`.
+- Verified in the dev instance end-to-end: capture → save → app restart →
+  idle respawn → popover shows the command → Run recipe re-runs it. Gemini
+  preset boots the real CLI (first run lands on its auth/ToS screen);
+  dictation-into-Cursor/Gemini TUIs untested (Cursor CLI not installed,
+  Gemini unauthenticated).
+
+Original scope notes follow.
 
 **One line:** run Cursor's CLI agent as a first-class preset alongside Claude
 Code and Codex, and replay a wall's whole working setup (agents + servers +
