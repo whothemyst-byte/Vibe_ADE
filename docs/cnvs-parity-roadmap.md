@@ -178,13 +178,14 @@ Built and verified 2026-07-15 on `V1.0.0`. Spec:
 
 What exists now:
 
-- **Cursor + Gemini presets** in `DEFAULT_PRESETS` (`cursor` → `agent`,
-  Cursor CLI's Windows-native binary name; `gemini` → `gemini`), tier colors
-  green/violet. `mergeNewDefaults` (`src/wall/presets.ts`) appends new default
-  presets to a stored presets.json on load, so existing installs see them.
-  CAUTION: on this machine `agent.exe` currently resolves to Grok's CLI
-  (`~/.grok/bin/agent.exe`) — Cursor CLI isn't installed; the user chose to
-  keep `agent` (official Cursor name) anyway; presets are user-editable.
+- **Cursor + Gemini presets** in `DEFAULT_PRESETS` (`cursor` → `cursor-agent`;
+  `gemini` → `gemini`), tier colors green/violet. `mergeNewDefaults`
+  (`src/wall/presets.ts`) appends new default presets to a stored presets.json
+  on load, so existing installs see them. Cursor CLI installed 2026-07-15 via
+  `irm 'https://cursor.com/install?win32=true' | iex`; it ships BOTH `agent`
+  and `cursor-agent` shims (`%LOCALAPPDATA%\cursor-agent\`) — the preset uses
+  `cursor-agent` because bare `agent` loses PATH resolution to Grok's
+  `~/.grok/bin/agent.exe` on this machine.
 - **Boot recipe:** `SavedTerminal.run` / `TerminalCard.run` — a persisted
   per-terminal startup command, auto-captured from `open_terminal --run`
   (Vibe or vibectl) and editable in the UI. NEVER executed on wall load

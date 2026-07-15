@@ -16,8 +16,10 @@ export const DEFAULT_PRESETS: Preset[] = [
   { id: "plain", label: "Plain shell", icon: "▷" },
   { id: "claude", label: "Claude Code", icon: "✦", command: CLAUDE_COMMAND },
   { id: "codex", label: "Codex", icon: "◆", command: "codex" },
-  // Cursor CLI's Windows-native binary is `agent` (renamed from cursor-agent).
-  { id: "cursor", label: "Cursor", icon: "▸", command: "agent" },
+  // Cursor CLI installs BOTH `agent` and `cursor-agent` shims; use the
+  // unambiguous one — bare `agent` collides with other vendors' CLIs
+  // (Grok's agent.exe won PATH resolution on the dev machine).
+  { id: "cursor", label: "Cursor", icon: "▸", command: "cursor-agent" },
   { id: "gemini", label: "Gemini", icon: "◈", command: "gemini" },
 ];
 

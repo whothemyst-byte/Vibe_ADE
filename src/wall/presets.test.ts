@@ -10,7 +10,7 @@ describe("presets", () => {
   });
 
   it("cursor and gemini launch their CLIs", () => {
-    expect(DEFAULT_PRESETS.find((p) => p.id === "cursor")?.command).toBe("agent");
+    expect(DEFAULT_PRESETS.find((p) => p.id === "cursor")?.command).toBe("cursor-agent");
     expect(DEFAULT_PRESETS.find((p) => p.id === "gemini")?.command).toBe("gemini");
   });
 
