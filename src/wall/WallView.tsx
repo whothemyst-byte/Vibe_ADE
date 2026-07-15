@@ -113,8 +113,8 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         elements: [...api.getSceneElements()],
         appState: { scrollX: st.scrollX, scrollY: st.scrollY, zoom: st.zoom },
       },
-      terminals: terminalsOf(cards).map(({ id, x, y, w, h, presetId, cwd, name }) => ({
-        id, x, y, w, h, presetId, cwd, name,
+      terminals: terminalsOf(cards).map(({ id, x, y, w, h, presetId, cwd, name, run }) => ({
+        id, x, y, w, h, presetId, cwd, name, run: run?.trim() ? run : undefined,
       })),
       background: backgroundRef.current,
       gridAnchor: useCardStore.getState().anchor ?? undefined,
@@ -445,7 +445,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       id: crypto.randomUUID(),
       name: pickAgentName(terminalsOf(useCardStore.getState().cards).map((t) => t.name)),
       x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
-      presetId, cwd, command: run,
+      presetId, cwd, command: run, run,
     });
   };
 

@@ -13,6 +13,8 @@ export type WallMeta = {
 export type SavedTerminal = {
   id: string; x: number; y: number; w: number; h: number; presetId: string; cwd: string;
   name?: string;
+  /** Boot-recipe command. Replayed only via the Boot recipe UI/voice — never on wall load. */
+  run?: string;
 };
 
 export type Background =

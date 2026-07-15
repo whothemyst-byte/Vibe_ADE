@@ -14,6 +14,10 @@ export type TerminalCard = {
       Runtime-only: not saved to WallDoc, so reopening a wall never silently
       relaunches dev servers. */
   command?: string;
+  /** Boot-recipe command (persisted, unlike `command`): what this terminal's
+      dev server/watcher is started with. Never executed automatically; the
+      Boot recipe UI or `run_boot_recipe` replays it into the live shell. */
+  run?: string;
 };
 
 /** The wall's single browser; occupies a grid cell like any terminal. */
