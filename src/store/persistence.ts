@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import type { WallMeta, WallDoc } from "./types";
-import { DEFAULT_PRESETS, type Preset } from "../wall/presets";
+import { DEFAULT_PRESETS, mergeNewDefaults, upgradeLegacyPresets, type Preset } from "../wall/presets";
 import { mergeSettings, type Settings } from "../settings/settings";
 import type { Task } from "../tasks/taskStore";
 
@@ -41,7 +41,12 @@ export function importBackground(srcPath: string, destName: string): Promise<str
 
 export async function loadPresets(): Promise<Preset[]> {
   const s = await invoke<string | null>("presets_load");
-  if (s) return JSON.parse(s) as Preset[];
+  if (s) {
+    const stored = JSON.parse(s) as Preset[];
+    const upgraded = mergeNewDefaults(upgradeLegacyPresets(stored));
+    if (upgraded.some((p, i) => p !== stored[i])) await savePresets(upgraded);
+    return upgraded;
+  }
   // First run: write the defaults so the user has a presets.json to edit.
   await invoke("presets_save", { json: JSON.stringify(DEFAULT_PRESETS, null, 2) });
   return DEFAULT_PRESETS;

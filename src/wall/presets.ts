@@ -31,6 +31,17 @@ export function upgradeLegacyPresets(presets: Preset[]): Preset[] {
   );
 }
 
+/** Appends default presets missing from a stored list — new app versions ship
+    new agents, and a presets.json saved before then must still surface them.
+    Returns the input by identity when nothing is missing, letting the caller
+    detect "changed" via `!==` / length. Deliberate deletions of a default come
+    back once per new default (accepted tradeoff; user edits are untouched). */
+export function mergeNewDefaults(presets: Preset[]): Preset[] {
+  const have = new Set(presets.map((p) => p.id));
+  const missing = DEFAULT_PRESETS.filter((d) => !have.has(d.id));
+  return missing.length ? [...presets, ...missing] : presets;
+}
+
 /** Resolve a preset by id, falling back to the first preset (plain) if not found. */
 export function resolvePreset(presets: Preset[], id: string): Preset {
   return presets.find((p) => p.id === id) ?? presets[0] ?? DEFAULT_PRESETS[0];

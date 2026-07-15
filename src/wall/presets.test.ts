@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PRESETS, resolvePreset, findPresetByPhrase, spawnCommand, upgradeLegacyPresets } from "./presets";
+import { DEFAULT_PRESETS, resolvePreset, findPresetByPhrase, mergeNewDefaults, spawnCommand, upgradeLegacyPresets } from "./presets";
 
 const CLAUDE_COMMAND = 'claude --append-system-prompt-file "$env:VIBE_AGENT_GUIDE"';
 
@@ -76,6 +76,22 @@ describe("upgradeLegacyPresets", () => {
     const up = upgradeLegacyPresets(DEFAULT_PRESETS);
     expect(up).toEqual(DEFAULT_PRESETS);
     expect(up.every((p, i) => p === DEFAULT_PRESETS[i])).toBe(true);
+  });
+});
+
+describe("mergeNewDefaults", () => {
+  it("appends defaults missing from a stored list, after the user's entries", () => {
+    const stored = [
+      { id: "plain", label: "Plain shell", icon: "▷" },
+      { id: "claude", label: "Claude Code", icon: "✦", command: "claude --model opus" },
+    ];
+    const merged = mergeNewDefaults(stored);
+    expect(merged.map((p) => p.id)).toEqual(["plain", "claude", "codex", "cursor", "gemini"]);
+    expect(merged[1]).toBe(stored[1]); // user edits untouched
+  });
+
+  it("returns the same array by identity when nothing is missing (= no re-save)", () => {
+    expect(mergeNewDefaults(DEFAULT_PRESETS)).toBe(DEFAULT_PRESETS);
   });
 });
 
