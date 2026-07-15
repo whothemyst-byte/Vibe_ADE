@@ -12,6 +12,11 @@ describe("buildHints", () => {
     expect(hints.some((h) => h.toLowerCase().includes("claude code"))).toBe(true);
     expect(hints.every((h) => !h.includes("undefined"))).toBe(true);
   });
+  it("rotates in every agent preset it is given (Cursor, Gemini included)", () => {
+    const hints = buildHints([], ["Claude Code", "Codex", "Cursor", "Gemini"]);
+    expect(hints.some((h) => h.includes("Cursor"))).toBe(true);
+    expect(hints.some((h) => h.includes("Gemini"))).toBe(true);
+  });
   it("is deterministic for the same inputs", () => {
     expect(buildHints(["Max"], ["Codex"])).toEqual(buildHints(["Max"], ["Codex"]));
   });

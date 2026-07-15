@@ -18,7 +18,7 @@ export function HintPill({ state, caption }: { state: VibeState; caption: string
 
   const hints = buildHints(
     terminalsOf(cards).map((t) => t.name),
-    DEFAULT_PRESETS.map((p) => p.label)
+    DEFAULT_PRESETS.filter((p) => p.command).map((p) => p.label)
   );
 
   useEffect(() => {
