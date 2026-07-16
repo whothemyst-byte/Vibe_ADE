@@ -10,6 +10,24 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-03-command-palette-and-mobile-simulator-design.md` (Part 1).
 
+## Amendments (2026-07-16, pre-execution)
+
+Written 2026-07-03; Packages B–D landed since. The registry additionally covers
+everything invocable that shipped in between:
+
+- **Launch**: "Open music player" (`openMusic`, Package D) and "Run boot recipe"
+  (Package C — only listed when `recipeEntries(cards)` is non-empty; replays via
+  the caller, which uses the same `sendToSession` path as the vibe command).
+- **Windows**: "Close music player" and "Next station" when the music card is open.
+- **Themes** (new section): one "Theme: <name>" action per `THEMES` entry
+  (includes the 8 Package-D scenes); WallView wires it to its existing `changeBg`.
+- Cursor/Gemini presets need no registry change — presets are injected from
+  `usePresetStore`, so Task 2's fixtures stay minimal.
+- The minimap is auto-show only (no manual toggle exists), so it has no action.
+- Task 4's WallView line numbers are stale; anchors re-verified 2026-07-16:
+  state ~line 84, `changeBg` ~468, `focus_terminal` command ~638-666,
+  `selectTool` ~841, `<Toolbar>` ~856, `<ToolsIsland>` ~892.
+
 ## Global Constraints
 
 - Repo: `vibe-space/` (its own git repo, branch `V1.0.0`). All paths below are relative to the repo root.
