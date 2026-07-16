@@ -43,7 +43,21 @@ export type FileCard = {
   h: number;
 };
 
-export type Card = TerminalCard | BrowserCard | FileCard;
+/** The wall's single music/focus player; occupies a grid cell like a terminal. */
+export type MusicCard = {
+  kind: "music";
+  id: string;
+  /** Station id from STATIONS, or "custom" for a pasted stream URL. */
+  stationId: string;
+  /** The stream URL actually loaded. */
+  url: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type Card = TerminalCard | BrowserCard | FileCard | MusicCard;
 
 export function terminalsOf(cards: Card[]): TerminalCard[] {
   return cards.filter((c): c is TerminalCard => c.kind === "terminal");
@@ -62,6 +76,7 @@ type CardStore = {
       | Partial<Omit<TerminalCard, "kind" | "id">>
       | Partial<Omit<BrowserCard, "kind" | "id">>
       | Partial<Omit<FileCard, "kind" | "id">>
+      | Partial<Omit<MusicCard, "kind" | "id">>
   ) => void;
   remove: (id: string) => void;
   /** Reorders a card to `index` (grid order = array order). */

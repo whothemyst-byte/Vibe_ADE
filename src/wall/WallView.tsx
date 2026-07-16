@@ -10,6 +10,7 @@ import { useCardStore, terminalsOf, type Card } from "./cardStore";
 import { syncBrowserRect } from "./browserSync";
 import { useBlocksBrowser } from "./browserVisibility";
 import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserActions";
+import { MUSIC_ID } from "./musicActions";
 import { removeCardWithFade } from "./removeCard";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
@@ -110,6 +111,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     const st = api.getAppState();
     const cards = useCardStore.getState().cards;
     const browser = cards.find((c) => c.kind === "browser");
+    const music = cards.find((c) => c.kind === "music");
     return {
       scene: {
         elements: [...api.getSceneElements()],
@@ -121,6 +123,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       background: backgroundRef.current,
       gridAnchor: useCardStore.getState().anchor ?? undefined,
       browser: browser ? { url: browser.url, gridIndex: cards.indexOf(browser) } : undefined,
+      music: music ? { stationId: music.stationId, url: music.url, gridIndex: cards.indexOf(music) } : undefined,
     };
   };
 
@@ -216,6 +219,16 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
           kind: "browser",
           id: BROWSER_ID,
           url: doc.browser.url,
+          x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
+        });
+      }
+      if (doc?.music) {
+        const i = Math.max(0, Math.min(doc.music.gridIndex, cards.length));
+        cards.splice(i, 0, {
+          kind: "music",
+          id: MUSIC_ID,
+          stationId: doc.music.stationId,
+          url: doc.music.url,
           x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
         });
       }

@@ -29,6 +29,8 @@ export type WallScene = {
 
 export type SavedBrowser = { url: string; gridIndex: number };
 
+export type SavedMusic = { stationId: string; url: string; gridIndex: number };
+
 export type WallDoc = {
   scene: WallScene;
   terminals: SavedTerminal[];
@@ -37,6 +39,8 @@ export type WallDoc = {
   gridAnchor?: { x: number; y: number };
   /** The wall's single browser card, if open when last saved. */
   browser?: SavedBrowser;
+  /** The wall's music card, if open when last saved. Restores paused. */
+  music?: SavedMusic;
 };
 
 export const DEFAULT_BACKGROUND: Background = { kind: "color", color: "#12110f" };
