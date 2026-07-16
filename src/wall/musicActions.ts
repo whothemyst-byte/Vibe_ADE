@@ -1,7 +1,7 @@
 import { useCardStore, type MusicCard } from "./cardStore";
 import { CELL } from "./gridLayout";
 import { removeCardWithFade } from "./removeCard";
-import { STATIONS, findStation, nextStation, type Station } from "./stations";
+import { STATIONS, findStation, nextStation, prevStation, type Station } from "./stations";
 
 export const MUSIC_ID = "wall-music";
 
@@ -37,6 +37,15 @@ export function changeStation(phrase?: string): string {
   if (!station) {
     return `Error: no station matches "${phrase}". Stations: ${STATIONS.map((s) => `${s.name} (${s.mood})`).join(", ")}.`;
   }
+  tune(station);
+  return `Tuned to ${station.name} (${station.mood}).`;
+}
+
+/** Previous station on the dial (the player's back-skip button). */
+export function previousStation(): string {
+  const c = musicCard();
+  if (!c) return "Error: the music player is not open.";
+  const station = prevStation(c.stationId);
   tune(station);
   return `Tuned to ${station.name} (${station.mood}).`;
 }

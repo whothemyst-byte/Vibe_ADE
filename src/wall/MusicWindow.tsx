@@ -1,9 +1,9 @@
 import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { HEADER_H, type Camera } from "./transform";
 import { useCardStore, type MusicCard } from "./cardStore";
-import { CloseIcon, MusicIcon, NextIcon, PauseIcon, PlayIcon } from "./icons";
+import { CloseIcon, MusicIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, VolumeIcon } from "./icons";
 import { nearestSlotIndex } from "./gridLayout";
-import { changeStation, closeMusic, registerPlayer, setCustomUrl } from "./musicActions";
+import { changeStation, closeMusic, previousStation, registerPlayer, setCustomUrl } from "./musicActions";
 import { STATIONS } from "./stations";
 import { BAR_COUNT, barsFromBins, isSilent, simulateBars } from "./eq";
 import { youtubeEmbedUrl } from "./youtube";
@@ -172,21 +172,30 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
         {embed ? (
           <iframe
             ref={iframeRef}
-            className="music-yt"
+            className="music-art music-yt"
             src={embed}
             allow="autoplay; encrypted-media"
             title="YouTube player"
           />
         ) : (
-          <canvas ref={canvasRef} className="music-eq" width={320} height={120} />
+          <div className="music-art music-art-tile"><MusicIcon /></div>
         )}
+        <div className="music-track">{station ? station.name : embed ? "YouTube" : "Custom stream"}</div>
+        <div className="music-artist">{station ? station.mood : card.url}</div>
+        {!embed && <canvas ref={canvasRef} className="music-eq" width={320} height={56} />}
         <div className="music-controls">
-          <button className="music-btn" title={playing ? "Pause" : "Play"} onPointerDown={(e) => { e.stopPropagation(); toggle(); }}>
+          <button className="music-skip" title="Previous station" onPointerDown={(e) => { e.stopPropagation(); previousStation(); }}>
+            <PrevIcon />
+          </button>
+          <button className="music-play" title={playing ? "Pause" : "Play"} onPointerDown={(e) => { e.stopPropagation(); toggle(); }}>
             {playing ? <PauseIcon /> : <PlayIcon />}
           </button>
-          <button className="music-btn" title="Next station" onPointerDown={(e) => { e.stopPropagation(); changeStation(); }}>
+          <button className="music-skip" title="Next station" onPointerDown={(e) => { e.stopPropagation(); changeStation(); }}>
             <NextIcon />
           </button>
+        </div>
+        <div className="music-volume-row">
+          <VolumeIcon />
           <input
             className="music-volume" type="range" min={0} max={1} step={0.05} value={volume}
             onChange={(e) => setVolume(Number(e.target.value))}
@@ -203,7 +212,7 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
             onPointerDown={(e) => e.stopPropagation()}
           />
         </form>
-        <div className="music-attribution">{station?.attribution ?? card.url}</div>
+        {station && <div className="music-attribution">{station.attribution}</div>}
       </div>
     </div>
   );

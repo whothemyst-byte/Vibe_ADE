@@ -1,9 +1,9 @@
 import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
-import { HEADER_H, FOOTER_H, type Camera } from "./transform";
+import { HEADER_H, type Camera } from "./transform";
 import { useCardStore, type TerminalCard } from "./cardStore";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset, spawnCommand } from "./presets";
-import { StatusFooter } from "./StatusFooter";
+import { useWorkingState } from "./useWorkingState";
 import { CloseIcon, MaximizeIcon, RestoreIcon } from "./icons";
 import { ensureSession, detachSession, destroySession, fitSession, getActivityRef } from "./sessions";
 import { trailingDebounce } from "./debounce";
@@ -32,6 +32,7 @@ function TerminalWindowInner({
   const maximizedId = useCardStore((s) => s.maximizedId);
   const setMaximized = useCardStore((s) => s.setMaximized);
   const isMaximized = maximizedId === id;
+  useWorkingState(activityRef, wrapRef);
 
   // The session (xterm + PTY) lives in sessions.ts and survives unmounts; this
   // effect only parents its host element into this card's body.
@@ -128,8 +129,7 @@ function TerminalWindowInner({
           <CloseIcon />
         </button>
       </div>
-      <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H, bottom: FOOTER_H }} />
-      <StatusFooter activityRef={activityRef} wrapRef={wrapRef} />
+      <div ref={bodyRef} className="terminal-body" style={{ top: HEADER_H, bottom: 0 }} />
     </div>
   );
 }
