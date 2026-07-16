@@ -209,14 +209,6 @@ function TerminalPane() {
           onChange={(e) => setTerm({ shell: e.target.value || "powershell.exe" })}
         />
       </div>
-      <div className="set-row">
-        <span className="set-label">Glossy terminals</span>
-        <input
-          type="checkbox"
-          checked={t.glossy}
-          onChange={(e) => setTerm({ glossy: e.target.checked })}
-        />
-      </div>
     </>
   );
 }

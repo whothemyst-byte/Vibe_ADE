@@ -6,6 +6,7 @@ import { nearestSlotIndex } from "./gridLayout";
 import { changeStation, closeMusic, registerPlayer, setCustomUrl } from "./musicActions";
 import { STATIONS } from "./stations";
 import { BAR_COUNT, barsFromBins, isSilent, simulateBars } from "./eq";
+import { youtubeEmbedUrl } from "./youtube";
 
 /** CORS-opaque streams keep the analyser at zero forever; after this long of
     zeros while playing, the EQ switches to the simulated bars. */
@@ -20,6 +21,12 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
   const [volume, setVolume] = useState(0.7);
   const [urlDraft, setUrlDraft] = useState("");
   const station = STATIONS.find((s) => s.id === card.stationId);
+  // A pasted YouTube link can't feed <audio>; it plays in an embedded player
+  // instead, driven over the iframe API (enablejsapi postMessage commands).
+  const embed = station ? null : youtubeEmbedUrl(card.url);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const ytCmd = (func: string, args: unknown[] = []) =>
+    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), "*");
 
   // One audio element for the card's lifetime; station changes just swap src.
   useEffect(() => {
@@ -33,15 +40,21 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
+    if (embed) { el.pause(); el.removeAttribute("src"); setPlaying(true); return; } // iframe autoplays
     const wasPlaying = playing;
     el.src = card.url;
     if (wasPlaying) void el.play().catch(() => setPlaying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card.url]);
 
-  useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
+  useEffect(() => {
+    if (embed) { ytCmd("setVolume", [Math.round(volume * 100)]); return; }
+    if (audioRef.current) audioRef.current.volume = volume;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [volume, embed]);
 
   const start = () => {
+    if (embed) { ytCmd("playVideo"); setPlaying(true); return; }
     const el = audioRef.current;
     if (!el || playing) return;
     // AudioContext needs a user gesture; build the graph lazily on first play.
@@ -58,7 +71,11 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
     }
     void el.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
   };
-  const stop = () => { audioRef.current?.pause(); setPlaying(false); };
+  const stop = () => {
+    if (embed) ytCmd("pauseVideo");
+    audioRef.current?.pause();
+    setPlaying(false);
+  };
   const toggle = () => (playing ? stop() : start());
 
   // Voice transport: re-register every render so the closures see current state.
@@ -69,7 +86,7 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
 
   // EQ loop: real bins while they carry signal, simulated after a silent spell.
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || embed) return;
     let frame = 0;
     let silentSince: number | null = null;
     let bars = new Array(BAR_COUNT).fill(0.1);
@@ -100,7 +117,7 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [playing]);
+  }, [playing, embed]);
 
   const close = (e: ReactPointerEvent) => { e.stopPropagation(); closeMusic(); };
 
@@ -148,11 +165,21 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
     >
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
         <span className="file-header-icon"><MusicIcon /></span>
-        <span className="terminal-title">{station ? `${station.name} · ${station.mood}` : "Custom stream"}</span>
+        <span className="terminal-title">{station ? `${station.name} · ${station.mood}` : embed ? "YouTube" : "Custom stream"}</span>
         <button className="terminal-close" title="Close" onPointerDown={close}><CloseIcon /></button>
       </div>
       <div className="terminal-body music-body" style={{ top: HEADER_H, bottom: 0 }}>
-        <canvas ref={canvasRef} className="music-eq" width={320} height={120} />
+        {embed ? (
+          <iframe
+            ref={iframeRef}
+            className="music-yt"
+            src={embed}
+            allow="autoplay; encrypted-media"
+            title="YouTube player"
+          />
+        ) : (
+          <canvas ref={canvasRef} className="music-eq" width={320} height={120} />
+        )}
         <div className="music-controls">
           <button className="music-btn" title={playing ? "Pause" : "Play"} onPointerDown={(e) => { e.stopPropagation(); toggle(); }}>
             {playing ? <PauseIcon /> : <PlayIcon />}
@@ -171,7 +198,7 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
           onSubmit={(e) => { e.preventDefault(); if (urlDraft.trim()) { setCustomUrl(urlDraft); setUrlDraft(""); } }}
         >
           <input
-            className="music-url" placeholder="paste a stream url…" value={urlDraft}
+            className="music-url" placeholder="paste a stream or YouTube url…" value={urlDraft}
             onChange={(e) => setUrlDraft(e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
           />

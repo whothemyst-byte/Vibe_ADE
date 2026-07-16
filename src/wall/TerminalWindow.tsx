@@ -9,7 +9,7 @@ import { ensureSession, detachSession, destroySession, fitSession, getActivityRe
 import { trailingDebounce } from "./debounce";
 import { nearestSlotIndex } from "./gridLayout";
 import { removeCardWithFade } from "./removeCard";
-import { useSettingsStore } from "../settings/settingsStore";
+import { presetTierColor } from "./presetTier";
 
 /** Quiet period after the last resize event before refitting. Only needs to
     outlast the gap between the glide's per-frame events (~16ms), with margin
@@ -32,7 +32,6 @@ function TerminalWindowInner({
   const maximizedId = useCardStore((s) => s.maximizedId);
   const setMaximized = useCardStore((s) => s.setMaximized);
   const isMaximized = maximizedId === id;
-  const glossy = useSettingsStore((s) => s.settings.terminal.glossy);
 
   // The session (xterm + PTY) lives in sessions.ts and survives unmounts; this
   // effect only parents its host element into this card's body.
@@ -113,7 +112,6 @@ function TerminalWindowInner({
       ref={wrapRef}
       className="terminal-window"
       data-card-id={id}
-      data-glossy={glossy}
       style={{
         transform: `translate(${terminal.x}px, ${terminal.y}px)`,
         width: terminal.w,
@@ -121,8 +119,8 @@ function TerminalWindowInner({
       }}
     >
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
-        <span className="terminal-status-dot" />
-        <span className="terminal-title">{terminal.name} &middot; {preset.label}</span>
+        <span className="terminal-status-dot" style={{ background: presetTierColor(terminal.presetId) }} />
+        <span className="terminal-title"><span className="terminal-name">{terminal.name}</span> &middot; {preset.label}</span>
         <button className="terminal-maximize" title={isMaximized ? "Restore" : "Maximize"} onPointerDown={toggleMaximize}>
           {isMaximized ? <RestoreIcon /> : <MaximizeIcon />}
         </button>

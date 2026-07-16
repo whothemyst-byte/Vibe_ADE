@@ -1,8 +1,8 @@
 import { DEFAULT_BACKGROUND, type Background } from "../store/types";
 
 export type Settings = {
-  terminal: { fontSize: number; scrollback: number; shell: string; glossy: boolean };
-  canvas: { defaultBackground: Background; minimap: boolean };
+  terminal: { fontSize: number; scrollback: number; shell: string };
+  canvas: { defaultBackground: Background };
   vibe: {
     enabled: boolean;
     groqApiKey: string;
@@ -15,8 +15,8 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  terminal: { fontSize: 13, scrollback: 5000, shell: "powershell.exe", glossy: true },
-  canvas: { defaultBackground: DEFAULT_BACKGROUND, minimap: true },
+  terminal: { fontSize: 13, scrollback: 5000, shell: "powershell.exe" },
+  canvas: { defaultBackground: DEFAULT_BACKGROUND },
   vibe: { enabled: false, groqApiKey: "", hotkey: "Ctrl+Shift+V", voice: "", deviceId: "", dictation: "shaped" },
 };
 
@@ -50,13 +50,11 @@ export function mergeSettings(raw: unknown): Settings {
       fontSize: num(term.fontSize, d.terminal.fontSize),
       scrollback: num(term.scrollback, d.terminal.scrollback),
       shell: str(term.shell, d.terminal.shell),
-      glossy: bool(term.glossy, d.terminal.glossy),
     },
     canvas: {
       defaultBackground: isBackground(canvas.defaultBackground)
         ? canvas.defaultBackground
         : d.canvas.defaultBackground,
-      minimap: bool(canvas.minimap, d.canvas.minimap),
     },
     vibe: {
       enabled: bool(vibe.enabled, d.vibe.enabled),

@@ -4,7 +4,9 @@ import type { Camera, Rect } from "./transform";
 import { minimapProject } from "./minimap";
 import { presetTierColor } from "./presetTier";
 
-const BOX = { w: 180, h: 120, pad: 8 };
+const BOX = { w: 132, h: 88, pad: 7 };
+/** How long the minimap stays up after a card is added or removed. */
+const SHOW_MS = 4000;
 /** Below this window width the minimap hides itself — no room for it.
     (Default dev-window width is ~895 CSS px — keep this comfortably below.) */
 const MIN_WINDOW_W = 700;
@@ -24,6 +26,17 @@ export function MinimapView({ cameraRef, rootRef, onJump }: {
 }) {
   const cards = useCardStore((s) => s.cards);
   const [viewport, setViewport] = useState<Rect | null>(null);
+  const [shown, setShown] = useState(false);
+
+  // Not always-on: the minimap pops up for a few seconds whenever a card
+  // (terminal, browser, music, …) is added or removed, then hides itself.
+  const cardIds = cards.map((c) => c.id).join("|");
+  useEffect(() => {
+    if (!cardIds) return;
+    setShown(true);
+    const t = window.setTimeout(() => setShown(false), SHOW_MS);
+    return () => window.clearTimeout(t);
+  }, [cardIds]);
 
   useEffect(() => {
     const tick = () => {
@@ -44,7 +57,7 @@ export function MinimapView({ cameraRef, rootRef, onJump }: {
     return () => window.clearInterval(t);
   }, [cameraRef, rootRef]);
 
-  if (cards.length === 0 || !viewport) return null;
+  if (!shown || cards.length === 0 || !viewport) return null;
   const m = minimapProject(cards.map(({ x, y, w, h }) => ({ x, y, w, h })), viewport, BOX);
   return (
     <svg

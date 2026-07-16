@@ -86,9 +86,6 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   useBlocksBrowser(gearOpen);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
   const presets = usePresetStore((s) => s.presets);
-  const settings = useSettingsStore((s) => s.settings);
-  const saveSettings = useSettingsStore((s) => s.save);
-  const minimapOn = settings.canvas.minimap;
   const [wallPath, setWallPath] = useState("");
   const sharedRef = useRef<{ orgSpaceId: string; version: number } | null>(null);
   const [isShared, setIsShared] = useState(false);
@@ -892,13 +889,8 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         onLaunchBrowser={() => { void openBrowser(); }}
         onLaunchMusic={() => { openMusic(); }}
       />
-      <ToolsIsland
-        activeType={activeType}
-        onSelect={selectTool}
-        minimapOn={minimapOn}
-        onToggleMinimap={() => saveSettings({ ...settings, canvas: { ...settings.canvas, minimap: !minimapOn } })}
-      />
-      {minimapOn && <MinimapView cameraRef={cameraRef} rootRef={rootRef} onJump={jumpTo} />}
+      <ToolsIsland activeType={activeType} onSelect={selectTool} />
+      <MinimapView cameraRef={cameraRef} rootRef={rootRef} onJump={jumpTo} />
       <BootRecipe />
       <TerminalOverlay layerRef={layerRef} cameraRef={cameraRef} />
     </div>

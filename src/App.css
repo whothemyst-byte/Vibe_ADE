@@ -93,52 +93,29 @@
 .boot-recipe-all:disabled { background: var(--surface-2); color: var(--text-faint); cursor: default; }
 .terminal-overlay { position: absolute; inset: 0; z-index: 250; pointer-events: none; }
 .terminal-layer { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
+/* CNVS-style card chrome: one flat, near-opaque dark surface — the header and
+   footer float on it with no bars, borders, or glass of their own. */
 .terminal-window {
   position: absolute; top: 0; left: 0; will-change: transform;
-  border: 1px solid color-mix(in srgb, var(--rule) 65%, transparent); border-radius: var(--radius); overflow: hidden;
-  /* Same glass recipe as .titlebar so the wall shows through blurred behind
-     the whole card, text included, not just the header/footer chrome. */
-  background: rgba(18, 17, 15, .28); backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(243, 238, 229, .10); border-radius: var(--radius-sm); overflow: hidden;
+  background: rgba(19, 18, 16, .94); backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 16px 40px -18px rgba(0, 0, 0, .7);
   /* transform/size glide the grid re-flow; drag suppresses it inline. */
   transition: border-color .14s, box-shadow .14s,
     transform .3s cubic-bezier(.22, 1, .36, 1), width .3s ease, height .3s ease;
   animation: card-fade-in .22s ease;
 }
-.terminal-window:focus-within { border-color: var(--accent); box-shadow: var(--focus), var(--shadow); }
-/* Glossy terminals (Settings -> Terminal): a whole-card glass sheen, toggleable.
-   Smoked-glass look: lighter tint so the wall's colors bleed through, an amber
-   hairline on every card, and a top-sheen-to-bottom-shade vertical gradient. */
-.terminal-window[data-glossy="true"] {
-  background: rgba(14, 13, 11, .22);
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(243, 238, 229, .07);
-}
-.terminal-window[data-glossy="true"]::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
-  background: linear-gradient(
-    180deg,
-    rgba(243, 238, 229, .09) 0%, rgba(243, 238, 229, .02) 26%,
-    rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, .22) 100%
-  );
-}
+.terminal-window:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, transparent); box-shadow: var(--focus), var(--shadow); }
 .terminal-header {
   position: absolute; top: 0; left: 0; right: 0;
   display: flex; align-items: center; gap: 8px;
   padding: 0 8px 0 10px; box-sizing: border-box;
-  background: var(--glass); backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--rule); border-radius: var(--radius) var(--radius) 0 0;
   pointer-events: all; cursor: grab; user-select: none;
-}
-.terminal-window[data-glossy="true"] .terminal-header {
-  /* Translucent instead of var(--glass) so header + body read as one glass sheet. */
-  background: linear-gradient(to bottom, rgba(243, 238, 229, .10), rgba(243, 238, 229, 0) 60%), rgba(22, 20, 17, .35);
-  box-shadow: inset 0 1px 0 rgba(243, 238, 229, .12);
 }
 .terminal-header:active { cursor: grabbing; }
 .terminal-status-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-faint); transition: background .2s; }
-.terminal-window[data-working="true"] .terminal-status-dot { background: var(--accent); animation: status-pulse 1.6s ease-in-out infinite; }
+.terminal-window[data-working="true"] .terminal-status-dot { animation: status-pulse 1.6s ease-in-out infinite; }
 @keyframes status-pulse {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
   50% { box-shadow: 0 0 0 5px transparent; }
@@ -161,17 +138,14 @@
   position: absolute; left: 0; right: 0; bottom: 0; height: 22px;
   display: flex; align-items: center; padding: 0 10px; box-sizing: border-box;
   font: 500 10px var(--font-mono); color: var(--text-faint);
-  background: var(--glass); border-top: 1px solid var(--rule);
   pointer-events: all; user-select: none;
-}
-.terminal-window[data-glossy="true"] .terminal-status {
-  background: linear-gradient(to bottom, rgba(243, 238, 229, .04), rgba(243, 238, 229, 0) 70%), rgba(22, 20, 17, .35);
 }
 .terminal-window[data-working="true"] .terminal-status { color: var(--accent); }
 .terminal-title {
   flex: 1; color: var(--text-faint); font: 500 10.5px var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.terminal-name { color: var(--text); font-weight: 700; }
 .terminal-window:focus-within .terminal-title { color: var(--text-muted); }
 .terminal-maximize {
   pointer-events: all; cursor: pointer; border: none; background: transparent;
@@ -255,6 +229,7 @@
 /* ---- Music card ---- */
 .music-body { display: flex; flex-direction: column; gap: 10px; padding: 14px; align-items: center; justify-content: center; }
 .music-eq { width: 80%; height: 110px; color: var(--accent); }
+.music-yt { width: 80%; height: 110px; border: 0; border-radius: var(--radius-sm); background: #000; }
 .music-controls { display: flex; align-items: center; gap: 10px; }
 .music-btn {
   width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
@@ -279,8 +254,8 @@
   background: var(--glass); backdrop-filter: blur(10px);
   border: 1px solid var(--rule); border-radius: var(--radius-sm);
   box-shadow: var(--shadow); cursor: pointer;
+  animation: card-fade-in .16s ease;
 }
-.tools-divider { width: 1px; height: 18px; background: var(--rule); margin: 0 3px; flex: none; }
 
 /* ---- File explorer side panel ---- */
 .fx-panel {

@@ -141,9 +141,6 @@ export const MusicIcon = () => (
 export const PlayIcon = () => <Svg><path d="m7 4 13 8-13 8z" /></Svg>;
 export const PauseIcon = () => <Svg><path d="M7 4h3v16H7z" /><path d="M14 4h3v16h-3z" /></Svg>;
 export const NextIcon = () => <Svg><path d="m5 4 10 8-10 8z" /><path d="M19 4v16" /></Svg>;
-export const MapIcon = () => (
-  <Svg><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z" /><path d="M9 4v14" /><path d="M15 6v14" /></Svg>
-);
 export const GlobeIcon = () => (
   <Svg>
     <circle cx="12" cy="12" r="10" />

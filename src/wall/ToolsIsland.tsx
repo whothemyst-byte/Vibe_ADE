@@ -1,13 +1,11 @@
 import { TOOLS, type ToolDef } from "./tools";
-import { TOOL_ICONS, MapIcon } from "./icons";
+import { TOOL_ICONS } from "./icons";
 
 export function ToolsIsland({
-  activeType, onSelect, minimapOn, onToggleMinimap,
+  activeType, onSelect,
 }: {
   activeType: string;
   onSelect: (tool: ToolDef) => void;
-  minimapOn: boolean;
-  onToggleMinimap: () => void;
 }) {
   return (
     <div className="tools-island" role="toolbar" aria-label="Drawing tools">
@@ -25,15 +23,6 @@ export function ToolsIsland({
           </button>
         );
       })}
-      <span className="tools-divider" />
-      <button
-        className={`tool-key${minimapOn ? " active" : ""}`}
-        aria-pressed={minimapOn}
-        title="Minimap"
-        onPointerDown={onToggleMinimap}
-      >
-        <MapIcon />
-      </button>
     </div>
   );
 }

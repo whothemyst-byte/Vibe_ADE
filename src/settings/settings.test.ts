@@ -13,24 +13,12 @@ describe("mergeSettings", () => {
     expect(s.terminal.fontSize).toBe(16);
     expect(s.terminal.scrollback).toBe(DEFAULT_SETTINGS.terminal.scrollback);
     expect(s.terminal.shell).toBe(DEFAULT_SETTINGS.terminal.shell);
-    expect(s.terminal.glossy).toBe(DEFAULT_SETTINGS.terminal.glossy);
     expect(s.canvas).toEqual(DEFAULT_SETTINGS.canvas);
-  });
-
-  it("defaults glossy terminals to on, and honors a saved false", () => {
-    expect(DEFAULT_SETTINGS.terminal.glossy).toBe(true);
-    expect(mergeSettings({ terminal: { glossy: false } }).terminal.glossy).toBe(false);
-    expect(mergeSettings({ terminal: { glossy: "nope" } }).terminal.glossy).toBe(true);
   });
 
   it("keeps a saved default background", () => {
     const s = mergeSettings({ canvas: { defaultBackground: { kind: "color", color: "#221100" } } });
     expect(s.canvas.defaultBackground).toEqual({ kind: "color", color: "#221100" });
-  });
-
-  it("defaults canvas.minimap to true and respects a stored false", () => {
-    expect(mergeSettings({}).canvas.minimap).toBe(true);
-    expect(mergeSettings({ canvas: { minimap: false } }).canvas.minimap).toBe(false);
   });
 
   it("ignores wrongly-typed fields and unknown keys", () => {
