@@ -19,7 +19,7 @@ import * as client from "../browser/client";
 
 /** The browser card's chrome is two rows: the title bar plus a nav/url row
     (CNVS-style); the native webview starts below both. */
-const NAV_H = 26;
+const NAV_H = 30;
 const CHROME_H = HEADER_H + NAV_H;
 
 function BrowserWindowInner({

@@ -122,10 +122,10 @@
   pointer-events: all; cursor: grab; user-select: none;
 }
 .terminal-header:active { cursor: grabbing; }
-.terminal-status-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--ok); transition: background .2s; }
+.terminal-status-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--ok); transition: background .2s; }
 .terminal-window[data-working="true"] .terminal-status-dot { background: var(--accent); animation: status-pulse 1.6s ease-in-out infinite; }
 .terminal-glyph { display: inline-flex; flex: none; color: var(--tier); }
-.terminal-glyph svg { width: 13px; height: 13px; }
+.terminal-glyph svg { width: 16px; height: 16px; }
 @keyframes status-pulse {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
   50% { box-shadow: 0 0 0 5px transparent; }
@@ -146,10 +146,10 @@
     0 0 18px color-mix(in srgb, var(--tier) 28%, transparent), var(--shadow);
 }
 .terminal-title {
-  flex: 1; color: var(--text-faint); font: 500 11px var(--font-mono);
+  flex: 1; color: var(--text-muted); font: 500 12.5px var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.terminal-name { color: var(--text); font: 700 13px var(--font-ui); }
+.terminal-name { color: var(--text); font: 700 15px var(--font-ui); }
 .terminal-window:focus-within .terminal-title { color: var(--text-muted); }
 .terminal-maximize {
   pointer-events: all; cursor: pointer; border: none; background: transparent;
@@ -157,7 +157,7 @@
   color: var(--text-faint); padding: 3px 6px; border-radius: 6px;
   transition: color .14s, background .14s;
 }
-.terminal-maximize svg { width: 14px; height: 14px; display: block; }
+.terminal-maximize svg { width: 16px; height: 16px; display: block; }
 .terminal-maximize:hover { background: rgba(243, 238, 229, .08); color: var(--text); }
 .terminal-close {
   pointer-events: all; cursor: pointer; border: none; background: transparent;
@@ -165,10 +165,10 @@
   color: var(--text-faint); padding: 3px 6px; border-radius: 6px;
   transition: color .14s, background .14s;
 }
-.terminal-close svg { width: 14px; height: 14px; display: block; }
+.terminal-close svg { width: 16px; height: 16px; display: block; }
 .terminal-close:hover { background: rgba(192, 86, 63, .16); color: var(--danger); }
-/* Quiet chrome: window buttons appear only when the card is engaged. */
-.terminal-maximize, .terminal-close { opacity: 0; transition: color .14s, background .14s, opacity .14s; }
+/* Quiet chrome: window buttons rest dimmed and light up when the card is engaged. */
+.terminal-maximize, .terminal-close { opacity: .55; transition: color .14s, background .14s, opacity .14s; }
 .terminal-window:hover .terminal-maximize, .terminal-window:hover .terminal-close,
 .terminal-window:focus-within .terminal-maximize, .terminal-window:focus-within .terminal-close,
 .terminal-maximize:focus-visible, .terminal-close:focus-visible { opacity: 1; }
@@ -204,8 +204,8 @@
   flex: 1; min-width: 0;
   background: rgba(0, 0, 0, .35);
   border: 1px solid var(--rule); border-radius: 6px;
-  color: var(--text); font: 500 12px var(--font-mono);
-  padding: 3px 9px;
+  color: var(--text); font: 500 13px var(--font-mono);
+  padding: 4px 10px;
 }
 .browser-urlbar:focus { outline: none; border-color: var(--accent); }
 .browser-urlbar.browser-error { border-color: var(--danger); color: var(--danger); }
@@ -215,7 +215,7 @@
   color: var(--text-faint); padding: 3px 4px; border-radius: 6px;
   transition: color .14s;
 }
-.browser-nav-btn svg { width: 14px; height: 14px; display: block; }
+.browser-nav-btn svg { width: 15px; height: 15px; display: block; }
 .browser-nav-btn:hover { color: var(--text); }
 .browser-body-hint {
   position: absolute; inset: 0; display: grid; place-items: center;
@@ -224,7 +224,7 @@
 
 /* ---- File viewer card ---- */
 .file-header-icon { display: inline-flex; color: var(--text-faint); }
-.file-header-icon svg { width: 15px; height: 15px; display: block; }
+.file-header-icon svg { width: 16px; height: 16px; display: block; }
 .file-body { overflow: auto; padding: 0; }
 .file-pre {
   margin: 0; padding: 10px 12px; min-width: 100%; box-sizing: border-box;
