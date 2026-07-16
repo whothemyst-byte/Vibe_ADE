@@ -277,7 +277,7 @@ describe("maximizeLayout", () => {
   });
 
   it("falls back to the minimum header-height peek once there are too many to fit in the stage", () => {
-    const L = maximizeLayout(0, 20, A); // 19 others
+    const L = maximizeLayout(0, 25, A); // 24 others — enough to exceed the stage at the min peek
     const step = L.rects[2].y - L.rects[1].y;
     expect(step).toBe(HEADER_H);
     expect(L.bbox.h).toBeGreaterThan(STAGE.h); // overflows once clamped
