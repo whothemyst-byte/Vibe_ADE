@@ -1,10 +1,10 @@
-import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { memo, useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { HEADER_H, type Camera } from "./transform";
 import { useCardStore, type TerminalCard } from "./cardStore";
 import { usePresetStore } from "./presetStore";
 import { resolvePreset, spawnCommand } from "./presets";
 import { useWorkingState } from "./useWorkingState";
-import { CloseIcon, MaximizeIcon, RestoreIcon } from "./icons";
+import { CloseIcon, MaximizeIcon, RestoreIcon, presetGlyph } from "./icons";
 import { ensureSession, detachSession, destroySession, fitSession, getActivityRef } from "./sessions";
 import { trailingDebounce } from "./debounce";
 import { nearestSlotIndex } from "./gridLayout";
@@ -117,10 +117,12 @@ function TerminalWindowInner({
         transform: `translate(${terminal.x}px, ${terminal.y}px)`,
         width: terminal.w,
         height: terminal.h,
-      }}
+        "--tier": presetTierColor(terminal.presetId),
+      } as CSSProperties}
     >
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
-        <span className="terminal-status-dot" style={{ background: presetTierColor(terminal.presetId) }} />
+        <span className="terminal-status-dot" />
+        <span className="terminal-glyph">{presetGlyph(terminal.presetId)()}</span>
         <span className="terminal-title"><span className="terminal-name">{terminal.name}</span> &middot; {preset.label}</span>
         <button className="terminal-maximize" title={isMaximized ? "Restore" : "Maximize"} onPointerDown={toggleMaximize}>
           {isMaximized ? <RestoreIcon /> : <MaximizeIcon />}

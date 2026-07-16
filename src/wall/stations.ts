@@ -25,12 +25,6 @@ export function nextStation(currentId: string): Station {
   return STATIONS[(i + 1) % STATIONS.length];
 }
 
-/** The station before `currentId`, wrapping; unknown ids land on the last station. */
-export function prevStation(currentId: string): Station {
-  const i = STATIONS.findIndex((s) => s.id === currentId);
-  return STATIONS[(i - 1 + STATIONS.length) % STATIONS.length];
-}
-
 /** Fuzzy match by name or mood — feeds the change_station voice command. */
 export function findStation(phrase: string): Station | undefined {
   const p = phrase.trim().toLowerCase();

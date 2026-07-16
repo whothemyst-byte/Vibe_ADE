@@ -84,7 +84,7 @@ function FileViewerWindowInner({
     >
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
         <span className="file-header-icon"><FileIcon /></span>
-        <span className="terminal-title" title={card.path}>{card.name}</span>
+        <span className="terminal-title" title={card.path}><span className="terminal-name">{card.name}</span></span>
         <button className="terminal-close" title="Close" onPointerDown={close}>
           <CloseIcon />
         </button>

@@ -141,10 +141,34 @@ export const MusicIcon = () => (
 export const PlayIcon = () => <Svg><path d="m7 4 13 8-13 8z" /></Svg>;
 export const PauseIcon = () => <Svg><path d="M7 4h3v16H7z" /><path d="M14 4h3v16h-3z" /></Svg>;
 export const NextIcon = () => <Svg><path d="m5 4 10 8-10 8z" /><path d="M19 4v16" /></Svg>;
-export const PrevIcon = () => <Svg><path d="m19 4-10 8 10 8z" /><path d="M5 4v16" /></Svg>;
 export const VolumeIcon = () => (
   <Svg><path d="M11 5 6 9H2v6h4l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /></Svg>
 );
+
+/* Per-agent header glyphs (CNVS-style: each preset gets a small brand mark
+   tinted with its tier color next to the terminal's name). */
+const PromptGlyph = () => <Svg><path d="m5 7 5 5-5 5" /><path d="M12 19h7" /></Svg>;
+const AsteriskGlyph = () => (
+  <Svg><path d="M12 4v16" /><path d="m5 8 14 8" /><path d="m19 8-14 8" /></Svg>
+);
+const HexGlyph = () => (
+  <Svg><path d="M12 3 20 7.5v9L12 21 4 16.5v-9z" /><circle cx="12" cy="12" r="3" /></Svg>
+);
+const PointerGlyph = () => <Svg><path d="M5 3l7 17 2.5-7L21 10.5z" /></Svg>;
+const SparkGlyph = () => (
+  <Svg><path d="M12 3c.7 4.5 4.5 8.3 9 9-4.5.7-8.3 4.5-9 9-.7-4.5-4.5-8.3-9-9 4.5-.7 8.3-4.5 9-9z" /></Svg>
+);
+
+/** The glyph for a preset id; unknown/custom presets fall back to the shell prompt. */
+export function presetGlyph(presetId: string): () => ReactElement {
+  switch (presetId) {
+    case "claude": return AsteriskGlyph;
+    case "codex": return HexGlyph;
+    case "cursor": return PointerGlyph;
+    case "gemini": return SparkGlyph;
+    default: return PromptGlyph;
+  }
+}
 export const GlobeIcon = () => (
   <Svg>
     <circle cx="12" cy="12" r="10" />

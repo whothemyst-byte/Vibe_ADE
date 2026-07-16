@@ -3,18 +3,24 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
 import { HEADER_H, worldRectToScreen, type Camera } from "./transform";
 import { useCardStore, type BrowserCard } from "./cardStore";
-import { BackIcon, CloseIcon, ReloadIcon } from "./icons";
+import { BackIcon, CloseIcon, GlobeIcon, ReloadIcon } from "./icons";
 import { nearestSlotIndex } from "./gridLayout";
 import { setBrowserSyncHandler, syncBrowserRect } from "./browserSync";
 import { useBrowserBlockers } from "./browserVisibility";
 import { BROWSER_ID, closeBrowser, openBrowser } from "./browserActions";
 import * as client from "../browser/client";
+
+/** The browser card's chrome is two rows: the title bar plus a nav/url row
+    (CNVS-style); the native webview starts below both. */
+const NAV_H = 26;
+const CHROME_H = HEADER_H + NAV_H;
 
 function BrowserWindowInner({
   card,
@@ -43,7 +49,7 @@ function BrowserWindowInner({
       const c = useCardStore.getState().cards.find((x) => x.id === BROWSER_ID);
       if (!c) return null;
       return worldRectToScreen(
-        { x: c.x, y: c.y + HEADER_H, w: c.w, h: c.h - HEADER_H },
+        { x: c.x, y: c.y + CHROME_H, w: c.w, h: c.h - CHROME_H },
         cameraRef.current
       );
     };
@@ -200,9 +206,17 @@ function BrowserWindowInner({
       ref={wrapRef}
       className="terminal-window"
       data-card-id={card.id}
-      style={{ transform: `translate(${card.x}px, ${card.y}px)`, width: card.w, height: card.h }}
+      style={{ transform: `translate(${card.x}px, ${card.y}px)`, width: card.w, height: card.h, "--tier": "var(--info)" } as CSSProperties}
     >
       <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
+        <span className="terminal-status-dot" />
+        <span className="terminal-glyph"><GlobeIcon /></span>
+        <span className="terminal-title"><span className="terminal-name">Browser</span> &middot; {title}</span>
+        <button className="terminal-close" title="Close" onPointerDown={close}>
+          <CloseIcon />
+        </button>
+      </div>
+      <div className="browser-navrow" style={{ top: HEADER_H, height: NAV_H }}>
         <button
           className="browser-nav-btn"
           title="Back"
@@ -232,13 +246,10 @@ function BrowserWindowInner({
           spellCheck={false}
           title={error ?? title}
         />
-        <button className="terminal-close" title="Close" onPointerDown={close}>
-          <CloseIcon />
-        </button>
       </div>
       {/* The native webview paints above this body; the hint shows through
           before the first load and whenever the webview is hidden. */}
-      <div className="terminal-body" style={{ top: HEADER_H, bottom: 0 }}>
+      <div className="terminal-body" style={{ top: CHROME_H, bottom: 0 }}>
         <div className="browser-body-hint">{error ?? (loaded ? "" : "loading…")}</div>
       </div>
     </div>

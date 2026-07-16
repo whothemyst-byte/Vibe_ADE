@@ -93,11 +93,15 @@
 .boot-recipe-all:disabled { background: var(--surface-2); color: var(--text-faint); cursor: default; }
 .terminal-overlay { position: absolute; inset: 0; z-index: 250; pointer-events: none; }
 .terminal-layer { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
-/* CNVS-style card chrome: one flat, near-opaque dark surface — the header and
-   footer float on it with no bars, borders, or glass of their own. */
+/* CNVS-style card chrome: one flat, near-opaque dark surface with a slim
+   darker header strip; the border carries the card's agent tier color
+   (--tier, set inline per card — terminals by preset, browser info-blue,
+   music accent; untinted cards fall back to a faint neutral). */
 .terminal-window {
+  --tier: var(--text-faint);
   position: absolute; top: 0; left: 0; will-change: transform;
-  border: 1px solid rgba(243, 238, 229, .10); border-radius: var(--radius-sm); overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent);
+  border-radius: var(--radius-sm); overflow: hidden;
   background: rgba(19, 18, 16, .94); backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 16px 40px -18px rgba(0, 0, 0, .7);
@@ -106,39 +110,46 @@
     transform .3s cubic-bezier(.22, 1, .36, 1), width .3s ease, height .3s ease;
   animation: card-fade-in .22s ease;
 }
-.terminal-window:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, transparent); box-shadow: var(--focus), var(--shadow); }
+.terminal-window:focus-within {
+  border-color: color-mix(in srgb, var(--tier) 90%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tier) 20%, transparent), var(--shadow);
+}
 .terminal-header {
   position: absolute; top: 0; left: 0; right: 0;
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 7px;
   padding: 0 10px 0 12px; box-sizing: border-box;
+  background: rgba(0, 0, 0, .28); border-bottom: 1px solid rgba(243, 238, 229, .07);
   pointer-events: all; cursor: grab; user-select: none;
 }
 .terminal-header:active { cursor: grabbing; }
-.terminal-status-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--text-faint); transition: background .2s; }
-.terminal-window[data-working="true"] .terminal-status-dot { animation: status-pulse 1.6s ease-in-out infinite; }
+.terminal-status-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--ok); transition: background .2s; }
+.terminal-window[data-working="true"] .terminal-status-dot { background: var(--accent); animation: status-pulse 1.6s ease-in-out infinite; }
+.terminal-glyph { display: inline-flex; flex: none; color: var(--tier); }
+.terminal-glyph svg { width: 13px; height: 13px; }
 @keyframes status-pulse {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
   50% { box-shadow: 0 0 0 5px transparent; }
 }
-/* Working agents glow: accent border + soft halo, slow breathe. Focus ring
-   (:focus-within) still wins visually — it stacks var(--focus) on top. */
+/* Working agents glow: tier border + soft halo, slow breathe. Focus ring
+   (:focus-within) still wins visually — it stacks its ring on top. */
 .terminal-window[data-working="true"] {
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  border-color: color-mix(in srgb, var(--tier) 80%, transparent);
   animation: working-glow 3s ease-in-out infinite;
 }
 @keyframes working-glow {
-  0%, 100% { box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 22%, transparent), var(--shadow); }
-  50% { box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 38%, transparent), var(--shadow); }
+  0%, 100% { box-shadow: 0 0 14px color-mix(in srgb, var(--tier) 22%, transparent), var(--shadow); }
+  50% { box-shadow: 0 0 26px color-mix(in srgb, var(--tier) 38%, transparent), var(--shadow); }
 }
 .terminal-window[data-working="true"]:focus-within {
   animation: none;
-  box-shadow: var(--focus), 0 0 18px color-mix(in srgb, var(--accent) 28%, transparent), var(--shadow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tier) 20%, transparent),
+    0 0 18px color-mix(in srgb, var(--tier) 28%, transparent), var(--shadow);
 }
 .terminal-title {
-  flex: 1; color: var(--text-faint); font: 500 12px var(--font-mono);
+  flex: 1; color: var(--text-faint); font: 500 11px var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.terminal-name { color: var(--text); font-weight: 700; }
+.terminal-name { color: var(--text); font: 700 13px var(--font-ui); }
 .terminal-window:focus-within .terminal-title { color: var(--text-muted); }
 .terminal-maximize {
   pointer-events: all; cursor: pointer; border: none; background: transparent;
@@ -182,6 +193,13 @@
 }
 
 /* ---- Browser card ---- */
+.browser-navrow {
+  position: absolute; left: 0; right: 0;
+  display: flex; align-items: center; gap: 5px;
+  padding: 0 8px; box-sizing: border-box;
+  background: rgba(0, 0, 0, .16); border-bottom: 1px solid rgba(243, 238, 229, .06);
+  pointer-events: all;
+}
 .browser-urlbar {
   flex: 1; min-width: 0;
   background: rgba(0, 0, 0, .35);
@@ -220,44 +238,47 @@
 .file-hint.file-error { color: var(--danger); padding: 0 16px; text-align: center; }
 
 /* ---- Music card ---- */
-/* Spotify-style now-playing layout: square art on top, bold track + muted
-   artist lines, big white circular play between skip buttons, volume below. */
-.music-body { display: flex; flex-direction: column; gap: 7px; padding: 14px; align-items: center; justify-content: center; }
-.music-art { width: 160px; height: 160px; border-radius: 10px; flex: none; }
-.music-art-tile {
-  display: grid; place-items: center; color: var(--on-accent);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 85%, #fff), color-mix(in srgb, var(--accent) 45%, #000));
-  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, .8);
+/* Music card, after CNVS's "Focus" widget: circular play button + serif
+   track title row, a dark waveform panel (the YouTube embed sits in that
+   same slot), mood chips, a url field, and a volume row. */
+.music-body { display: flex; flex-direction: column; gap: 9px; padding: 14px 16px; justify-content: center; }
+.music-top { display: flex; align-items: center; gap: 10px; }
+.music-play {
+  width: 38px; height: 38px; border-radius: 50%; cursor: pointer; flex: none;
+  background: rgba(0, 0, 0, .6); color: var(--text); border: 1px solid rgba(243, 238, 229, .22);
+  display: grid; place-items: center;
+  transition: transform .12s, border-color .14s;
 }
-.music-art-tile svg { width: 60px; height: 60px; opacity: .75; }
+.music-play:hover { transform: scale(1.06); border-color: rgba(243, 238, 229, .45); }
+.music-play svg { width: 15px; height: 15px; fill: currentColor; }
+.music-meta { min-width: 0; }
 .music-track {
-  margin-top: 5px; font: 700 16px var(--font-ui); color: var(--text);
-  max-width: 85%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 400 19px var(--font-display); color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .music-artist {
-  font: 500 12px var(--font-ui); color: var(--text-muted);
-  max-width: 85%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 500 11.5px var(--font-ui); color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.music-eq { width: 160px; height: 26px; color: var(--accent); }
-.music-yt { border: 0; background: #000; }
-.music-controls { display: flex; align-items: center; gap: 18px; }
-.music-skip {
-  background: transparent; color: var(--text-muted); border: none; cursor: pointer;
-  display: inline-flex; padding: 4px; transition: color .14s;
+.music-panel {
+  height: 150px; border-radius: 10px; overflow: hidden; flex: none;
+  background: rgba(0, 0, 0, .4); border: 1px solid rgba(243, 238, 229, .10);
 }
-.music-skip:hover { color: var(--text); }
-.music-skip svg { width: 16px; height: 16px; }
-.music-play {
-  width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
-  background: #fff; color: #000; display: grid; place-items: center;
-  transition: transform .12s;
+.music-eq { width: 100%; height: 100%; color: var(--accent); display: block; }
+.music-yt { width: 100%; border: 0; background: #000; }
+.music-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.music-chip {
+  background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--rule);
+  border-radius: 999px; padding: 3px 11px; cursor: pointer;
+  font: 500 11px var(--font-ui); transition: color .14s, border-color .14s, background .14s;
 }
-.music-play:hover { transform: scale(1.06); }
-.music-play svg { width: 16px; height: 16px; fill: currentColor; }
+.music-chip:hover { color: var(--text); }
+.music-chip.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .music-volume-row { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
 .music-volume-row svg { width: 14px; height: 14px; flex: none; }
-.music-volume { width: 140px; accent-color: var(--text); }
-.music-custom { width: 70%; }
+.music-volume { flex: 1; max-width: 240px; accent-color: var(--text); }
+.music-vol-num { font: 500 10px var(--font-mono); color: var(--text-faint); }
+.music-custom { width: 100%; }
 .music-url {
   width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, .35);
   border: 1px solid var(--rule); border-radius: 6px; padding: 5px 9px;

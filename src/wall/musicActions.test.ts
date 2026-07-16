@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useCardStore } from "./cardStore";
 import { STATIONS } from "./stations";
-import { MUSIC_ID, changeStation, closeMusic, musicCard, openMusic, playMusic, previousStation, registerPlayer, setCustomUrl, stopMusic } from "./musicActions";
+import { MUSIC_ID, changeStation, closeMusic, musicCard, openMusic, playMusic, registerPlayer, setCustomUrl, stopMusic } from "./musicActions";
 
 beforeEach(() => {
   useCardStore.setState({ cards: [], anchor: null, maximizedId: null });
@@ -39,20 +39,6 @@ describe("changeStation", () => {
 
   it("errors when the music card is closed", () => {
     expect(changeStation()).toMatch(/not open/i);
-  });
-});
-
-describe("previousStation", () => {
-  it("cycles back on the dial, wrapping to the last station", () => {
-    openMusic(STATIONS[1].name);
-    previousStation();
-    expect(musicCard()?.stationId).toBe(STATIONS[0].id);
-    previousStation();
-    expect(musicCard()?.stationId).toBe(STATIONS[STATIONS.length - 1].id);
-  });
-
-  it("errors when the music card is closed", () => {
-    expect(previousStation()).toMatch(/not open/i);
   });
 });
 
