@@ -252,6 +252,27 @@
 }
 .file-hint.file-error { color: var(--danger); padding: 0 16px; text-align: center; }
 
+/* ---- Music card ---- */
+.music-body { display: flex; flex-direction: column; gap: 10px; padding: 14px; align-items: center; justify-content: center; }
+.music-eq { width: 80%; height: 110px; color: var(--accent); }
+.music-controls { display: flex; align-items: center; gap: 10px; }
+.music-btn {
+  width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--rule);
+  border-radius: 50%; cursor: pointer; transition: color .14s, border-color .14s;
+}
+.music-btn:hover { color: var(--accent); border-color: var(--accent); }
+.music-btn svg { width: 14px; height: 14px; }
+.music-volume { width: 120px; accent-color: var(--accent); }
+.music-custom { width: 80%; }
+.music-url {
+  width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, .35);
+  border: 1px solid var(--rule); border-radius: 6px; padding: 5px 9px;
+  color: var(--text-muted); font: 500 10.5px var(--font-mono); outline: none;
+}
+.music-url:focus { border-color: var(--accent); }
+.music-attribution { font: 500 9px var(--font-mono); color: var(--text-faint); }
+
 /* ---- File explorer side panel ---- */
 .fx-panel {
   position: absolute; top: 56px; left: 14px; z-index: 310;

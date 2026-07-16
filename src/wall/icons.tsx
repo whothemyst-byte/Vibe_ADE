@@ -135,6 +135,12 @@ export const MoreIcon = () => <Svg><path d="M12 5h.01" /><path d="M12 12h.01" />
 export const ReloadIcon = () => (
   <Svg><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></Svg>
 );
+export const MusicIcon = () => (
+  <Svg><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></Svg>
+);
+export const PlayIcon = () => <Svg><path d="m7 4 13 8-13 8z" /></Svg>;
+export const PauseIcon = () => <Svg><path d="M7 4h3v16H7z" /><path d="M14 4h3v16h-3z" /></Svg>;
+export const NextIcon = () => <Svg><path d="m5 4 10 8-10 8z" /><path d="M19 4v16" /></Svg>;
 export const GlobeIcon = () => (
   <Svg>
     <circle cx="12" cy="12" r="10" />

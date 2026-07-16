@@ -10,7 +10,7 @@ import { useCardStore, terminalsOf, type Card } from "./cardStore";
 import { syncBrowserRect } from "./browserSync";
 import { useBlocksBrowser } from "./browserVisibility";
 import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserActions";
-import { MUSIC_ID } from "./musicActions";
+import { MUSIC_ID, openMusic } from "./musicActions";
 import { removeCardWithFade } from "./removeCard";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
@@ -844,6 +844,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         presets={presets}
         onLaunch={addTerminal}
         onLaunchBrowser={() => { void openBrowser(); }}
+        onLaunchMusic={() => { openMusic(); }}
       />
       <ToolsIsland activeType={activeType} onSelect={selectTool} />
       <BootRecipe />
