@@ -1083,7 +1083,9 @@ html.has-custom-titlebar .start-page { padding-top: calc(var(--titlebar-h) + 8px
 
 /* ---- Command palette (Ctrl+K) ---- */
 .palette-backdrop {
-  position: fixed; inset: 0; z-index: 60;
+  /* Above the terminal overlay (250) and wall chrome (300-320), below the
+     settings modal (600) and titlebar (10000). */
+  position: fixed; inset: 0; z-index: 500;
   background: rgba(0, 0, 0, 0.35);
   display: flex; justify-content: center; align-items: flex-start;
 }
