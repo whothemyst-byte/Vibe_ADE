@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useCardStore } from "./cardStore";
 import { STATIONS } from "./stations";
-import { MUSIC_ID, changeStation, closeMusic, musicCard, openMusic, setCustomUrl } from "./musicActions";
+import { MUSIC_ID, changeStation, closeMusic, musicCard, openMusic, playMusic, registerPlayer, setCustomUrl, stopMusic } from "./musicActions";
 
 beforeEach(() => {
   useCardStore.setState({ cards: [], anchor: null, maximizedId: null });
@@ -54,5 +54,34 @@ describe("setCustomUrl / closeMusic", () => {
     openMusic();
     closeMusic();
     expect(musicCard()).toBeUndefined();
+  });
+});
+
+describe("playMusic / stopMusic", () => {
+  it("opens the card and starts the registered player", async () => {
+    let played = 0;
+    registerPlayer({ play: () => { played++; }, pause: () => {} });
+    const msg = await playMusic();
+    expect(musicCard()).toBeDefined();
+    expect(played).toBe(1);
+    expect(msg).toMatch(/playing/i);
+    registerPlayer(null);
+  });
+
+  it("still opens the card when no player registers in time", async () => {
+    registerPlayer(null);
+    const msg = await playMusic("lofi");
+    expect(musicCard()).toBeDefined();
+    expect(msg).toMatch(/press play/i);
+  });
+
+  it("stopMusic pauses without closing", () => {
+    let paused = 0;
+    registerPlayer({ play: () => {}, pause: () => { paused++; } });
+    openMusic();
+    expect(stopMusic()).toMatch(/paused/i);
+    expect(paused).toBe(1);
+    expect(musicCard()).toBeDefined();
+    registerPlayer(null);
   });
 });

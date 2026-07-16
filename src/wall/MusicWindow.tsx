@@ -3,7 +3,7 @@ import { HEADER_H, type Camera } from "./transform";
 import { useCardStore, type MusicCard } from "./cardStore";
 import { CloseIcon, MusicIcon, NextIcon, PauseIcon, PlayIcon } from "./icons";
 import { nearestSlotIndex } from "./gridLayout";
-import { changeStation, closeMusic, setCustomUrl } from "./musicActions";
+import { changeStation, closeMusic, registerPlayer, setCustomUrl } from "./musicActions";
 import { STATIONS } from "./stations";
 import { BAR_COUNT, barsFromBins, isSilent, simulateBars } from "./eq";
 
@@ -60,6 +60,12 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
   };
   const stop = () => { audioRef.current?.pause(); setPlaying(false); };
   const toggle = () => (playing ? stop() : start());
+
+  // Voice transport: re-register every render so the closures see current state.
+  useEffect(() => {
+    registerPlayer({ play: start, pause: stop });
+    return () => registerPlayer(null);
+  });
 
   // EQ loop: real bins while they carry signal, simulated after a silent spell.
   useEffect(() => {

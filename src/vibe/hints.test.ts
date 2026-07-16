@@ -17,6 +17,9 @@ describe("buildHints", () => {
     expect(hints.some((h) => h.includes("Cursor"))).toBe(true);
     expect(hints.some((h) => h.includes("Gemini"))).toBe(true);
   });
+  it("suggests the music player", () => {
+    expect(buildHints([], []).some((h) => h.includes("play some music"))).toBe(true);
+  });
   it("is deterministic for the same inputs", () => {
     expect(buildHints(["Max"], ["Codex"])).toEqual(buildHints(["Max"], ["Codex"]));
   });

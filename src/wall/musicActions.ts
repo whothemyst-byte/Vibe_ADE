@@ -51,3 +51,25 @@ export function closeMusic(): string {
   removeCardWithFade(MUSIC_ID);
   return "Closed the music player.";
 }
+
+/** The mounted MusicWindow's transport; null when no card is mounted. */
+type Player = { play: () => void; pause: () => void };
+let player: Player | null = null;
+export function registerPlayer(p: Player | null): void { player = p; }
+
+/** Voice entry point: open (or retune) the card, then start playback once the
+    window has mounted and registered its transport. */
+export async function playMusic(phrase?: string): Promise<string> {
+  const opened = openMusic(phrase);
+  for (let i = 0; i < 12 && !player; i++) await new Promise((r) => setTimeout(r, 50));
+  if (!player) return `${opened} Press play to start.`;
+  player.play();
+  return opened.replace(/^(Opened the music player on|Tuned to)/, "Playing");
+}
+
+/** Pause without closing the card. */
+export function stopMusic(): string {
+  if (!musicCard()) return "The music player is not open.";
+  player?.pause();
+  return "Music paused.";
+}

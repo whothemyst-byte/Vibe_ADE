@@ -10,7 +10,7 @@ import { useCardStore, terminalsOf, type Card } from "./cardStore";
 import { syncBrowserRect } from "./browserSync";
 import { useBlocksBrowser } from "./browserVisibility";
 import { BROWSER_ID, browserCard, closeBrowser, openBrowser } from "./browserActions";
-import { MUSIC_ID, openMusic } from "./musicActions";
+import { MUSIC_ID, changeStation, closeMusic, openMusic, playMusic, stopMusic } from "./musicActions";
 import { removeCardWithFade } from "./removeCard";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
@@ -491,7 +491,8 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       (t) => JSON.stringify(t.background) === JSON.stringify(backgroundRef.current)
     )?.name ?? "custom";
     const browser = cards.some((c) => c.kind === "browser") ? "; browser card open" : "";
-    return `open terminals: ${terms.join(", ") || "none"}${browser}; theme: ${theme}; terminal presets: ${presets.map((p) => p.label).join(", ")}`;
+    const music = cards.some((c) => c.kind === "music") ? "; music player open" : "";
+    return `open terminals: ${terms.join(", ") || "none"}${browser}${music}; theme: ${theme}; terminal presets: ${presets.map((p) => p.label).join(", ")}`;
   });
 
   useVibeCommand({
@@ -716,6 +717,39 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     name: "close_browser",
     description: "Close the space's browser window.",
     run: () => closeBrowser(),
+  });
+
+  useVibeCommand({
+    name: "play_music",
+    description:
+      "Open the music player and start a station. Use when the user asks to play music / focus sounds; optionally pass what they asked for (e.g. 'lofi', 'ambient').",
+    parameters: {
+      type: "object",
+      properties: { station: { type: "string", description: "Station name or mood (optional)" } },
+    },
+    run: (args) => playMusic(args.station ? String(args.station) : undefined),
+  });
+
+  useVibeCommand({
+    name: "change_station",
+    description: "Switch the music player to the next station, or to a named one.",
+    parameters: {
+      type: "object",
+      properties: { station: { type: "string", description: "Station name or mood (optional)" } },
+    },
+    run: (args) => changeStation(args.station ? String(args.station) : undefined),
+  });
+
+  useVibeCommand({
+    name: "stop_music",
+    description: "Pause the music without closing the player.",
+    run: () => stopMusic(),
+  });
+
+  useVibeCommand({
+    name: "close_music",
+    description: "Close the music player card.",
+    run: () => closeMusic(),
   });
 
   useVibeCommand({

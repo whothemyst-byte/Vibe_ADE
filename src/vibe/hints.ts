@@ -12,6 +12,6 @@ export function buildHints(agentNames: string[], presetLabels: string[]): string
   for (const p of presetLabels.slice(0, 4)) {
     hints.push(`Try "open a ${p} terminal"`);
   }
-  hints.push(`Try "apply the Ember theme"`, `Try "open the task board"`);
+  hints.push(`Try "apply the Ember theme"`, `Try "play some music"`, `Try "open the task board"`);
   return hints;
 }
