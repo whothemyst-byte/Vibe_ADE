@@ -45,7 +45,7 @@ Four work packages, each its own brainstorm → spec → plan → build cycle
 | A | Voice → Agent dictation | **DONE** (2026-07-13) |
 | B | Agent canvas control | **DONE** (2026-07-14) |
 | C | Cursor preset + boot recipe | **DONE** (2026-07-15) |
-| D | Looks & delight | Not started |
+| D | Looks & delight | **DONE** (2026-07-16) |
 
 ---
 
@@ -245,7 +245,49 @@ layout) in one click.
 - Should respawn-on-open become opt-in once recipes exist (avoid surprise
   agent launches), or keep current behavior and add the recipe popover on top?
 
-## 5. Package D — Looks & Delight
+## 5. Package D — Looks & Delight (DONE)
+
+Built and verified 2026-07-16 on `V1.0.0`. Spec:
+`docs/superpowers/specs/2026-07-15-looks-delight-design.md`. Plan:
+`docs/superpowers/plans/2026-07-15-looks-delight.md`.
+
+What exists now:
+
+- **Scenes (D1):** 8 procedurally-rendered pixel-art wall themes
+  (`scripts/render-scenes.mjs` → `public/themes/scenes/*.png`, 3–19KB each,
+  480×270 shown full-bleed via `image-rendering: pixelated`). `SCENE_THEMES`
+  in `src/settings/themes.ts`, each with its own accent; "Scenes" group in
+  the theme picker; `apply_theme` voice command picks them up automatically.
+- **Chrome + glow (D2):** `HEADER_H` 28→24, lower-contrast borders, ghosted
+  window buttons until hover/focus, and a working-agent accent glow keyed off
+  the existing `data-working` attribute (3s breathe; CSS-only, no footer
+  scraping — footer enrichment explicitly rejected this cycle).
+- **Music card (D4):** single per-wall `kind: "music"` card. Stations in
+  `src/wall/stations.ts` — Radio Paradise main/mellow + laut.fm lofi/ambient,
+  all verified reachable and third-party-player-friendly (Nightride FM
+  dropped: no explicit permission found). Custom-URL field. EQ via
+  `AnalyserNode` with a simulated fallback for CORS-opaque streams —
+  **Radio Paradise streams are CORS-friendly, so real spectrum bars work.**
+  Persisted like the browser card; restores PAUSED. Voice: `play_music`,
+  `change_station`, `stop_music`, `close_music` (module-level player registry
+  in `musicActions.ts`, since playback lives inside `MusicWindow`).
+- **Minimap (D3):** pure projection in `src/wall/minimap.ts` (tested), SVG
+  overlay `MinimapView.tsx` polling the camera ref at 150ms, click-to-jump
+  via `animateCamera`, island toggle persisted at `settings.canvas.minimap`.
+  Auto-hides under 700 CSS px window width (was 900 — the default window is
+  ~815 CSS px, which hid it; found in real-app verification).
+- Verified in the dev instance: scene apply + accent recolor + crisp pixels,
+  glow during streaming output and settle on idle, music play/next-station/
+  restore-paused round-trip, minimap render + click-jump. Voice sweep was
+  NOT run live: the dev instance has no Groq key, and speaker TTS would also
+  wake the user's running instance. The voice handlers are the same
+  unit-tested functions on the registry plumbing proven in Packages A–C.
+  Programmatic playback from the voice path is untested against WebView2
+  autoplay policy — if `play_music` opens the card but audio stays paused,
+  add `"additionalBrowserArguments": "--autoplay-policy=no-user-gesture-required"`
+  to the window config.
+
+Original scope notes follow.
 
 **One line:** close the visual-polish gap — illustrated wall scenes, quieter
 window chrome with richer agent status, a minimap, and a voice-summonable
