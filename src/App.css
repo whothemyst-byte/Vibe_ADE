@@ -273,6 +273,15 @@
 .music-url:focus { border-color: var(--accent); }
 .music-attribution { font: 500 9px var(--font-mono); color: var(--text-faint); }
 
+/* ---- Minimap ---- */
+.minimap {
+  position: absolute; right: 14px; bottom: 14px; z-index: 290;
+  background: var(--glass); backdrop-filter: blur(10px);
+  border: 1px solid var(--rule); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); cursor: pointer;
+}
+.tools-divider { width: 1px; height: 18px; background: var(--rule); margin: 0 3px; flex: none; }
+
 /* ---- File explorer side panel ---- */
 .fx-panel {
   position: absolute; top: 56px; left: 14px; z-index: 310;

@@ -28,6 +28,11 @@ describe("mergeSettings", () => {
     expect(s.canvas.defaultBackground).toEqual({ kind: "color", color: "#221100" });
   });
 
+  it("defaults canvas.minimap to true and respects a stored false", () => {
+    expect(mergeSettings({}).canvas.minimap).toBe(true);
+    expect(mergeSettings({ canvas: { minimap: false } }).canvas.minimap).toBe(false);
+  });
+
   it("ignores wrongly-typed fields and unknown keys", () => {
     const s = mergeSettings({
       terminal: { fontSize: "huge", scrollback: 9000 },

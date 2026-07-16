@@ -24,6 +24,7 @@ import { useSettingsStore } from "../settings/settingsStore";
 import { LaunchMenu } from "./LaunchMenu";
 import { FileExplorer } from "./FileExplorer";
 import { ToolsIsland } from "./ToolsIsland";
+import { MinimapView } from "./MinimapView";
 import { BootRecipe } from "./BootRecipe";
 import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
@@ -85,6 +86,9 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   useBlocksBrowser(gearOpen);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
   const presets = usePresetStore((s) => s.presets);
+  const settings = useSettingsStore((s) => s.settings);
+  const saveSettings = useSettingsStore((s) => s.save);
+  const minimapOn = settings.canvas.minimap;
   const [wallPath, setWallPath] = useState("");
   const sharedRef = useRef<{ orgSpaceId: string; version: number } | null>(null);
   const [isShared, setIsShared] = useState(false);
@@ -829,6 +833,14 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     run: () => { exit(); return "Left the space."; },
   });
 
+  /** Minimap click: center the clicked world point at the current zoom. */
+  const jumpTo = useCallback((w: { x: number; y: number }) => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const z = cameraRef.current.z;
+    animateCamera({ x: rect.width / (2 * z) - w.x, y: rect.height / (2 * z) - w.y, z });
+  }, [animateCamera]);
+
   const selectTool = (tool: ToolDef) => {
     // tool.type is a literal union that includes "image"; assert to setActiveTool's exact
     // parameter union so the discriminated type checks (ExcalidrawImperativeAPI is already
@@ -880,7 +892,13 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         onLaunchBrowser={() => { void openBrowser(); }}
         onLaunchMusic={() => { openMusic(); }}
       />
-      <ToolsIsland activeType={activeType} onSelect={selectTool} />
+      <ToolsIsland
+        activeType={activeType}
+        onSelect={selectTool}
+        minimapOn={minimapOn}
+        onToggleMinimap={() => saveSettings({ ...settings, canvas: { ...settings.canvas, minimap: !minimapOn } })}
+      />
+      {minimapOn && <MinimapView cameraRef={cameraRef} rootRef={rootRef} onJump={jumpTo} />}
       <BootRecipe />
       <TerminalOverlay layerRef={layerRef} cameraRef={cameraRef} />
     </div>
