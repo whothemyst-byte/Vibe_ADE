@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { loadIndex } from "../store/persistence";
 import type { WallMeta } from "../store/types";
-import { BackIcon, ChevronDownIcon, GearIcon, GridIcon, TeamsIcon, FolderIcon, DesignIcon } from "./icons";
+import { BackIcon, ChevronDownIcon, GearIcon, GridIcon, TeamsIcon, FolderIcon, DesignIcon, SearchIcon } from "./icons";
 import { useBlocksBrowser } from "./browserVisibility";
 
 export function Toolbar({
-  wallId, onBack, onSwitch, onGear, onExplorer, onDesign, onTasks, onTeams,
-}: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void; onExplorer: () => void; onDesign: () => void; onTasks: () => void; onTeams: () => void }) {
+  wallId, onBack, onSwitch, onGear, onExplorer, onDesign, onTasks, onTeams, onPalette,
+}: { wallId: string; onBack: () => void; onSwitch: (id: string) => void; onGear: () => void; onExplorer: () => void; onDesign: () => void; onTasks: () => void; onTeams: () => void; onPalette: () => void }) {
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [open, setOpen] = useState(false);
   useBlocksBrowser(open);
@@ -21,6 +21,7 @@ export function Toolbar({
       </button>
       <span className="cnvs-sep" />
       <button className="cnvs-btn" onClick={onGear} title="Background"><GearIcon /></button>
+      <button className="cnvs-btn" onClick={onPalette} title="Quick actions (Ctrl+K)"><SearchIcon /></button>
       <button
         className="cnvs-btn"
         onClick={onExplorer}

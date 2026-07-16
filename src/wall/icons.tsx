@@ -105,6 +105,9 @@ export const GridIcon = () => (
     <rect x="14" y="14" width="7" height="7" rx="1" />
   </Svg>
 );
+export const SearchIcon = () => (
+  <Svg><circle cx="11" cy="11" r="7" /><path d="m21 21-4.5-4.5" /></Svg>
+);
 export const PaletteIcon = () => (
   <Svg>
     <path d="M12 22a10 10 0 1 1 10-10 5 5 0 0 1-5 5h-2.2a1.8 1.8 0 0 0-1.4 2.9l.3.4a1.8 1.8 0 0 1-1.4 2.9z" />

@@ -37,6 +37,9 @@ import { useVibeContext } from "../vibe/context";
 import { findPresetByPhrase } from "./presets";
 import { recipeEntries, runRecipe, summarizeRun } from "./recipe";
 import { THEMES, accentForBackground, applyAccent, applyChromeInk, DEFAULT_ACCENT } from "../settings/themes";
+import { CommandPalette } from "../palette/CommandPalette";
+import { buildActions } from "../palette/actions";
+import type { WallMeta } from "../store/types";
 import { setPresenceSpace } from "../teams/presence";
 import { useOrgStore } from "../teams/orgStore";
 import { pushSharedScene } from "../teams/spaceSync";
@@ -83,6 +86,14 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   const backgroundRef = useRef<Background>(DEFAULT_BACKGROUND);
   const [gearOpen, setGearOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteWalls, setPaletteWalls] = useState<WallMeta[]>([]);
+  const paletteOpenRef = useRef(false);
+  paletteOpenRef.current = paletteOpen;
+  // Wall list is only needed while the palette is up; snapshot it on open.
+  useEffect(() => {
+    if (paletteOpen) loadIndex().then(setPaletteWalls).catch(() => setPaletteWalls([]));
+  }, [paletteOpen]);
   useBlocksBrowser(gearOpen);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
   const presets = usePresetStore((s) => s.presets);
@@ -104,6 +115,27 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setCanvasReady(true));
     return () => cancelAnimationFrame(frame);
+  }, []);
+
+  // Ctrl+K opens the palette anywhere on the wall except while typing in a
+  // terminal/input (shells own Ctrl+K); from the palette's own input it toggles
+  // closed. Capture phase so Excalidraw never sees the keystroke.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isCtrlK = e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === "k";
+      if (!isCtrlK) return;
+      if (paletteOpenRef.current) {
+        e.preventDefault(); e.stopPropagation();
+        setPaletteOpen(false);
+        return;
+      }
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, [contenteditable='true'], .xterm")) return;
+      e.preventDefault(); e.stopPropagation();
+      setPaletteOpen(true);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   const buildDoc = (): WallDoc | null => {
@@ -651,19 +683,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         const names = terminals.map((t) => t.name).join(", ") || "none";
         return `Error: no terminal matches "${args.name}". Open terminals: ${names}.`;
       }
-      const api = apiRef.current;
-      const st = api?.getAppState() as AppStateLike | undefined;
-      if (api && st) {
-        // Zoom in until the terminal fills the screen (capped) and center it.
-        const cam = fitCamera(
-          { x: t.x, y: t.y, w: t.w, h: t.h },
-          { w: st.width, h: st.height },
-          48,
-          FOCUS_MAX_ZOOM
-        );
-        animateCamera(cam);
-      }
-      focusSession(t.id);
+      focusTerminalCard(t.id);
       return `Focused on terminal ${t.name}.`;
     },
   });
@@ -838,6 +858,25 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     animateCamera({ x: rect.width / (2 * z) - w.x, y: rect.height / (2 * z) - w.y, z });
   }, [animateCamera]);
 
+  /** Zooms in on a terminal (capped like the vibe focus command) and gives it keyboard focus. */
+  const focusTerminalCard = (id: string) => {
+    const t = terminalsOf(useCardStore.getState().cards).find((t) => t.id === id);
+    if (!t) return;
+    const api = apiRef.current;
+    const st = api?.getAppState() as AppStateLike | undefined;
+    if (api && st) {
+      // Zoom in until the terminal fills the screen (capped) and center it.
+      const cam = fitCamera(
+        { x: t.x, y: t.y, w: t.w, h: t.h },
+        { w: st.width, h: st.height },
+        48,
+        FOCUS_MAX_ZOOM
+      );
+      animateCamera(cam);
+    }
+    focusSession(t.id);
+  };
+
   const selectTool = (tool: ToolDef) => {
     // tool.type is a literal union that includes "image"; assert to setActiveTool's exact
     // parameter union so the discriminated type checks (ExcalidrawImperativeAPI is already
@@ -853,7 +892,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       <WallBackground background={background} />
       {isShared && <div className="wall-shared-badge">Shared</div>}
       {sharedNotice && <div className="wall-shared-notice">{sharedNotice}</div>}
-      <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onExplorer={() => setExplorerOpen((o) => !o)} onDesign={onDesign} onTasks={onTasks} onTeams={onTeams} />
+      <Toolbar wallId={wallId} onBack={() => { void exit(); }} onSwitch={onSwitch} onGear={() => setGearOpen((o) => !o)} onExplorer={() => setExplorerOpen((o) => !o)} onDesign={onDesign} onTasks={onTasks} onTeams={onTeams} onPalette={() => setPaletteOpen(true)} />
       <FileExplorer path={wallPath} open={explorerOpen} onClose={() => setExplorerOpen(false)} />
       {gearOpen && (
         <SettingsModal background={background} onChangeBackground={changeBg} onClose={() => setGearOpen(false)} />
@@ -890,6 +929,41 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
         onLaunchMusic={() => { openMusic(); }}
       />
       <ToolsIsland activeType={activeType} onSelect={selectTool} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        actions={buildActions({
+          presets,
+          walls: paletteWalls,
+          currentWallId: wallId,
+          // Read via getState() instead of a subscription on purpose: WallView
+          // must not re-render on card moves. The snapshot taken on the render
+          // that opens the palette is current enough.
+          cards: useCardStore.getState().cards,
+          launchPreset: (id) => { void addTerminal(id); },
+          launchBrowser: () => { void openBrowser(); },
+          openMusic: () => { openMusic(); },
+          runBootRecipe: () => {
+            runRecipe(
+              recipeEntries(useCardStore.getState().cards),
+              (id, cmd) => sendToSession(id, cmd, true)
+            );
+          },
+          openTasks: onTasks,
+          openTeams: onTeams,
+          openDesign: onDesign,
+          openSettings: () => setGearOpen(true),
+          openExplorer: () => setExplorerOpen(true),
+          exitWall: () => { void exit(); },
+          switchWall: onSwitch,
+          selectTool,
+          applyTheme: (t) => changeBg(t.background),
+          focusTerminal: focusTerminalCard,
+          closeBrowser: () => { closeBrowser(); },
+          closeMusic: () => { closeMusic(); },
+          nextStation: () => { changeStation(); },
+        })}
+      />
       <MinimapView cameraRef={cameraRef} rootRef={rootRef} onJump={jumpTo} />
       <BootRecipe />
       <TerminalOverlay layerRef={layerRef} cameraRef={cameraRef} />
