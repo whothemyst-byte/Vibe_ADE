@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readableTextColor, THEMES, isThemeActive } from "./themes";
+import { readableTextColor, THEMES, SCENE_THEMES, isThemeActive, accentForBackground, DEFAULT_ACCENT } from "./themes";
 
 describe("THEMES", () => {
   it("ships unique ids across appearance and video themes", () => {
@@ -11,8 +11,26 @@ describe("THEMES", () => {
     for (const t of THEMES) {
       expect(t.name.length).toBeGreaterThan(0);
       expect(t.tagline.length).toBeGreaterThan(0);
-      expect(["color", "video"]).toContain(t.background.kind);
+      expect(["color", "image", "video"]).toContain(t.background.kind);
     }
+  });
+});
+
+describe("SCENE_THEMES", () => {
+  it("has 8 scenes with unique ids and bundled urls", () => {
+    expect(SCENE_THEMES).toHaveLength(8);
+    expect(new Set(SCENE_THEMES.map((t) => t.id)).size).toBe(8);
+    for (const t of SCENE_THEMES) {
+      expect(t.background.kind).toBe("image");
+      expect("url" in t.background && t.background.url).toMatch(/^\/themes\/scenes\/[a-z-]+\.png$/);
+      expect(t.accent).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it("drives the accent through accentForBackground", () => {
+    const meadow = SCENE_THEMES.find((t) => t.id === "meadow-night")!;
+    expect(accentForBackground(meadow.background)).toBe(meadow.accent);
+    expect(accentForBackground(meadow.background)).not.toBe(DEFAULT_ACCENT);
   });
 });
 

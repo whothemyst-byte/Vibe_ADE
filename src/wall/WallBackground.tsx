@@ -10,10 +10,17 @@ export function WallBackground({ background }: { background: Background }) {
     return <div className="wall-bg" style={{ background: background.color }} />;
   }
   if (background.kind === "image") {
+    // Bundled pixel-art scenes render crisp; user photos keep normal smoothing.
+    const pixel = background.url?.startsWith("/themes/scenes/");
     return (
       <div
         className="wall-bg"
-        style={{ backgroundImage: `url(${srcOf(background)})`, backgroundSize: "cover", backgroundPosition: "center" }}
+        style={{
+          backgroundImage: `url(${srcOf(background)})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          imageRendering: pixel ? "pixelated" : undefined,
+        }}
       />
     );
   }

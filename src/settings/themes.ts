@@ -46,6 +46,19 @@ export const APPEARANCE_THEMES: Theme[] = [
   },
 ];
 
+/** Bundled pixel-art scenes, rendered by scripts/render-scenes.mjs. Each accent
+    is sampled from its own artwork so the whole UI recolors with the scene. */
+export const SCENE_THEMES: Theme[] = [
+  { id: "amber-dunes", name: "Amber Dunes", tagline: "desert dusk", background: { kind: "image", url: "/themes/scenes/amber-dunes.png" }, accent: "#e8b95f" },
+  { id: "meadow-night", name: "Meadow Night", tagline: "fireflies at dark", background: { kind: "image", url: "/themes/scenes/meadow-night.png" }, accent: "#e8c060" },
+  { id: "campfire", name: "Campfire", tagline: "forest firelight", background: { kind: "image", url: "/themes/scenes/campfire.png" }, accent: "#e07830" },
+  { id: "harvest", name: "Harvest", tagline: "golden field", background: { kind: "image", url: "/themes/scenes/harvest.png" }, accent: "#d79a3d" },
+  { id: "lantern-harbor", name: "Lantern Harbor", tagline: "docks at night", background: { kind: "image", url: "/themes/scenes/lantern-harbor.png" }, accent: "#ffbe5c" },
+  { id: "canyon-dusk", name: "Canyon Dusk", tagline: "mesa first stars", background: { kind: "image", url: "/themes/scenes/canyon-dusk.png" }, accent: "#e8a050" },
+  { id: "ember-city", name: "Ember City", tagline: "warm-lit skyline", background: { kind: "image", url: "/themes/scenes/ember-city.png" }, accent: "#e8b45c" },
+  { id: "tea-room", name: "Tea Room", tagline: "cozy window light", background: { kind: "image", url: "/themes/scenes/tea-room.png" }, accent: "#d8a55f" },
+];
+
 /** Premade looping video backgrounds, bundled under public/themes/. */
 export const VIDEO_THEMES: Theme[] = [
   {
@@ -106,7 +119,7 @@ export const VIDEO_THEMES: Theme[] = [
   },
 ];
 
-export const THEMES: Theme[] = [...APPEARANCE_THEMES, ...VIDEO_THEMES];
+export const THEMES: Theme[] = [...APPEARANCE_THEMES, ...SCENE_THEMES, ...VIDEO_THEMES];
 
 /** True when the wall's background matches a theme (by color, or by video/image src). */
 export function isThemeActive(bg: Background, theme: Theme): boolean {

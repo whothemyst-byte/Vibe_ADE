@@ -8,7 +8,7 @@ import { importBackground, pickBackgroundFile, savePresets } from "../store/pers
 import { uploadAvatar } from "../teams/avatarUpload";
 import type { Background } from "../store/types";
 import { CloseIcon, EllipseIcon, GearIcon, GridIcon, PaletteIcon, PlusIcon, RectangleIcon, SelectIcon, TeamsIcon, UserIcon } from "../wall/icons";
-import { APPEARANCE_THEMES, VIDEO_THEMES, isThemeActive } from "./themes";
+import { APPEARANCE_THEMES, SCENE_THEMES, VIDEO_THEMES, isThemeActive } from "./themes";
 import { connectedProviders, memberSince } from "../auth/profile";
 import { useEntitlements } from "../entitlements";
 import { useOrgStore } from "../teams/orgStore";
@@ -330,6 +330,9 @@ function ThemeCard({ theme, active, onSelect }: {
         {theme.background.kind === "video" && (
           <video className="theme-preview-video" src={theme.background.url} autoPlay loop muted playsInline />
         )}
+        {theme.background.kind === "image" && "url" in theme.background && (
+          <img className="theme-preview-img" src={theme.background.url} alt="" />
+        )}
       </span>
       <span className={`theme-meta${light ? " on-light" : ""}`} style={swatchStyle}>
         <span className="theme-name">{theme.name}</span>
@@ -359,6 +362,19 @@ function ThemesPane({ background, onChangeBackground }: {
             onSelect={() => onChangeBackground(t.background)}
           />
         ))}
+      </div>
+      <div className="set-group">
+        <span className="set-label">Scenes</span>
+        <div className="theme-grid">
+          {SCENE_THEMES.map((t) => (
+            <ThemeCard
+              key={t.id}
+              theme={t}
+              active={isThemeActive(background, t)}
+              onSelect={() => onChangeBackground(t.background)}
+            />
+          ))}
+        </div>
       </div>
       <div className="set-group">
         <span className="set-label">Video themes</span>
