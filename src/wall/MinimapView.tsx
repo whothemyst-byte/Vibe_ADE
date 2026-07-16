@@ -5,8 +5,9 @@ import { minimapProject } from "./minimap";
 import { presetTierColor } from "./presetTier";
 
 const BOX = { w: 180, h: 120, pad: 8 };
-/** Below this window width the minimap hides itself — no room for it. */
-const MIN_WINDOW_W = 900;
+/** Below this window width the minimap hides itself — no room for it.
+    (Default dev-window width is ~895 CSS px — keep this comfortably below.) */
+const MIN_WINDOW_W = 700;
 /** Camera polling cadence: pan/zoom bypasses React, so the minimap samples the ref. */
 const TICK_MS = 150;
 
