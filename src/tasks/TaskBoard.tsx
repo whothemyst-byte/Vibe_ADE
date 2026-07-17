@@ -4,11 +4,9 @@ import { loadTasks, saveTasks, loadIndex, loadWall } from "../store/persistence"
 import type { Background, WallMeta } from "../store/types";
 import { WallBackground } from "../wall/WallBackground";
 import { accentForBackground, applyAccent, applyChromeInk, DEFAULT_ACCENT } from "../settings/themes";
-import { BackIcon, GridIcon, MoreIcon, PlusIcon } from "../wall/icons";
+import { BackIcon, GridIcon, PlusIcon } from "../wall/icons";
 import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
-import { useEntitlements } from "../entitlements";
-import { UpgradePill } from "./UpgradePill";
 
 const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
   { key: "backlog", label: "Backlog", color: "var(--text-muted)" },
@@ -150,21 +148,9 @@ export function TaskBoard({
   onBack, onOpenWall, fromWallId,
 }: { onBack: () => void; onOpenWall: (id: string) => void; fromWallId?: string }) {
   const tasks = useTaskStore((s) => s.tasks);
-  const ent = useEntitlements();
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [background, setBackground] = useState<Background | null>(null);
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [menuOpen]);
   const saveTimer = useRef<number | null>(null);
   const ready = useRef(false);
 
@@ -277,56 +263,6 @@ export function TaskBoard({
         <button className="cnvs-btn" onClick={onBack} title="Back"><BackIcon /></button>
         <span className="cnvs-name tb-name"><GridIcon /> Taskboard</span>
         <span className="tb-total">{tasks.length} {tasks.length === 1 ? "task" : "tasks"}</span>
-        <span className="cnvs-sep" />
-        <div className="tb-menu-wrap" ref={menuRef}>
-          <button
-            className="cnvs-btn"
-            onClick={() => setMenuOpen((o) => !o)}
-            title="More"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-          >
-            <MoreIcon />
-          </button>
-          {menuOpen && (
-            <div className="cnvs-menu tb-menu" role="menu">
-              <button
-                className={`cnvs-menu-item tb-menu-item${ent.canImportExternal ? "" : " tb-locked"}`}
-                disabled={!ent.canImportExternal}
-                role="menuitem"
-                title={
-                  ent.canImportExternal
-                    ? "Import from Jira, Linear, Trello… (ships with the connectors update)"
-                    : "Importing from external tools is a Pro feature"
-                }
-                onClick={() => {
-                  setMenuOpen(false);
-                  if (ent.canImportExternal) alert("External imports ship with the connectors update.");
-                }}
-              >
-                <span>Import…</span>
-                {!ent.canImportExternal && <UpgradePill feature="External import" />}
-              </button>
-              <button
-                className={`cnvs-menu-item tb-menu-item${ent.canUseSavedViews ? "" : " tb-locked"}`}
-                disabled={!ent.canUseSavedViews}
-                role="menuitem"
-                title={
-                  ent.canUseSavedViews
-                    ? "Saved views & filters (ships with the Pro task update)"
-                    : "Saved views are a Pro feature"
-                }
-                onClick={() => {
-                  setMenuOpen(false);
-                  if (ent.canUseSavedViews) alert("Saved views ship with the Pro task update.");
-                }}
-              >
-                <span>Saved views</span>
-                {!ent.canUseSavedViews && <UpgradePill feature="Saved views" />}
-              </button>
-            </div>
-          )}
-        </div>
       </div>
       <button className="tb-launch" onClick={() => useTaskStore.getState().add("New task")} title="New task">
         <PlusIcon /> Task

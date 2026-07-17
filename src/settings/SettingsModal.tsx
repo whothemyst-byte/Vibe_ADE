@@ -505,7 +505,10 @@ function InvitesPane() {
   return (
     <>
       <h2 className="set-title">Invites</h2>
-      <p className="set-sub">Invite by email, or share the invite link.</p>
+      <p className="set-sub">
+        Add a teammate's email, then send them the invite link yourself — no email is
+        sent. They join automatically when they sign in with that address or open the link.
+      </p>
       <div className="set-row">
         <span className="set-label">Invite link</span>
         <button className="set-btn" onClick={() => {
@@ -521,7 +524,7 @@ function InvitesPane() {
         </select>
         <button className="teams-btn primary" disabled={busy || !valid}
           onClick={async () => { setBusy(true); try { await invite(orgId, email.trim(), role); setEmail(""); } finally { setBusy(false); } }}>
-          Send
+          Add
         </button>
       </div>
       {invites.length > 0 && (

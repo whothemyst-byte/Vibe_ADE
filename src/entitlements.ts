@@ -2,56 +2,18 @@ import { useUser } from "@clerk/clerk-react";
 
 export type Tier = "free" | "pro" | "team";
 
+/** Only entitlements the app actually enforces live here. Flags for future
+ *  Pro features (saved views, connectors, AI task tools…) get added back
+ *  alongside the features themselves — see the tiers spec. */
 export type Entitlements = {
   tier: Tier;
-  canUseSubtasks: boolean;
-  canUseDependencies: boolean;
-  canUseSavedViews: boolean;
-  canImportExternal: boolean;
-  canUseAiTaskTools: boolean;
   canUseTeams: boolean;
-  aiAllowance: number | "unlimited";
-  maxDevices: number;
-  settingsSync: boolean;
 };
 
 export const TIERS: Record<Tier, Entitlements> = {
-  free: {
-    tier: "free",
-    canUseSubtasks: false,
-    canUseDependencies: false,
-    canUseSavedViews: false,
-    canImportExternal: false,
-    canUseAiTaskTools: false,
-    canUseTeams: false,
-    aiAllowance: 300,
-    maxDevices: 1,
-    settingsSync: false,
-  },
-  pro: {
-    tier: "pro",
-    canUseSubtasks: true,
-    canUseDependencies: true,
-    canUseSavedViews: true,
-    canImportExternal: true,
-    canUseAiTaskTools: true,
-    canUseTeams: false,
-    aiAllowance: "unlimited",
-    maxDevices: 5,
-    settingsSync: true,
-  },
-  team: {
-    tier: "team",
-    canUseSubtasks: true,
-    canUseDependencies: true,
-    canUseSavedViews: true,
-    canImportExternal: true,
-    canUseAiTaskTools: true,
-    canUseTeams: true,
-    aiAllowance: "unlimited",
-    maxDevices: 25,
-    settingsSync: true,
-  },
+  free: { tier: "free", canUseTeams: false },
+  pro: { tier: "pro", canUseTeams: false },
+  team: { tier: "team", canUseTeams: true },
 };
 
 export function coerceTier(value: unknown): Tier {

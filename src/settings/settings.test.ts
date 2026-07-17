@@ -35,23 +35,22 @@ describe("mergeSettings", () => {
 });
 
 describe("vibe settings", () => {
-  it("defaults: disabled with empty key, system-default voice, no device id", () => {
+  it("defaults: disabled with empty key, system-default voice", () => {
     expect(DEFAULT_SETTINGS.vibe).toEqual({
       enabled: false,
       groqApiKey: "",
       hotkey: "Ctrl+Shift+V",
       voice: "",
-      deviceId: "",
       dictation: "shaped",
     });
   });
 
   it("merges a valid vibe section", () => {
     const merged = mergeSettings({
-      vibe: { enabled: true, groqApiKey: "gsk_x", hotkey: "Ctrl+Alt+V", voice: "Microsoft Zira", deviceId: "dev-9" },
+      vibe: { enabled: true, groqApiKey: "gsk_x", hotkey: "Ctrl+Alt+V", voice: "Microsoft Zira" },
     });
     expect(merged.vibe).toEqual({
-      enabled: true, groqApiKey: "gsk_x", hotkey: "Ctrl+Alt+V", voice: "Microsoft Zira", deviceId: "dev-9",
+      enabled: true, groqApiKey: "gsk_x", hotkey: "Ctrl+Alt+V", voice: "Microsoft Zira",
       dictation: "shaped",
     });
   });
@@ -61,10 +60,8 @@ describe("vibe settings", () => {
     expect(mergeSettings({ vibe: { enabled: "yes", groqApiKey: 42 } }).vibe).toEqual(DEFAULT_SETTINGS.vibe);
   });
 
-  it("defaults vibe.deviceId to empty and preserves a saved one", () => {
-    expect(mergeSettings({}).vibe.deviceId).toBe("");
-    expect(mergeSettings({ vibe: { deviceId: "abc-123" } }).vibe.deviceId).toBe("abc-123");
-    expect(mergeSettings({ vibe: { deviceId: 42 } }).vibe.deviceId).toBe("");
+  it("drops a legacy deviceId field from old settings files", () => {
+    expect("deviceId" in mergeSettings({ vibe: { deviceId: "abc-123" } }).vibe).toBe(false);
   });
 
   it("defaults vibe.dictation to shaped when missing", () => {

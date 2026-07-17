@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { createRemoteJWKSet, jwtVerify } from "npm:jose@5";
 import { checkRequest, overQuota, DAILY_LIMIT } from "./rules.ts";
 
 const GROQ_BASE = "https://api.groq.com/openai/v1";
@@ -10,9 +11,29 @@ const ROUTES: Record<string, string> = {
 // The Tauri webview enforces CORS like a browser; allow the headers the app sends.
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, x-device-id",
+  "Access-Control-Allow-Headers": "authorization, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+// Requests must carry a Clerk session token; the JWKS domain is public (it is
+// baked into the publishable key). Override via secret when the Clerk instance
+// changes (e.g. moving from the test instance to production).
+const CLERK_JWKS_URL =
+  Deno.env.get("CLERK_JWKS_URL") ??
+  "https://cosmic-shiner-55.clerk.accounts.dev/.well-known/jwks.json";
+const jwks = createRemoteJWKSet(new URL(CLERK_JWKS_URL));
+
+/** Verified Clerk user id (`sub`), or null when the token is absent/invalid. */
+async function verifyUser(req: Request): Promise<string | null> {
+  const header = req.headers.get("authorization") ?? "";
+  if (!header.startsWith("Bearer ")) return null;
+  try {
+    const { payload } = await jwtVerify(header.slice("Bearer ".length), jwks);
+    return typeof payload.sub === "string" && payload.sub ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -31,7 +52,8 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return reject(405, "method not allowed");
 
   const route = new URL(req.url).pathname.split("/").pop() ?? "";
-  const deviceId = req.headers.get("x-device-id");
+  const userId = await verifyUser(req);
+  if (!userId) return reject(401, "invalid or missing session token");
 
   // Pull the model out of the body (JSON for chat, multipart for transcribe)
   // and rebuild the body to forward.
@@ -54,11 +76,12 @@ Deno.serve(async (req) => {
     return reject(400, "unreadable body");
   }
 
-  const rejected = checkRequest(route, model, deviceId);
+  const rejected = checkRequest(route, model, userId);
   if (rejected) return reject(rejected.status, rejected.message);
 
+  // Quota is keyed by the verified user id (the rpc's column name predates auth).
   const { data: count, error } = await supabase.rpc("bump_groq_usage", {
-    p_device_id: deviceId,
+    p_device_id: userId,
   });
   if (error) return reject(500, "usage tracking failed");
   if (overQuota(count as number)) {

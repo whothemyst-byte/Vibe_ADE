@@ -9,6 +9,9 @@
     var(--bg);
   color: var(--text);
 }
+.auth-offline { grid-auto-flow: row; align-content: center; justify-items: center; gap: 14px; }
+.auth-offline p { color: var(--text-muted); font-size: 13px; max-width: 320px; text-align: center; }
+.auth-offline-retry { width: auto; padding: 0 28px; }
 .login-card {
   width: 360px;
   max-width: calc(100vw - 48px);

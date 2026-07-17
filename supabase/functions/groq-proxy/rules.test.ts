@@ -3,18 +3,18 @@ import { checkRequest, overQuota, DAILY_LIMIT, CHAT_MODEL, STT_MODEL } from "./r
 
 describe("checkRequest", () => {
   it("allows whitelisted models on their routes", () => {
-    expect(checkRequest("chat", CHAT_MODEL, "dev-1")).toBeNull();
-    expect(checkRequest("transcribe", STT_MODEL, "dev-1")).toBeNull();
+    expect(checkRequest("chat", CHAT_MODEL, "user_1")).toBeNull();
+    expect(checkRequest("transcribe", STT_MODEL, "user_1")).toBeNull();
   });
 
-  it("rejects missing device id with 400", () => {
+  it("rejects a missing user with 401", () => {
     expect(checkRequest("chat", CHAT_MODEL, null)).toEqual({
-      status: 400,
-      message: "missing x-device-id",
+      status: 401,
+      message: "missing user",
     });
     expect(checkRequest("chat", CHAT_MODEL, "")).toEqual({
-      status: 400,
-      message: "missing x-device-id",
+      status: 401,
+      message: "missing user",
     });
   });
 

@@ -570,17 +570,10 @@
   background: color-mix(in srgb, var(--surface-2) 78%, transparent);
 }
 .taskboard.themed .tb-card-desc { background: color-mix(in srgb, var(--bg) 55%, transparent); }
-.taskboard.themed .tb-menu { background: var(--surface); }
 /* Taskboard header reuses the wall's floating toolbar (.cnvs-toolbar). */
 .tb-name { font-family: var(--font-display); font-size: 15px; cursor: default; }
 .tb-name:hover { background: transparent; color: var(--text); }
 .tb-total { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); padding: 0 2px; }
-.tb-menu-wrap { position: relative; display: inline-flex; }
-/* Solid panel so the columns behind don't bleed through the menu. */
-.tb-menu { background: var(--surface); backdrop-filter: none; }
-.tb-menu-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 172px; }
-.tb-menu-item:disabled { cursor: not-allowed; }
-.tb-menu-item:disabled:hover { background: transparent; color: var(--text-muted); }
 
 /* Centered "+ Task" launcher, mirroring the wall's terminal launch button. */
 .tb-launch {
@@ -671,11 +664,6 @@
   padding: 2px 6px;
   user-select: none;
 }
-.tb-locked {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .tb-card-meta { display: flex; gap: 6px; align-items: center; }
 .tb-prio, .tb-due {
   background: var(--surface-2, #0e1220);

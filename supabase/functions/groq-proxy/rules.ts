@@ -6,13 +6,13 @@ export const STT_MODEL = "whisper-large-v3-turbo";
 
 export type Rejection = { status: number; message: string };
 
-/** null = allowed. Only the app's two models pass, and a device id is mandatory. */
+/** null = allowed. Only the app's two models pass, and a verified user is mandatory. */
 export function checkRequest(
   route: string,
   model: string | null,
-  deviceId: string | null
+  userId: string | null
 ): Rejection | null {
-  if (!deviceId) return { status: 400, message: "missing x-device-id" };
+  if (!userId) return { status: 401, message: "missing user" };
   if (route === "chat")
     return model === CHAT_MODEL ? null : { status: 400, message: "model not allowed" };
   if (route === "transcribe")

@@ -6,10 +6,11 @@ const PROXY_BASE = "https://tfaouguiyvmfarfqungk.supabase.co/functions/v1/groq-p
 export const STT_MODEL = "whisper-large-v3-turbo";
 export const CHAT_MODEL = "openai/gpt-oss-120b";
 
-/** Direct = user's own Groq key. Proxy = bundled access via our edge function. */
+/** Direct = user's own Groq key. Proxy = bundled access via our edge function,
+ *  authenticated with the signed-in user's Clerk session token. */
 export type GroqAuth =
   | { kind: "direct"; key: string }
-  | { kind: "proxy"; deviceId: string };
+  | { kind: "proxy"; getToken: () => Promise<string | null> };
 
 export class GroqError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -31,7 +32,11 @@ export type ChatMessage =
 export type AssistantMessage = Extract<ChatMessage, { role: "assistant" }>;
 
 function describeHttp(status: number, auth: GroqAuth): GroqError {
-  if (status === 401) return new GroqError("I need a valid Groq API key — check Settings.", status);
+  if (status === 401) {
+    return auth.kind === "proxy"
+      ? new GroqError("Your session expired — sign in again to keep using me.", status)
+      : new GroqError("I need a valid Groq API key — check Settings.", status);
+  }
   if (status === 429) {
     return auth.kind === "proxy"
       ? new GroqError(
@@ -50,10 +55,14 @@ async function post(
   init: RequestInit
 ): Promise<unknown> {
   const url = auth.kind === "direct" ? `${BASE}${directPath}` : `${PROXY_BASE}${proxyPath}`;
-  const authHeaders: Record<string, string> =
-    auth.kind === "direct"
-      ? { Authorization: `Bearer ${auth.key}` }
-      : { "x-device-id": auth.deviceId };
+  let authHeaders: Record<string, string>;
+  if (auth.kind === "direct") {
+    authHeaders = { Authorization: `Bearer ${auth.key}` };
+  } else {
+    const token = await auth.getToken();
+    if (!token) throw new GroqError("Your session expired — sign in again to keep using me.", 401);
+    authHeaders = { Authorization: `Bearer ${token}` };
+  }
   let res: Response;
   try {
     res = await fetch(url, { ...init, headers: { ...authHeaders, ...(init.headers ?? {}) } });

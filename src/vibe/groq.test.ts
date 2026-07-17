@@ -7,7 +7,7 @@ const fail = (status: number) =>
   Promise.resolve(new Response("{}", { status }));
 
 const direct: GroqAuth = { kind: "direct", key: "gsk_key" };
-const proxy: GroqAuth = { kind: "proxy", deviceId: "dev-1" };
+const proxy: GroqAuth = { kind: "proxy", getToken: () => Promise.resolve("clerk-jwt") };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -55,7 +55,7 @@ describe("transcribe (direct)", () => {
 });
 
 describe("transcribe (proxy)", () => {
-  it("posts to the edge function with the device id, no Authorization", async () => {
+  it("posts to the edge function with the Clerk session token", async () => {
     const fetchMock = vi.fn().mockReturnValue(ok({ text: "hi" }));
     vi.stubGlobal("fetch", fetchMock);
     await transcribe(new Blob(["x"]), proxy);
@@ -63,8 +63,20 @@ describe("transcribe (proxy)", () => {
     expect(url).toBe(
       "https://tfaouguiyvmfarfqungk.supabase.co/functions/v1/groq-proxy/transcribe"
     );
-    expect(init.headers["x-device-id"]).toBe("dev-1");
-    expect(init.headers.Authorization).toBeUndefined();
+    expect(init.headers.Authorization).toBe("Bearer clerk-jwt");
+  });
+
+  it("fails without a network call when there is no session token", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const signedOut: GroqAuth = { kind: "proxy", getToken: () => Promise.resolve(null) };
+    await expect(transcribe(new Blob(), signedOut)).rejects.toThrow(/sign in again/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("maps proxy 401 to a session-expired message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(fail(401)));
+    await expect(transcribe(new Blob(), proxy)).rejects.toThrow(/sign in again/i);
   });
 
   it("maps proxy 429 to the daily-allowance message", async () => {
@@ -97,7 +109,7 @@ describe("chat", () => {
     expect(url).toBe(
       "https://tfaouguiyvmfarfqungk.supabase.co/functions/v1/groq-proxy/chat"
     );
-    expect(init.headers["x-device-id"]).toBe("dev-1");
+    expect(init.headers.Authorization).toBe("Bearer clerk-jwt");
     expect(JSON.parse(init.body).model).toBe("openai/gpt-oss-120b");
   });
 

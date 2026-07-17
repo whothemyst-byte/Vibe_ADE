@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import { useSettingsStore } from "../settings/settingsStore";
 import { VibePet, type VibeState } from "./VibePet";
 import { HintPill } from "./HintPill";
@@ -30,10 +31,12 @@ function matchesHotkey(e: KeyboardEvent, hotkey: string): boolean {
 
 export function VibeAgent() {
   const vibe = useSettingsStore((s) => s.settings.vibe);
-  // Own key (unlimited, direct) when set; otherwise the bundled proxy.
+  const { getToken } = useAuth();
+  // Own key (unlimited, direct) when set; otherwise the bundled proxy,
+  // authenticated as the signed-in user.
   const auth: GroqAuth = vibe.groqApiKey
     ? { kind: "direct", key: vibe.groqApiKey }
-    : { kind: "proxy", deviceId: vibe.deviceId };
+    : { kind: "proxy", getToken };
   const [state, setState] = useState<VibeState>("idle");
   const [caption, setCaption] = useState<string | null>(null);
   const [celebrating, setCelebrating] = useState(false);
@@ -205,7 +208,7 @@ export function VibeAgent() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vibe.enabled, vibe.hotkey, vibe.groqApiKey, vibe.deviceId, sleeping]);
+  }, [vibe.enabled, vibe.hotkey, vibe.groqApiKey, sleeping]);
 
   // Dev escape hatch: drive the full agent loop from the console without a mic:
   //   window.__vibeSay("open a terminal")
@@ -214,7 +217,7 @@ export function VibeAgent() {
     (window as unknown as Record<string, unknown>).__vibeSay = (t: string) => void runUtterance(t);
     return () => { delete (window as unknown as Record<string, unknown>).__vibeSay; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vibe.groqApiKey, vibe.deviceId, vibe.voice]);
+  }, [vibe.groqApiKey, vibe.voice]);
 
   if (!vibe.enabled) return null;
 

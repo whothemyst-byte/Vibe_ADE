@@ -25,6 +25,25 @@ type View =
   | { kind: "teams"; from: View }
   | { kind: "design"; wallId: string; from: View };
 
+/** Shown while Clerk loads. If it never finishes (offline, Clerk outage), the
+ *  blank screen turns into an explanation with a retry instead of hanging. */
+function AuthGateFallback() {
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setStuck(true), 12_000);
+    return () => window.clearTimeout(t);
+  }, []);
+  if (!stuck) return <div className="login-screen" />;
+  return (
+    <div className="login-screen auth-offline">
+      <p>Can't reach the sign-in service. Check your connection and try again.</p>
+      <button className="login-submit auth-offline-retry" onClick={() => window.location.reload()}>
+        Retry
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setViewRaw] = useState<View>({ kind: "start" });
 
@@ -214,7 +233,7 @@ export default function App() {
       <TitleBar />
       <ResizeHandles />
       <ClerkLoading>
-        <div className="login-screen" />
+        <AuthGateFallback />
       </ClerkLoading>
       <ClerkLoaded>
         <SignedOut>

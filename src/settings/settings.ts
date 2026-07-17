@@ -8,7 +8,6 @@ export type Settings = {
     groqApiKey: string;
     hotkey: string;
     voice: string;
-    deviceId: string;
     /** How dictated agent prompts arrive: the user's exact words, or rewritten by the model. */
     dictation: "shaped" | "verbatim";
   };
@@ -17,7 +16,7 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   terminal: { fontSize: 13, scrollback: 5000, shell: "powershell.exe" },
   canvas: { defaultBackground: DEFAULT_BACKGROUND },
-  vibe: { enabled: false, groqApiKey: "", hotkey: "Ctrl+Shift+V", voice: "", deviceId: "", dictation: "shaped" },
+  vibe: { enabled: false, groqApiKey: "", hotkey: "Ctrl+Shift+V", voice: "", dictation: "shaped" },
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -61,7 +60,6 @@ export function mergeSettings(raw: unknown): Settings {
       groqApiKey: typeof vibe.groqApiKey === "string" ? vibe.groqApiKey : d.vibe.groqApiKey,
       hotkey: str(vibe.hotkey, d.vibe.hotkey),
       voice: typeof vibe.voice === "string" ? vibe.voice : d.vibe.voice,
-      deviceId: typeof vibe.deviceId === "string" ? vibe.deviceId : d.vibe.deviceId,
       dictation: vibe.dictation === "verbatim" ? "verbatim" : "shaped",
     },
   };
