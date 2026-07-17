@@ -331,6 +331,10 @@ PATH) lets you inspect and control the canvas around you.
 - **Never run dev servers or watchers in your own terminal.** Use
   `vibectl terminal --run "<cmd>"` so they get their own node on the canvas
   and your terminal stays free for reasoning and edits.
+- **When asked to ask or tell another agent something** ("ask Teddy what he
+  thinks"), that agent is another terminal on this canvas: reach it with
+  `vibectl send <name> "<message>"`. `vibectl state` lists the open agent
+  names if you are unsure.
 - **When another agent messages you** (the message says who it is from),
   reply with `vibectl send <their name> "<your answer>"` - do not answer in
   your own terminal, they cannot see it.
