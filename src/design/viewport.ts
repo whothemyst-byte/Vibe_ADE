@@ -1,9 +1,9 @@
 /** Shared viewport helpers (zoom island + keyboard shortcuts). */
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
-export function fitAll(api: ExcalidrawImperativeAPI): void {
+export function fitAll(api: ExcalidrawImperativeAPI, opts?: { animate?: boolean }): void {
   api.scrollToContent(undefined, {
-    fitToViewport: true, viewportZoomFactor: 0.9, animate: true,
+    fitToViewport: true, viewportZoomFactor: 0.9, animate: opts?.animate ?? true,
   });
 }
 

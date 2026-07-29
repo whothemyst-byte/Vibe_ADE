@@ -1,8 +1,8 @@
 /** Single mutation path for all panel-originated edits: version-correct
  *  (commitCore) and captured into undo history. Viewport moves and external
  *  (agent) reloads deliberately bypass undo. */
-import { CaptureUpdateAction } from "@excalidraw/excalidraw";
-import type { AppState, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
+import { CaptureUpdateAction, convertToExcalidrawElements } from "@excalidraw/excalidraw";
+import type { AppState, BinaryFileData, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { applyPatches, bumpElement, type El, type Patch } from "./commitCore";
 import { reorderElements, type ZOp } from "./zorder";
@@ -32,7 +32,10 @@ export function applyExternalScene(
   api: ExcalidrawImperativeAPI,
   elements: ExcalidrawElement[],
   viewBackgroundColor: string,
+  files: BinaryFileData[] = [],
 ): void {
+  // Files first: an image element renders blank until its payload is registered.
+  if (files.length) api.addFiles(files);
   api.updateScene({
     elements,
     appState: { viewBackgroundColor },
@@ -84,6 +87,28 @@ export function setSnapMode(api: ExcalidrawImperativeAPI, on: boolean): void {
   api.updateScene({
     appState: { objectsSnapModeEnabled: on },
     captureUpdate: CaptureUpdateAction.NEVER,
+  });
+}
+
+/** Drop a device artboard into the scene, select it, and bring it into view.
+ *  One undo step. Returns to the selection tool the way Figma does, so the
+ *  next click edits the new frame instead of drawing another one. */
+export function commitInsertFrame(
+  api: ExcalidrawImperativeAPI,
+  frame: { x: number; y: number; width: number; height: number; name: string },
+): void {
+  const created = convertToExcalidrawElements([{ type: "frame", children: [], ...frame }]);
+  const els = api.getSceneElements();
+  api.updateScene({
+    elements: [...els, ...created] as unknown as ExcalidrawElement[],
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+  const id = created[0]?.id;
+  if (id) selectOnly(api, id);
+  api.setActiveTool({ type: "selection" });
+  // The frame lands beside the existing ones, which is usually off-screen.
+  api.scrollToContent(created as unknown as ExcalidrawElement[], {
+    fitToViewport: true, viewportZoomFactor: 0.8, animate: true,
   });
 }
 

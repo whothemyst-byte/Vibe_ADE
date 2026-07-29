@@ -1,9 +1,9 @@
 /** External store fed by Excalidraw's onChange. Panels subscribe to derived
  *  slices (via useDesignSelector) so a 60fps drag re-renders only components
  *  whose slice actually changed. Pure — no React/Excalidraw imports. */
-import { isHidden, type El } from "./commitCore";
-import { labelForElement } from "./designUtils";
+import { type El } from "./commitCore";
 import { sharedOuterGroup } from "./groups";
+import { buildLayerTree, type LayerEl, type LayerNode } from "./layerTree";
 
 export type StoreElement = El & {
   type: string;
@@ -60,36 +60,11 @@ export function createDesignStore(): DesignStore {
 
 /* ── selectors ── */
 
-export type LayerRow = {
-  id: string; type: string; label: string;
-  hidden: boolean; locked: boolean; selected: boolean;
-};
+export { layerTreeEqual } from "./layerTree";
 
-export function selectLayers(s: DesignSnapshot): LayerRow[] {
-  const rows: LayerRow[] = [];
-  for (let i = s.elements.length - 1; i >= 0; i--) {
-    const el = s.elements[i];
-    if (el.isDeleted === true) continue;
-    rows.push({
-      id: el.id,
-      type: el.type,
-      label: labelForElement(el as { type: string; text?: string }),
-      hidden: isHidden(el),
-      locked: el.locked === true,
-      selected: s.selectedIds[el.id] === true,
-    });
-  }
-  return rows;
-}
-
-export function layersEqual(a: LayerRow[], b: LayerRow[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const x = a[i], y = b[i];
-    if (x.id !== y.id || x.type !== y.type || x.label !== y.label ||
-        x.hidden !== y.hidden || x.locked !== y.locked || x.selected !== y.selected) return false;
-  }
-  return true;
+/** Frames own what was drawn inside them, groups nest inside either. */
+export function selectLayerTree(s: DesignSnapshot): LayerNode[] {
+  return buildLayerTree(s.elements as unknown as readonly LayerEl[], s.selectedIds);
 }
 
 export type MultiValue<T> = T | "mixed";

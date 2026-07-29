@@ -1,8 +1,14 @@
+import { DESIGN_TOOL_GROUPS } from "./designTools";
+
+/** Derived from the toolbar itself, so the cheatsheet can never advertise a
+ *  tool this page doesn't have. */
+const TOOL_ROWS: Array<[string, string]> = DESIGN_TOOL_GROUPS.map((group) => [
+  group.map((t) => t.shortcut).join(" · "),
+  group.map((t) => t.label).join(" · "),
+]);
+
 const ROWS: Array<[string, string]> = [
-  ["V / H", "Select / Hand"],
-  ["R · O · D", "Rectangle · Ellipse · Diamond"],
-  ["A · L · P", "Arrow · Line · Draw"],
-  ["T · E · F", "Text · Eraser · Frame"],
+  ...TOOL_ROWS,
   ["Ctrl+Z / Ctrl+Shift+Z", "Undo / Redo"],
   ["Ctrl+G / Ctrl+Shift+G", "Group / Ungroup"],
   ["Ctrl+D", "Duplicate"],

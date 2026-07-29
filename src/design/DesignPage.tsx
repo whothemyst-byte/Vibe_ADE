@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Excalidraw, restoreElements } from "@excalidraw/excalidraw";
-import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawImperativeAPI, AppState, BinaryFileData, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import { readDesignFile, writeDesignFile } from "../store/persistence";
 import { resolveDesignPath, ensureDesignFile } from "./designFile";
-import { serializeScene, parseScene, DEFAULT_BG, type SceneElement } from "./normalize";
+import { serializeScene, parseScene, DEFAULT_BG, type SceneElement, type SceneFiles } from "./normalize";
 import { hashText, makeEchoGuard } from "./echoGuard";
 import { watchDesignFile } from "./watch";
 import { referenceInActiveTerminal } from "./reference";
@@ -19,10 +19,13 @@ import { DesignZoomIsland } from "./DesignZoomIsland";
 import { fitAll, fitSelection } from "./viewport";
 import { DesignShortcuts } from "./DesignShortcuts";
 
-type Initial = { elements: ExcalidrawElement[]; appState: Partial<AppState> };
+type Initial = { elements: ExcalidrawElement[]; appState: Partial<AppState>; files: BinaryFiles };
 
 const toEls = (e: SceneElement[]) =>
   restoreElements(e as unknown as ExcalidrawElement[], null);
+
+const toFiles = (f: SceneFiles) => f as BinaryFiles;
+const fileList = (f: SceneFiles) => Object.values(f) as BinaryFileData[];
 
 export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => void }) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
@@ -31,12 +34,17 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
   const loadedHash = useRef<string>("");
   const echo = useRef(makeEchoGuard());
   const bgRef = useRef<string>(DEFAULT_BG);
+  const filesRef = useRef<BinaryFiles>({});
   const saverRef = useRef<Saver | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [initial, setInitial] = useState<Initial | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  /** Cleared per load; see the initial fit in onChange. */
+  const didFit = useRef(false);
+  const [framed, setFramed] = useState(false);
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -44,14 +52,21 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   };
 
-  function applyExternal(text: string) {
+  /** Adopt an on-disk scene. Returns false — without claiming the content as
+   *  loaded — on a parse failure or before the canvas has mounted, so a watcher
+   *  event landing mid-mount can't leave the guard believing stale content is
+   *  current. */
+  function applyExternal(text: string): boolean {
     const r = parseScene(text);
-    if (!r.ok) { setError(r.error); return; }
+    if (!r.ok) { setError(r.error); return false; }
+    const api = apiRef.current;
+    if (!api) return false;
     setError(null);
     loadedHash.current = hashText(text);
     bgRef.current = r.viewBackgroundColor;
-    const api = apiRef.current;
-    if (api) applyExternalScene(api, toEls(r.elements), r.viewBackgroundColor);
+    filesRef.current = toFiles(r.files);
+    applyExternalScene(api, toEls(r.elements), r.viewBackgroundColor, fileList(r.files));
+    return true;
   }
 
   /** Saver write-through: skips no-ops, yields to newer on-disk agent edits,
@@ -63,17 +78,19 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     if (hashText(text) === loadedHash.current) return;
     const onDisk = await readDesignFile(path).catch(() => null);
     if (onDisk !== null && hashText(onDisk) !== loadedHash.current && !echo.current.isOwnEcho(onDisk)) {
-      applyExternal(onDisk);
-      flash("reloaded — agent updated this UI");
+      if (applyExternal(onDisk)) flash("reloaded — agent updated this UI");
       return;
     }
     echo.current.markWritten(text);
-    loadedHash.current = hashText(text);
     try {
       await writeDesignFile(path, text);
+      // Only now does loadedHash describe what is actually on disk. Claiming it
+      // before the write lands opens a window where the watcher event for the
+      // *previous* write reads the older content, sees a hash it doesn't
+      // recognise, and reverts the canvas as if an agent had edited it.
+      loadedHash.current = hashText(text);
       setError(null);
     } catch (e) {
-      loadedHash.current = ""; // the write didn't land; don't pretend it did
       setError(String(e));
       throw e;
     }
@@ -98,7 +115,11 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       if (!r.ok) { setError(r.error); return; }
       loadedHash.current = hashText(text);
       bgRef.current = r.viewBackgroundColor;
+      filesRef.current = toFiles(r.files);
+      didFit.current = false;
+      setFramed(false);
       setInitial({
+        files: toFiles(r.files),
         elements: toEls(r.elements),
         appState: {
           viewBackgroundColor: r.viewBackgroundColor,
@@ -114,8 +135,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
         if (t === null || cancelled) return;
         if (echo.current.isOwnEcho(t)) return;
         if (hashText(t) === loadedHash.current) return;
-        applyExternal(t);
-        flash("reloaded — agent updated this UI");
+        if (applyExternal(t)) flash("reloaded — agent updated this UI");
       });
       if (cancelled) un(); else stop = un;
     })();
@@ -127,7 +147,7 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       void saver.flush();
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
-  }, [wallId]);
+  }, [wallId, reloadKey]);
 
   // Capture phase + stopPropagation keeps Excalidraw's own "?" help dialog
   // closed; typing targets are exempt.
@@ -153,8 +173,22 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  function onChange(els: readonly ExcalidrawElement[], appState: AppState) {
+  function onChange(els: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) {
     bgRef.current = appState.viewBackgroundColor ?? DEFAULT_BG;
+    filesRef.current = files;
+    // The design file carries no camera, so Excalidraw always opens at the
+    // scene origin at 100% — a design drawn anywhere else was off-screen every
+    // time the page was reopened. Frame it once per load, and keep the canvas
+    // hidden until that lands (see .is-framing) so the design never appears
+    // unfitted and then snaps. It waits for a measured viewport because
+    // fitting earlier frames against Excalidraw's pre-measurement window size
+    // rather than the canvas column.
+    if (!didFit.current && appState.width > 0) {
+      didFit.current = true;
+      const api = apiRef.current;
+      if (api && els.length) fitAll(api, { animate: false });
+      setFramed(true);
+    }
     storeRef.current.set({
       elements: els as unknown as readonly StoreElement[],
       selectedIds: appState.selectedElementIds as Record<string, boolean>,
@@ -168,7 +202,11 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
     });
     // serialization happens at debounce-fire time, not per frame
     saverRef.current?.schedule(() =>
-      serializeScene(storeRef.current.get().elements as unknown as SceneElement[], bgRef.current),
+      serializeScene(
+        storeRef.current.get().elements as unknown as SceneElement[],
+        bgRef.current,
+        filesRef.current,
+      ),
     );
   }
 
@@ -189,8 +227,22 @@ export function DesignPage({ wallId, onBack }: { wallId: string; onBack: () => v
       <DesignTopBar store={storeRef.current} apiRef={apiRef} onBack={handleBack} onReference={() => void reference()} />
       <DesignLeftBar store={storeRef.current} apiRef={apiRef} />
 
-      <div className="design-canvas">
-        {error && <div className="design-error">{error}</div>}
+      <div className={initial && !framed ? "design-canvas is-framing" : "design-canvas"}>
+        {error && (
+          <div className="design-error">
+            <span>{error}</span>
+            {/* Without the canvas mounted there is nothing else to act on — an
+                agent mid-write is the usual cause, so offer a re-read. */}
+            {!initial && (
+              <button
+                className="design-error-retry"
+                onClick={() => { setError(null); setReloadKey((k) => k + 1); }}
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        )}
         {initial && (
           <Excalidraw
             excalidrawAPI={(api) => { apiRef.current = api; }}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  createDesignStore, EMPTY_SNAPSHOT, selectLayers, layersEqual,
+  createDesignStore, EMPTY_SNAPSHOT, selectLayerTree, layerTreeEqual,
   selectSelection, selectionEqual, selectSnapOn,
   type DesignSnapshot, type StoreElement,
 } from "./designStore";
@@ -36,42 +36,50 @@ describe("createDesignStore", () => {
   });
 });
 
-describe("selectLayers", () => {
+describe("selectLayerTree", () => {
   it("reverses element order (top of stack first) and skips deleted", () => {
     const s = snap({
       elements: [el({ id: "a" }), el({ id: "b" }), el({ id: "c", isDeleted: true })],
     });
-    expect(selectLayers(s).map((r) => r.id)).toEqual(["b", "a"]);
+    expect(selectLayerTree(s).map((r) => r.refId)).toEqual(["b", "a"]);
   });
   it("marks selection, lock, and hide state", () => {
     const s = snap({
       elements: [el({ id: "a", locked: true, customData: { vsHidden: true } })],
       selectedIds: { a: true },
     });
-    const [row] = selectLayers(s);
+    const [row] = selectLayerTree(s);
     expect(row.selected).toBe(true);
     expect(row.locked).toBe(true);
     expect(row.hidden).toBe(true);
   });
   it("labels text elements with their content", () => {
     const s = snap({ elements: [el({ id: "t", type: "text", text: "Hi" })] });
-    expect(selectLayers(s)[0].label).toBe('"Hi"');
+    expect(selectLayerTree(s)[0].label).toBe('"Hi"');
+  });
+  it("nests what was drawn inside a frame under it", () => {
+    const s = snap({
+      elements: [el({ id: "f", type: "frame", name: "iPhone" }), el({ id: "a", frameId: "f" })],
+    });
+    const tree = selectLayerTree(s);
+    expect(tree.map((r) => r.refId)).toEqual(["f"]);
+    expect(tree[0].children.map((r) => r.refId)).toEqual(["a"]);
   });
 });
 
-describe("layersEqual", () => {
+describe("layerTreeEqual", () => {
   const s = snap({ elements: [el({ id: "a" }), el({ id: "b" })] });
   it("is true for equivalent rows (pure drag does not re-render layers)", () => {
     const moved = snap({ elements: [el({ id: "a", x: 500 }), el({ id: "b", x: 900 })] });
-    expect(layersEqual(selectLayers(s), selectLayers(moved))).toBe(true);
+    expect(layerTreeEqual(selectLayerTree(s), selectLayerTree(moved))).toBe(true);
   });
   it("is false when order changes", () => {
     const reordered = snap({ elements: [el({ id: "b" }), el({ id: "a" })] });
-    expect(layersEqual(selectLayers(s), selectLayers(reordered))).toBe(false);
+    expect(layerTreeEqual(selectLayerTree(s), selectLayerTree(reordered))).toBe(false);
   });
   it("is false when selection changes", () => {
     const sel = snap({ elements: [el({ id: "a" }), el({ id: "b" })], selectedIds: { a: true } });
-    expect(layersEqual(selectLayers(s), selectLayers(sel))).toBe(false);
+    expect(layerTreeEqual(selectLayerTree(s), selectLayerTree(sel))).toBe(false);
   });
 });
 

@@ -53,6 +53,11 @@ describe("ensureDesignFile", () => {
     await ensureDesignFile(path);
     expect(mocked.writeDesignFile).not.toHaveBeenCalled();
   });
+  it("reseeds a blank file left behind by an interrupted write", async () => {
+    mocked.readDesignFile.mockResolvedValue("  \n");
+    await ensureDesignFile(path);
+    expect(mocked.writeDesignFile).toHaveBeenCalledWith(path, emptySceneJson());
+  });
 });
 
 describe("formatReference", () => {

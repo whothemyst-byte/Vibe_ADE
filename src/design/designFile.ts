@@ -18,10 +18,12 @@ export async function resolveDesignPath(wallId: string): Promise<string | null> 
 }
 
 /** Ensure the file (and its parent `designs/` dir) exists before watching it.
- *  writeDesignFile creates parent directories. */
+ *  writeDesignFile creates parent directories. A blank file counts as missing:
+ *  an interrupted write leaves zero bytes, which would otherwise fail to parse
+ *  forever with no content actually at risk. */
 export async function ensureDesignFile(path: string): Promise<void> {
-  const exists = await readDesignFile(path).then(() => true).catch(() => false);
-  if (!exists) await writeDesignFile(path, emptySceneJson());
+  const current = await readDesignFile(path).catch(() => null);
+  if (current === null || current.trim() === "") await writeDesignFile(path, emptySceneJson());
 }
 
 /** The text inserted into a terminal to point an agent at the design file.
