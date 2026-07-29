@@ -102,8 +102,12 @@
   position: absolute; top: 0; left: 0; will-change: transform;
   border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent);
   border-radius: var(--radius-sm); overflow: hidden;
-  background: rgba(19, 18, 16, .94); backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  /* Glass, not a slab: the wall shows through blurred behind the whole card,
+     text included. xterm cooperates (allowTransparency + a transparent theme
+     background + the .xterm-viewport override below), so this alpha is what
+     the terminal's own backdrop actually is. */
+  background: rgba(18, 17, 15, .28); backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
   box-shadow: 0 16px 40px -18px rgba(0, 0, 0, .7);
   /* transform/size glide the grid re-flow; drag suppresses it inline. */
   transition: border-color .14s, box-shadow .14s,
@@ -131,17 +135,25 @@
   50% { box-shadow: 0 0 0 5px transparent; }
 }
 /* Working agents glow: tier border + soft halo, slow breathe. Focus ring
-   (:focus-within) still wins visually — it stacks its ring on top. */
+   (:focus-within) still wins visually — it stacks its ring on top.
+
+   Every rule below MUST keep `card-fade-in .22s ease` as the FIRST entry of the
+   animation list. CSS animations are matched to the previous list by index: an
+   entry whose name is unchanged at its index keeps running (here: stays
+   finished), while a changed one is cancelled and started over. Dropping the
+   fade to write `animation: working-glow ...` re-ran it from opacity 0, so the
+   whole card blinked every time an agent went idle — which, at IDLE_AFTER_MS
+   (2.5s), was every few seconds. Appending/removing only index 1 is silent. */
 .terminal-window[data-working="true"] {
   border-color: color-mix(in srgb, var(--tier) 80%, transparent);
-  animation: working-glow 3s ease-in-out infinite;
+  animation: card-fade-in .22s ease, working-glow 3s ease-in-out infinite;
 }
 @keyframes working-glow {
   0%, 100% { box-shadow: 0 0 14px color-mix(in srgb, var(--tier) 22%, transparent), var(--shadow); }
   50% { box-shadow: 0 0 26px color-mix(in srgb, var(--tier) 38%, transparent), var(--shadow); }
 }
 .terminal-window[data-working="true"]:focus-within {
-  animation: none;
+  animation: card-fade-in .22s ease; /* glow off (see above); index 0 must stay */
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--tier) 20%, transparent),
     0 0 18px color-mix(in srgb, var(--tier) 28%, transparent), var(--shadow);
 }
@@ -193,19 +205,23 @@
 }
 
 /* ---- Browser card ---- */
+/* The browser runs a taller header + bigger title than the other cards so the
+   page title and typed URL stay readable at wall zoom. */
+.browser-window .terminal-title { font-size: 14px; }
+.browser-window .terminal-name { font-size: 17px; }
 .browser-navrow {
   position: absolute; left: 0; right: 0;
-  display: flex; align-items: center; gap: 5px;
-  padding: 0 8px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 10px; box-sizing: border-box;
   background: rgba(0, 0, 0, .16); border-bottom: 1px solid rgba(243, 238, 229, .06);
   pointer-events: all;
 }
 .browser-urlbar {
   flex: 1; min-width: 0;
   background: rgba(0, 0, 0, .35);
-  border: 1px solid var(--rule); border-radius: 6px;
-  color: var(--text); font: 500 13px var(--font-mono);
-  padding: 4px 10px;
+  border: 1px solid var(--rule); border-radius: 7px;
+  color: var(--text); font: 500 15px var(--font-mono);
+  padding: 6px 12px;
 }
 .browser-urlbar:focus { outline: none; border-color: var(--accent); }
 .browser-urlbar.browser-error { border-color: var(--danger); color: var(--danger); }
@@ -215,7 +231,7 @@
   color: var(--text-faint); padding: 3px 4px; border-radius: 6px;
   transition: color .14s;
 }
-.browser-nav-btn svg { width: 15px; height: 15px; display: block; }
+.browser-nav-btn svg { width: 18px; height: 18px; display: block; }
 .browser-nav-btn:hover { color: var(--text); }
 .browser-body-hint {
   position: absolute; inset: 0; display: grid; place-items: center;
@@ -393,13 +409,20 @@
   ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 1ms; }
 }
 .start-page {
-  position: fixed; inset: 0; overflow: auto; padding: 28px 32px;
+  position: fixed; inset: 0; overflow: auto; padding: 28px 32px 68px;
   background: radial-gradient(1100px 500px at 18% -8%, #1b1813 0%, var(--bg) 55%);
   color: var(--text); font-family: var(--font-ui);
 }
+/* Caps the reading width so a wide window doesn't strand the header actions
+   half a screen away from the cards. */
+.start-inner { max-width: 1100px; margin: 0 auto; }
 .start-page.drag-over { outline: 2px dashed var(--accent); outline-offset: -10px; }
-.start-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
+.start-head {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+  margin-bottom: 22px;
+}
 .start-headings { display: flex; flex-direction: column; gap: 2px; }
+.start-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .start-title { font-family: var(--font-display); font-size: 27px; font-weight: 400; line-height: 1; margin: 0; }
 .start-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); letter-spacing: .02em; }
 .start-tasks {
@@ -442,6 +465,22 @@
 }
 .new-canvas:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .new-plus { font-size: 20px; }
+/* Settings dock — same glass-island language as .tools-island, pinned to the
+   bottom-right so it stays put while the space grid scrolls. */
+.start-dock {
+  position: fixed; right: 18px; bottom: 16px; z-index: 5;
+  display: flex; align-items: center; gap: 3px;
+  background: var(--glass); backdrop-filter: blur(10px);
+  border: 1px solid var(--rule); border-radius: var(--radius);
+  padding: 4px; box-shadow: var(--shadow);
+}
+.start-dock-key {
+  width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); color: var(--text-muted); border: none; cursor: pointer;
+  border-radius: var(--radius-sm); transition: background .14s, color .14s, transform .12s;
+}
+.start-dock-key:hover { color: var(--text); transform: translateY(-1px); }
+.start-dock-key svg { display: block; width: 14px; height: 14px; }
 /* Background sits behind everything in the wall (negative z keeps it under the
    Excalidraw canvas regardless of Excalidraw's own positioning). Do NOT add a
    `.wall-root > :not(.wall-bg)` rule — its specificity overrides the absolute
@@ -731,16 +770,6 @@
 .teams-loading,
 .teams-placeholder { color: var(--text-muted); padding: 16px; font-size: 14px; }
 
-.teams-body {
-  max-width: 720px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 28px 20px 60px;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
 /* org core "sun" */
 .teams-core {
   display: grid;
@@ -757,12 +786,7 @@
   overflow: hidden;
 }
 .teams-core img { width: 100%; height: 100%; object-fit: cover; }
-.teams-core-lg { width: 84px; height: 84px; font-size: 34px; }
 
-.teams-hero { display: flex; align-items: center; gap: 18px; }
-.teams-hero-meta { display: flex; flex-direction: column; gap: 4px; }
-.teams-hero-meta h1 { margin: 0; font-size: 26px; font-weight: 600; }
-.teams-hero-sub { color: var(--text-muted); font-size: 13px; }
 .teams-code {
   margin-top: 6px;
   align-self: flex-start;
@@ -775,14 +799,6 @@
   font-size: 12px;
 }
 .teams-code strong { color: var(--accent); letter-spacing: 1px; }
-
-.teams-panel {
-  background: var(--surface-2);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-}
-.teams-panel-title { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
 
 .teams-members, .teams-invites { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .teams-member, .teams-invite { display: flex; align-items: center; gap: 10px; }
@@ -878,15 +894,6 @@
   border-radius: var(--radius-sm); cursor: pointer; pointer-events: auto;
 }
 
-.teams-caption { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.teams-caption h1 { margin: 0; font-size: 24px; font-weight: 600; }
-.teams-status-bar { display: flex; gap: 8px; align-items: center; justify-content: center; }
-.teams-emoji-input {
-  width: 48px; text-align: center; background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 6px; font: inherit;
-}
-.teams-status-bar .teams-input { max-width: 320px; flex: initial; }
-
 .teams-projects { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .teams-project { display: flex; align-items: center; gap: 10px; }
 .teams-proj-mono {
@@ -938,6 +945,10 @@
 .design-tool-sep { width: 18px; height: 1px; background: var(--rule); margin: 2px 0; flex: none; }
 
 .design-canvas  { grid-area: canvas; position: relative; overflow: hidden; }
+/* Held back for the few frames between Excalidraw mounting and DesignPage
+   framing the scene, so the design never appears unfitted first. visibility
+   (not display) so Excalidraw still measures its container. */
+.design-canvas.is-framing .excalidraw-container { visibility: hidden; }
 
 /* Hide Excalidraw stock chrome inside the design canvas */
 .design-canvas .App-toolbar,
@@ -969,6 +980,18 @@
 .design-color-swatch input[type="color"] { width: 200%; height: 200%; border: none; padding: 0; transform: translate(-25%,-25%); cursor: pointer; }
 .design-prop-opacity { font: 500 10px var(--font-mono); color: var(--text-faint); min-width: 30px; text-align: right; }
 
+/* Device artboard picker, shown in place of the inspector while the frame tool
+   is active. Capped + scrollable so it never squeezes out the layers list. */
+.design-frame-presets { display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; }
+.design-frame-hint { margin: 0; color: var(--text-faint); font: 500 10.5px var(--font-ui); line-height: 1.45; }
+.design-frame-group { display: flex; flex-direction: column; gap: 2px; }
+.design-frame-group-label { font: 500 9.5px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); padding: 4px 2px 2px; }
+.design-frame-preset { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; background: none; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; cursor: pointer; text-align: left; transition: background .12s, border-color .12s; }
+.design-frame-preset:hover { background: var(--accent-soft); border-color: var(--rule); }
+.design-frame-preset-name { font: 500 11.5px var(--font-ui); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.design-frame-preset:hover .design-frame-preset-name { color: var(--text); }
+.design-frame-preset-size { font: 500 10px var(--font-mono); color: var(--text-faint); flex: none; }
+
 .design-layers { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .design-layers-head { padding: 8px 12px 4px; font: 500 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); flex: none; }
 .design-layers-list { flex: 1; overflow-y: auto; padding: 2px 0 6px; }
@@ -977,6 +1000,12 @@
 .design-layer-row.ds-selected { border-left-color: var(--accent); color: var(--text); background: var(--accent-soft); }
 .design-layer-icon { flex: none; display: inline-flex; color: var(--text-faint); }
 .design-layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Frames and groups read as containers, the way Figma weights them. */
+.design-layer-name.parent { font-weight: 600; color: var(--text); }
+.design-layer-twisty { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; padding: 0; border: none; background: transparent; color: var(--text-faint); cursor: pointer; border-radius: 3px; transition: transform .12s, color .12s; }
+.design-layer-twisty.open { transform: rotate(90deg); }
+.design-layer-twisty:hover { color: var(--text); }
+.design-layer-twisty-gap { flex: none; width: 12px; }
 .design-layer-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
 .design-layer-row:hover .design-layer-actions { opacity: 1; }
 .design-layer-row.ds-selected .design-layer-actions { opacity: 1; }
@@ -1009,7 +1038,9 @@ button.design-zoom-pct:hover { background: rgba(243,238,229,.06); color: var(--t
 .design-shortcuts-keys { font: 500 11px var(--font-mono); color: var(--text); white-space: nowrap; }
 .design-shortcuts-what { font: 400 11.5px var(--font-ui); color: var(--text-muted); }
 
-.design-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 24px; text-align: center; color: var(--danger); font: 500 13px var(--font-mono); }
+.design-error { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 14px; padding: 0 24px; text-align: center; color: var(--danger); font: 500 13px var(--font-mono); }
+.design-error-retry { background: var(--glass); border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 6px 14px; color: var(--text); font: 500 12px var(--font-ui); cursor: pointer; }
+.design-error-retry:hover { border-color: var(--accent); color: var(--accent); }
 .design-toast { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); background: var(--glass); border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 7px 14px; color: var(--text); font: 500 12px var(--font-ui); box-shadow: var(--shadow); z-index: 30; white-space: nowrap; }
 .mycard-photo-actions { display: flex; align-items: center; gap: 8px; }
 
@@ -1067,7 +1098,7 @@ html.has-custom-titlebar .cnvs-toolbar { top: calc(var(--titlebar-h) + 12px); }
 html.has-custom-titlebar .wall-shared-badge { top: calc(var(--titlebar-h) + 12px); }
 html.has-custom-titlebar .design-page { padding-top: var(--titlebar-h); }
 html.has-custom-titlebar .tb-columns { padding-top: calc(var(--titlebar-h) + 60px); }
-html.has-custom-titlebar .start-page { padding-top: calc(var(--titlebar-h) + 8px); }
+html.has-custom-titlebar .start-page { padding-top: calc(var(--titlebar-h) + 28px); }
 
 /* ---- Command palette (Ctrl+K) ---- */
 .palette-backdrop {
