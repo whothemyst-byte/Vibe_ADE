@@ -142,7 +142,6 @@ export const MusicIcon = () => (
 );
 export const PlayIcon = () => <Svg><path d="m7 4 13 8-13 8z" /></Svg>;
 export const PauseIcon = () => <Svg><path d="M7 4h3v16H7z" /><path d="M14 4h3v16h-3z" /></Svg>;
-export const NextIcon = () => <Svg><path d="m5 4 10 8-10 8z" /><path d="M19 4v16" /></Svg>;
 export const VolumeIcon = () => (
   <Svg><path d="M11 5 6 9H2v6h4l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /></Svg>
 );

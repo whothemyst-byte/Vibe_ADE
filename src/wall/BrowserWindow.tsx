@@ -8,7 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
-import { HEADER_H, worldRectToScreen, type Camera } from "./transform";
+import { worldRectToScreen, type Camera } from "./transform";
 import { useCardStore, type BrowserCard } from "./cardStore";
 import { BackIcon, CloseIcon, GlobeIcon, ReloadIcon } from "./icons";
 import { nearestSlotIndex } from "./gridLayout";
@@ -18,9 +18,11 @@ import { BROWSER_ID, closeBrowser, openBrowser } from "./browserActions";
 import * as client from "../browser/client";
 
 /** The browser card's chrome is two rows: the title bar plus a nav/url row
-    (CNVS-style); the native webview starts below both. */
-const NAV_H = 30;
-const CHROME_H = HEADER_H + NAV_H;
+    (CNVS-style); the native webview starts below both. Both rows run taller
+    than the shared card header so the title and typed URL stay readable. */
+const BROWSER_HEADER_H = 46;
+const NAV_H = 42;
+const CHROME_H = BROWSER_HEADER_H + NAV_H;
 
 function BrowserWindowInner({
   card,
@@ -72,7 +74,11 @@ function BrowserWindowInner({
       void client
         .browserSetRect({ x: body.left, y: body.top, w: body.width, h: body.height }, z)
         .then(() => client.browserSetVisible(visible))
-        .catch(() => {}); // self-corrects on the next camera tick
+        // A send can fail while the webview is still being created; forget it
+        // so the post-open sync (or the next camera tick) retries instead of
+        // treating the state as already delivered — that left the webview
+        // permanently hidden when creation outlasted the open glide.
+        .catch(() => { lastSent = ""; });
     };
     const schedule = () => {
       if (raf) return;
@@ -204,11 +210,11 @@ function BrowserWindowInner({
   return (
     <div
       ref={wrapRef}
-      className="terminal-window"
+      className="terminal-window browser-window"
       data-card-id={card.id}
       style={{ transform: `translate(${card.x}px, ${card.y}px)`, width: card.w, height: card.h, "--tier": "var(--info)" } as CSSProperties}
     >
-      <div className="terminal-header" style={{ height: HEADER_H }} onPointerDown={beginDrag}>
+      <div className="terminal-header" style={{ height: BROWSER_HEADER_H }} onPointerDown={beginDrag}>
         <span className="terminal-status-dot" />
         <span className="terminal-glyph"><GlobeIcon /></span>
         <span className="terminal-title"><span className="terminal-name">Browser</span> &middot; {title}</span>
@@ -216,7 +222,7 @@ function BrowserWindowInner({
           <CloseIcon />
         </button>
       </div>
-      <div className="browser-navrow" style={{ top: HEADER_H, height: NAV_H }}>
+      <div className="browser-navrow" style={{ top: BROWSER_HEADER_H, height: NAV_H }}>
         <button
           className="browser-nav-btn"
           title="Back"

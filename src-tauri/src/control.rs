@@ -55,6 +55,25 @@ fn request_line(head: &str) -> Option<(String, String)> {
     Some((it.next()?.to_string(), it.next()?.to_string()))
 }
 
+/// Constant-time byte comparison. The vibectl token authenticates every
+/// canvas-control request, so a short-circuiting `==` would leak it one byte at
+/// a time through response timing. Length is not secret (the token is always 64
+/// hex chars), so returning early on a length mismatch is fine.
+///
+/// `black_box` stops LLVM from rewriting the fold back into a short-circuiting
+/// compare. `subtle::ConstantTimeEq` is the usual crate for this; it isn't worth
+/// a dependency for one comparison.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b) {
+        diff |= x ^ y;
+    }
+    std::hint::black_box(diff) == 0
+}
+
 /// Case-insensitive header lookup on the raw head block.
 pub fn header_value(head: &str, name: &str) -> Option<String> {
     head.lines().skip(1).find_map(|line| {
@@ -82,7 +101,8 @@ pub fn process_request(
     token: &str,
 ) -> Result<(String, serde_json::Value), (u16, String)> {
     let (method, path) = request_line(head).ok_or((400, error_body("malformed request")))?;
-    if header_value(head, "x-vibe-token").as_deref() != Some(token) {
+    let presented = header_value(head, "x-vibe-token").unwrap_or_default();
+    if !constant_time_eq(presented.as_bytes(), token.as_bytes()) {
         return Err((401, error_body("missing or invalid token")));
     }
     let verb = route(&method, &path).ok_or((404, error_body("unknown route")))?;
@@ -408,6 +428,16 @@ mod tests {
         assert_eq!(header_value(&h, "x-vibe-token").as_deref(), Some("abc"));
         assert_eq!(header_value(&h, "CONTENT-LENGTH").as_deref(), Some("5"));
         assert_eq!(header_value(&h, "missing"), None);
+    }
+
+    #[test]
+    fn constant_time_eq_accepts_only_identical_bytes() {
+        assert!(constant_time_eq(b"secret", b"secret"));
+        assert!(constant_time_eq(b"", b""));
+        assert!(!constant_time_eq(b"secret", b"secreT")); // last byte differs
+        assert!(!constant_time_eq(b"secret", b"Secret")); // first byte differs
+        assert!(!constant_time_eq(b"secret", b"secre")); // shorter
+        assert!(!constant_time_eq(b"secret", b"secrets")); // longer
     }
 
     #[test]

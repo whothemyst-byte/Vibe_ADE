@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { TOOLS, type ToolDef } from "./tools";
+import { TOOL_ICONS } from "./icons";
 
 describe("TOOLS", () => {
   it("lists the drawing tools in island order", () => {
@@ -9,11 +10,11 @@ describe("TOOLS", () => {
     ]);
   });
 
-  it("gives every tool a label, a single-key shortcut, and a glyph", () => {
+  it("gives every tool a label, a single-key shortcut, and an icon", () => {
     for (const t of TOOLS as ToolDef[]) {
       expect(t.label.length).toBeGreaterThan(0);
       expect(t.shortcut).toMatch(/^[a-z0-9]$/i);
-      expect(t.glyph.length).toBeGreaterThan(0);
+      expect(TOOL_ICONS[t.type]).toBeTypeOf("function");
     }
   });
 

@@ -21,6 +21,9 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
   const [volume, setVolume] = useState(0.7);
   const [urlDraft, setUrlDraft] = useState("");
   const station = STATIONS.find((s) => s.id === card.stationId);
+  // A known station streams from the current dial's URL, not the card's saved
+  // copy — walls persisted with a since-fixed station URL heal on load.
+  const src = station ? station.url : card.url;
   // A pasted YouTube link can't feed <audio>; it plays in an embedded player
   // instead, driven over the iframe API (enablejsapi postMessage commands).
   const embed = station ? null : youtubeEmbedUrl(card.url);
@@ -42,10 +45,10 @@ function MusicWindowInner({ card, cameraRef }: { card: MusicCard; cameraRef: Ref
     if (!el) return;
     if (embed) { el.pause(); el.removeAttribute("src"); setPlaying(true); return; } // iframe autoplays
     const wasPlaying = playing;
-    el.src = card.url;
+    el.src = src;
     if (wasPlaying) void el.play().catch(() => setPlaying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card.url]);
+  }, [src]);
 
   useEffect(() => {
     if (embed) { ytCmd("setVolume", [Math.round(volume * 100)]); return; }

@@ -1,5 +1,5 @@
 import { useCardStore, type MusicCard } from "./cardStore";
-import { CELL } from "./gridLayout";
+import { PENDING_RECT } from "./gridLayout";
 import { removeCardWithFade } from "./removeCard";
 import { STATIONS, findStation, nextStation, type Station } from "./stations";
 
@@ -24,7 +24,7 @@ export function openMusic(phrase?: string): string {
     id: MUSIC_ID,
     stationId: station.id,
     url: station.url,
-    x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
+    ...PENDING_RECT,
   });
   return `Opened the music player on ${station.name} (${station.mood}).`;
 }
@@ -55,15 +55,43 @@ export function closeMusic(): string {
 /** The mounted MusicWindow's transport; null when no card is mounted. */
 type Player = { play: () => void; pause: () => void };
 let player: Player | null = null;
-export function registerPlayer(p: Player | null): void { player = p; }
+let waiting: ((p: Player) => void)[] = [];
+
+/** MusicWindow publishes its transport here on mount, and clears it on unmount. */
+export function registerPlayer(p: Player | null): void {
+  player = p;
+  if (!p) return;
+  const ready = waiting;
+  waiting = [];
+  for (const resolve of ready) resolve(p);
+}
+
+/** Failsafe only: openMusic mounts MusicWindow on the next render, so this
+    fires solely if the card never mounts (nothing to wake us). */
+const PLAYER_MOUNT_TIMEOUT_MS = 2000;
+
+/** Resolves the transport as soon as MusicWindow registers it, or null if the
+    card never mounted. Callers must not race a render — waiting on the
+    registration is what makes "play music" deterministic. */
+function whenPlayerReady(): Promise<Player | null> {
+  if (player) return Promise.resolve(player);
+  return new Promise((resolve) => {
+    const onReady = (p: Player) => { clearTimeout(timer); resolve(p); };
+    const timer = setTimeout(() => {
+      waiting = waiting.filter((w) => w !== onReady);
+      resolve(null);
+    }, PLAYER_MOUNT_TIMEOUT_MS);
+    waiting.push(onReady);
+  });
+}
 
 /** Voice entry point: open (or retune) the card, then start playback once the
     window has mounted and registered its transport. */
 export async function playMusic(phrase?: string): Promise<string> {
   const opened = openMusic(phrase);
-  for (let i = 0; i < 12 && !player; i++) await new Promise((r) => setTimeout(r, 50));
-  if (!player) return `${opened} Press play to start.`;
-  player.play();
+  const ready = await whenPlayerReady();
+  if (!ready) return `${opened} Press play to start.`;
+  ready.play();
   return opened.replace(/^(Opened the music player on|Tuned to)/, "Playing");
 }
 

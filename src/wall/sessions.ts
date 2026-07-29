@@ -208,6 +208,25 @@ export function sendToSession(id: string, text: string, submit: boolean): boolea
   return true;
 }
 
+/**
+ * The last `maxLines` rows of a terminal's buffer as plain text, or null if
+ * the session isn't live. Reads xterm's own buffer rather than tapping the PTY
+ * stream: the buffer is already the *rendered* screen, so a TUI agent's
+ * redraws collapse to what is actually on it. Rows above the viewport come
+ * from scrollback, so this still sees output that has scrolled past.
+ */
+export function readSession(id: string, maxLines: number): string | null {
+  const s = sessions.get(id);
+  if (!s) return null;
+  const buf = s.term.buffer.active;
+  const end = buf.baseY + s.term.rows;
+  const lines: string[] = [];
+  for (let i = Math.max(0, end - maxLines); i < end; i++) {
+    lines.push(buf.getLine(i)?.translateToString(true) ?? "");
+  }
+  return lines.join("\n");
+}
+
 /** Moves keyboard focus into a terminal's xterm so keystrokes go there. */
 export function focusSession(id: string): void {
   lastFocusedTerminalId = id;

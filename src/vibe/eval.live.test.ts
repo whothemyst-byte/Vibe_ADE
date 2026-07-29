@@ -45,13 +45,17 @@ function fakeRegistry() {
     properties: { name: { type: "string", description: "Agent name shown on the terminal" } },
     required: ["name"],
   });
-  stub("send_to_agent", "Type a prompt into an agent's terminal and submit it. Use when the user wants an agent to DO something. Pass one clear, self-contained prompt. One call per target agent.", {
+  stub("send_to_agent", "Type a prompt or shell command into a terminal on this space and press Enter. Use when the user wants an agent to DO something, or wants a command run in a terminal. Pass one clear, self-contained prompt. One call per target agent.", {
     type: "object",
     properties: {
-      agent_name: { type: "string", description: "Agent name shown on the terminal (e.g. 'Max')" },
-      prompt: { type: "string", description: "The prompt to type and submit" },
+      agent_name: {
+        type: "string",
+        description: "Agent name shown on the terminal (e.g. 'Max'). Omit only when exactly one terminal is open.",
+      },
+      prompt: { type: "string", description: "The prompt or shell command to type" },
+      submit: { type: "boolean", description: "Press Enter after typing (default true)" },
     },
-    required: ["agent_name", "prompt"],
+    required: ["prompt"],
   }, "Sent to Max.");
   stub("run_boot_recipe", "Run this space's boot recipe: replay each terminal's saved startup command (e.g. dev servers, watchers).", undefined, "Ran 1 command: npm run dev in Dev.");
   stub("apply_theme", "Apply a pre-made theme to this wall. Themes: Dusk, Paper, Forest, Ocean, Mono, Ember.", {

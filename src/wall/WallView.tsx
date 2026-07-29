@@ -14,7 +14,7 @@ import { MUSIC_ID, changeStation, closeMusic, openMusic, playMusic, stopMusic } 
 import { removeCardWithFade } from "./removeCard";
 import { browserBack, browserRead } from "../browser/client";
 import { layerTransform, type Camera } from "./transform";
-import { browserLayout, CELL, fitCamera, gridBBox, gridPositions, maximizeLayout, splitLayout } from "./gridLayout";
+import { browserLayout, CELL, fitCamera, gridBBox, gridPositions, maximizeLayout, PENDING_RECT, splitLayout } from "./gridLayout";
 import { excalidrawCamera, excalidrawViewport, type AppStateLike } from "./excalidrawCamera";
 import { loadWall, saveWall, saveThumbnail, loadIndex, saveIndex } from "../store/persistence";
 import { DEFAULT_BACKGROUND, type WallDoc, type Background } from "../store/types";
@@ -29,12 +29,13 @@ import { BootRecipe } from "./BootRecipe";
 import type { ToolDef } from "./tools";
 import { usePresetStore } from "./presetStore";
 import { pickAgentName } from "./agentNames";
-import { wasSessionDead, sendToSession, focusSession, getActivityRef } from "./sessions";
-import { resolveAgent, updatePending, type PendingPing } from "./dictation";
+import { wasSessionDead, sendToSession, focusSession, getActivityRef, readSession } from "./sessions";
+import { cleanOutput, formatTerminalRead, readLineCount } from "./terminalOutput";
+import { resolveAgent, updatePending, type AgentRef, type PendingPing } from "./dictation";
 import { speak } from "../vibe/speech";
 import { useVibeCommand } from "../vibe/commands";
 import { useVibeContext } from "../vibe/context";
-import { findPresetByPhrase } from "./presets";
+import { findPresetByPhrase, resolvePreset } from "./presets";
 import { recipeEntries, runRecipe, summarizeRun } from "./recipe";
 import { THEMES, accentForBackground, applyAccent, applyChromeInk, DEFAULT_ACCENT } from "../settings/themes";
 import { CommandPalette } from "../palette/CommandPalette";
@@ -49,6 +50,27 @@ const THUMB_INTERVAL_MS = 20_000;
 /** "Focus <agent>" zooms in until the terminal fills the screen, capped here
     so xterm text doesn't scale into a blur. */
 const FOCUS_MAX_ZOOM = 2;
+
+/**
+ * Terminal lookup shared by every vibe command that addresses one by name.
+ * An exact name wins before any substring match, so "Max" never resolves to
+ * "Maxwell" when both are open; an omitted name means "the only terminal".
+ * Returns the error string the model should see (listing what IS open) rather
+ * than a silent miss.
+ */
+function findTerminal(name: string): AgentRef | string {
+  const terminals = terminalsOf(useCardStore.getState().cards);
+  const wanted = name.trim();
+  const lower = wanted.toLowerCase();
+  const t = wanted
+    ? resolveAgent(terminals, wanted) ?? terminals.find((x) => x.name.toLowerCase().includes(lower))
+    : terminals.length === 1 ? terminals[0] : undefined;
+  if (t) return t;
+  const names = terminals.map((x) => x.name).join(", ") || "none";
+  return wanted
+    ? `Error: no terminal matches "${name}". Open terminals: ${names}.`
+    : `Error: say which terminal you mean. Open terminals: ${names}.`;
+}
 
 function applyScene(
   api: ExcalidrawImperativeAPI,
@@ -96,6 +118,15 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   }, [paletteOpen]);
   useBlocksBrowser(gearOpen);
   const pendingScene = useRef<{ elements: unknown[]; appState: AppStateLike } | null>(null);
+  const pendingCards = useRef<{ anchor: { x: number; y: number } | null; cards: Card[] } | null>(null);
+  // The wall's view can only be restored once BOTH halves are ready — see
+  // restoreView. restoreViewRef exists so the load effect can call it without
+  // taking the callback as a dependency (it would re-run the whole load).
+  const docLoaded = useRef(false);
+  const canvasLive = useRef(false);
+  const restoreViewRef = useRef<() => void>(() => {});
+  /** First layout of a mount snaps; later ones glide (see animateCamera). */
+  const firstLayout = useRef(true);
   const presets = usePresetStore((s) => s.presets);
   const [wallPath, setWallPath] = useState("");
   const sharedRef = useRef<{ orgSpaceId: string; version: number } | null>(null);
@@ -252,7 +283,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
           kind: "browser",
           id: BROWSER_ID,
           url: doc.browser.url,
-          x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
+          ...PENDING_RECT,
         });
       }
       if (doc?.music) {
@@ -262,18 +293,19 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
           id: MUSIC_ID,
           stationId: doc.music.stationId,
           url: doc.music.url,
-          x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
+          ...PENDING_RECT,
         });
       }
-      // Scene (with its saved scroll/zoom) restores BEFORE cards: setting the
-      // cards fires the layout subscriber, whose camera fit must land after
-      // the saved camera, not be clobbered by it.
+      // Scene AND cards are only parked here. restoreView() commits them
+      // together, once Excalidraw is ready to keep a camera write — cards that
+      // reach the store ahead of their camera get one frame at the default
+      // zoom first, which is the "huge, then it snaps" flash.
       pendingScene.current = doc
         ? { elements: doc.scene.elements, appState: doc.scene.appState as AppStateLike }
         : null;
-      const api = apiRef.current;
-      if (api && pendingScene.current) applyScene(api, pendingScene.current);
-      useCardStore.setState({ anchor: doc?.gridAnchor ?? null, cards });
+      pendingCards.current = { anchor: doc?.gridAnchor ?? null, cards };
+      docLoaded.current = true;
+      restoreViewRef.current();
       usePresetStore.getState().load();
       const index = await loadIndex();
       const meta = index.find((w) => w.id === wallId);
@@ -378,7 +410,8 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
    * calls this never re-fires for layout writes.
    */
   const layoutGrid = useCallback((opts?: { animate?: boolean }) => {
-    const animate = opts?.animate ?? true;
+    const animate = opts?.animate ?? !firstLayout.current;
+    firstLayout.current = false;
     const { cards, anchor, maximizedId } = useCardStore.getState();
     if (cards.length === 0) return;
     const api = apiRef.current;
@@ -476,12 +509,55 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
     return () => { window.removeEventListener("resize", onResize); cancelAnimationFrame(frame); };
   }, [layoutGrid]);
 
+  /**
+   * Puts the wall back on screen after a load: the saved camera first, then a
+   * layout pass that re-fits it to this window.
+   *
+   * Both halves have to be ready. Excalidraw finishes mounting its scene in an
+   * async pass (initializeScene) that REPLACES appState from `initialData`, so
+   * a camera written before that lands is silently dropped — and the terminal
+   * layer, which is transformed by the same camera, was then left at zoom 1
+   * with the cards at their world rects: oversized and half off-screen. Its
+   * first onChange is the earliest write that survives, so restoring waits for
+   * it (canvasLive). Re-entering a space is exactly when the doc read wins
+   * that race, which is why it only ever broke on the way back.
+   */
+  const restoreView = useCallback(() => {
+    const api = apiRef.current;
+    if (!api || !docLoaded.current || !canvasLive.current) return;
+    const scene = pendingScene.current;
+    if (scene) {
+      applyScene(api, scene);
+      applyCamera(excalidrawCamera(scene.appState));
+      pendingScene.current = null;
+    }
+    // Everything below runs in one task, so the browser paints only the end
+    // state: applyCamera updates cameraRef synchronously (only its DOM write
+    // is deferred), so the render this setState schedules already draws the
+    // layer at the fitted camera rather than at the default one.
+    const restored = pendingCards.current;
+    if (restored) {
+      pendingCards.current = null;
+      useCardStore.setState({ anchor: restored.anchor, cards: restored.cards });
+    }
+    // Fits the camera to this window's size, so the saved camera above only
+    // survives on a wall with no cards to frame.
+    layoutGrid({ animate: false });
+  }, [applyCamera, layoutGrid]);
+  restoreViewRef.current = restoreView;
+
   const onChange = useCallback((_els: readonly unknown[], appState: AppStateLike) => {
     const tool = (appState as { activeTool?: { type?: string } }).activeTool?.type;
     if (tool) setActiveType(tool);
+    // Excalidraw only emits onChange once it is past initializeScene.
+    if (!canvasLive.current) {
+      canvasLive.current = true;
+      restoreView();
+      return;
+    }
     applyCamera(excalidrawCamera(appState));
     scheduleSave();
-  }, [applyCamera, scheduleSave]);
+  }, [applyCamera, restoreView, scheduleSave]);
 
   const addTerminal = async (presetId: string, run?: string) => {
     // Default cwd to the wall folder. If the path hasn't resolved yet (click during
@@ -492,7 +568,7 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       kind: "terminal",
       id: crypto.randomUUID(),
       name: pickAgentName(terminalsOf(useCardStore.getState().cards).map((t) => t.name)),
-      x: 0, y: 0, w: CELL.w, h: CELL.h, // placeholder; the grid layout positions it
+      ...PENDING_RECT,
       presetId, cwd, command: run, run,
     });
   };
@@ -504,6 +580,15 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   // The accent is per-wall; restore the default amber when leaving the wall so
   // the start page / task board never inherit a space's accent.
   useEffect(() => () => { applyAccent(DEFAULT_ACCENT); applyChromeInk(null); }, []);
+
+  // The card store is a module singleton, so a space's cards would otherwise
+  // outlive it: coming back rendered them against a freshly reset camera
+  // (zoom 1) before the doc had loaded, and the layout subscriber — which
+  // compares card ids against what it saw on mount — read the leftovers as
+  // "nothing changed" and skipped the fit entirely.
+  useEffect(() => () => {
+    useCardStore.setState({ cards: [], anchor: null, maximizedId: null });
+  }, []);
 
   const exit = () => {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
@@ -586,13 +671,8 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       required: ["name"],
     },
     run: (args) => {
-      const wanted = String(args.name ?? "").toLowerCase();
-      const terminals = terminalsOf(useCardStore.getState().cards);
-      const t = terminals.find((t) => t.name.toLowerCase().includes(wanted));
-      if (!t) {
-        const names = terminals.map((t) => t.name).join(", ") || "none";
-        return `Error: no terminal matches "${args.name}". Open terminals: ${names}.`;
-      }
+      const t = findTerminal(String(args.name ?? ""));
+      if (typeof t === "string") return t;
       removeCardWithFade(t.id);
       return `Closed terminal ${t.name}.`;
     },
@@ -601,36 +681,45 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
   // Prompts dictated to agents whose completion should be announced.
   const pendingPings = useRef<PendingPing[]>([]);
 
+  // The single "type into a terminal" tool. Agents and plain shells are the
+  // same target — a second tool for shell commands only made the model pick
+  // between two descriptions of one capability.
   useVibeCommand({
     name: "send_to_agent",
     description:
-      "Type a prompt into an agent's terminal and submit it (press Enter). Use when the user wants an agent to DO something ('ask Max to run the tests'). Pass the user's request as one clear, self-contained prompt. One call per target agent; never invent tasks the user didn't ask for.",
+      "Type a prompt or shell command into a terminal on this space and press Enter. Use when the user wants an agent to DO something ('ask Max to run the tests') or wants a command run in a terminal. Pass the user's request as one clear, self-contained prompt. One call per target agent; never invent tasks the user didn't ask for.",
     parameters: {
       type: "object",
       properties: {
-        agent_name: { type: "string", description: "Agent name shown on the terminal (e.g. 'Max')" },
-        prompt: { type: "string", description: "The prompt to type and submit" },
+        agent_name: {
+          type: "string",
+          description: "Agent name shown on the terminal (e.g. 'Max'). Omit only when exactly one terminal is open.",
+        },
+        prompt: { type: "string", description: "The prompt or shell command to type" },
+        submit: { type: "boolean", description: "Press Enter after typing (default true)" },
       },
-      required: ["agent_name", "prompt"],
+      required: ["prompt"],
     },
     run: (args) => {
-      const terminals = terminalsOf(useCardStore.getState().cards);
-      const agent = resolveAgent(terminals, String(args.agent_name ?? ""));
-      if (!agent) {
-        const names = terminals.map((t) => t.name).join(", ") || "none";
-        return `Error: no agent called "${args.agent_name}". Open terminals: ${names}.`;
-      }
       const prompt = String(args.prompt ?? "").trim();
       if (!prompt) return "Error: prompt is empty.";
-      if (!sendToSession(agent.id, prompt, true)) {
+      const agent = findTerminal(String(args.agent_name ?? ""));
+      if (typeof agent === "string") return agent;
+      const submit = args.submit !== false;
+      if (!sendToSession(agent.id, prompt, submit)) {
         return `Error: ${agent.name}'s terminal is not running anymore.`;
       }
       focusSession(agent.id);
-      pendingPings.current = [
-        ...pendingPings.current.filter((p) => p.id !== agent.id),
-        { id: agent.id, name: agent.name, sentAt: Date.now(), sawOutput: false },
-      ];
-      return `Sent to ${agent.name}.`;
+      // Only a submitted prompt has a completion to announce. updatePending
+      // drops the entry silently if nothing ever runs.
+      if (submit) {
+        pendingPings.current = [
+          ...pendingPings.current.filter((p) => p.id !== agent.id),
+          { id: agent.id, name: agent.name, sentAt: Date.now(), sawOutput: false },
+        ];
+      }
+      // VibeAgent's verbatim path tests for this "Sent to" prefix.
+      return submit ? `Sent to ${agent.name}.` : `Typed into ${agent.name} without pressing Enter.`;
     },
   });
 
@@ -676,50 +765,49 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
       required: ["name"],
     },
     run: (args) => {
-      const wanted = String(args.name ?? "").toLowerCase();
-      const terminals = terminalsOf(useCardStore.getState().cards);
-      const t = terminals.find((t) => t.name.toLowerCase().includes(wanted));
-      if (!t) {
-        const names = terminals.map((t) => t.name).join(", ") || "none";
-        return `Error: no terminal matches "${args.name}". Open terminals: ${names}.`;
-      }
+      const t = findTerminal(String(args.name ?? ""));
+      if (typeof t === "string") return t;
       focusTerminalCard(t.id);
       return `Focused on terminal ${t.name}.`;
     },
   });
 
+  // Vibe can only answer questions about a terminal by looking at it — this is
+  // the only way in. The result carries its own "summarize vs read verbatim"
+  // instruction (see formatTerminalRead), because an agent's TUI is worthless
+  // read aloud line by line.
   useVibeCommand({
-    name: "send_to_terminal",
+    name: "read_terminal",
     description:
-      "Type a prompt or command into a terminal on this space and press Enter — use it to instruct agents like Claude or Codex, or to run shell commands. Pass the agent name shown on the terminal; it can be omitted when only one terminal is open.",
+      "Read what a terminal on this space is currently showing. Use this whenever the user asks what an agent said or did, what a terminal's output is, whether something finished, or what went wrong — never answer such a question from memory.",
     parameters: {
       type: "object",
       properties: {
-        name: { type: "string", description: "Agent name shown on the terminal" },
-        text: { type: "string", description: "The prompt or command to type" },
-        submit: { type: "boolean", description: "Press Enter after typing (default true)" },
+        name: {
+          type: "string",
+          description: "Agent name shown on the terminal (e.g. 'Max'). Omit only when exactly one terminal is open.",
+        },
+        full: {
+          type: "boolean",
+          description: "True ONLY when the user explicitly asked for the exact, word-for-word output. Default false.",
+        },
       },
-      required: ["text"],
     },
     run: (args) => {
-      const text = String(args.text ?? "").trim();
-      if (!text) return "Error: nothing to send — give me the prompt or command text.";
-      const terminals = terminalsOf(useCardStore.getState().cards);
-      const wanted = String(args.name ?? "").toLowerCase().trim();
-      const t = wanted
-        ? terminals.find((t) => t.name.toLowerCase().includes(wanted))
-        : terminals.length === 1 ? terminals[0] : undefined;
-      if (!t) {
-        const names = terminals.map((t) => t.name).join(", ") || "none";
-        return wanted
-          ? `Error: no terminal matches "${args.name}". Open terminals: ${names}.`
-          : `Error: say which terminal to send this to. Open terminals: ${names}.`;
-      }
-      const submit = args.submit !== false;
-      if (!sendToSession(t.id, text, submit)) {
-        return `Error: terminal ${t.name} has no live session.`;
-      }
-      return submit ? `Sent to ${t.name}: "${text}".` : `Typed into ${t.name} without pressing Enter: "${text}".`;
+      const found = findTerminal(String(args.name ?? ""));
+      if (typeof found === "string") return found;
+      const full = args.full === true;
+      const raw = readSession(found.id, readLineCount(full));
+      if (raw === null) return `Error: ${found.name}'s terminal is not running anymore.`;
+      const card = terminalsOf(useCardStore.getState().cards).find((t) => t.id === found.id);
+      const preset = resolvePreset(presets, card?.presetId ?? "");
+      return formatTerminalRead({
+        name: found.name,
+        presetLabel: preset.label,
+        isAgent: !!preset.command, // a preset that launches an agent, vs a plain shell
+        full,
+        text: cleanOutput(raw),
+      });
     },
   });
 
@@ -910,15 +998,10 @@ export function WallView({ wallId, onExit, onSwitch, onDesign, onTasks, onTeams 
             saveAsImage: false,
           },
         }}
-        excalidrawAPI={(api) => {
-          apiRef.current = api;
-          if (pendingScene.current) applyScene(api, pendingScene.current);
-          applyCamera(excalidrawCamera(api.getAppState() as AppStateLike));
-          // Cards can restore before the API exists, in which case the layout
-          // pass above skipped the camera fit — re-fit now (no-op if no cards,
-          // preserving the wall's saved camera).
-          layoutGrid({ animate: false });
-        }}
+        // Nothing is written to the canvas here: this ref fires during mount,
+        // before Excalidraw's own scene init, which would throw the write away
+        // (see restoreView). The first onChange picks the restore back up.
+        excalidrawAPI={(api) => { apiRef.current = api; }}
         onChange={onChange as Parameters<typeof Excalidraw>[0]["onChange"]}
         initialData={{ appState: { viewBackgroundColor: "transparent" } }}
       />}

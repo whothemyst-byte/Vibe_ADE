@@ -1,6 +1,6 @@
 import { useCardStore, type BrowserCard } from "./cardStore";
 import { browserNavigate, browserSetVisible } from "../browser/client";
-import { CELL } from "./gridLayout";
+import { PENDING_RECT } from "./gridLayout";
 import { removeCardWithFade } from "./removeCard";
 
 export const BROWSER_ID = "wall-browser";
@@ -39,10 +39,7 @@ export async function openBrowser(url?: string): Promise<string> {
     kind: "browser",
     id: BROWSER_ID,
     url: withScheme,
-    x: 0,
-    y: 0,
-    w: CELL.w,
-    h: CELL.h, // placeholder; the grid layout positions it
+    ...PENDING_RECT,
   });
   return `Opened the browser at ${withScheme}.`;
 }

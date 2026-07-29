@@ -1,5 +1,5 @@
 import { useCardStore, type FileCard } from "./cardStore";
-import { CELL } from "./gridLayout";
+import { PENDING_RECT } from "./gridLayout";
 import { removeCardWithFade } from "./removeCard";
 
 export const FILE_ID = "wall-file";
@@ -19,10 +19,7 @@ export function openFile(path: string, name: string): void {
     id: FILE_ID,
     path,
     name,
-    x: 0,
-    y: 0,
-    w: CELL.w,
-    h: CELL.h, // placeholder; the grid layout positions it
+    ...PENDING_RECT,
   });
 }
 

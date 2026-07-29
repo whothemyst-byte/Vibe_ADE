@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useCardStore } from "./cardStore";
 import { STATIONS } from "./stations";
 import { MUSIC_ID, changeStation, closeMusic, musicCard, openMusic, playMusic, registerPlayer, setCustomUrl, stopMusic } from "./musicActions";
@@ -68,11 +68,28 @@ describe("playMusic / stopMusic", () => {
     registerPlayer(null);
   });
 
-  it("still opens the card when no player registers in time", async () => {
+  it("starts playback when the player registers after the call", async () => {
     registerPlayer(null);
-    const msg = await playMusic("lofi");
-    expect(musicCard()).toBeDefined();
-    expect(msg).toMatch(/press play/i);
+    let played = 0;
+    const pending = playMusic();
+    // MusicWindow mounts a render later; registering must wake the waiter.
+    registerPlayer({ play: () => { played++; }, pause: () => {} });
+    expect(await pending).toMatch(/playing/i);
+    expect(played).toBe(1);
+    registerPlayer(null);
+  });
+
+  it("still opens the card when no player ever registers", async () => {
+    registerPlayer(null);
+    vi.useFakeTimers();
+    try {
+      const pending = playMusic("lofi");
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(await pending).toMatch(/press play/i);
+      expect(musicCard()).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("stopMusic pauses without closing", () => {

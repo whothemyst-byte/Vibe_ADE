@@ -1,7 +1,6 @@
 export type Preset = {
   id: string;
   label: string;
-  icon: string;
   /** Command typed into the shell after spawn; undefined = plain shell. */
   command?: string;
 };
@@ -13,14 +12,14 @@ export type Preset = {
 const CLAUDE_COMMAND = 'claude --append-system-prompt-file "$env:VIBE_AGENT_GUIDE"';
 
 export const DEFAULT_PRESETS: Preset[] = [
-  { id: "plain", label: "Plain shell", icon: "▷" },
-  { id: "claude", label: "Claude Code", icon: "✦", command: CLAUDE_COMMAND },
-  { id: "codex", label: "Codex", icon: "◆", command: "codex" },
+  { id: "plain", label: "Plain shell" },
+  { id: "claude", label: "Claude Code", command: CLAUDE_COMMAND },
+  { id: "codex", label: "Codex", command: "codex" },
   // Cursor CLI installs BOTH `agent` and `cursor-agent` shims; use the
   // unambiguous one — bare `agent` collides with other vendors' CLIs
   // (Grok's agent.exe won PATH resolution on the dev machine).
-  { id: "cursor", label: "Cursor", icon: "▸", command: "cursor-agent" },
-  { id: "gemini", label: "Gemini", icon: "◈", command: "gemini" },
+  { id: "cursor", label: "Cursor", command: "cursor-agent" },
+  { id: "gemini", label: "Gemini", command: "gemini" },
 ];
 
 /** Heal presets persisted before the vibectl-aware launch command: a claude

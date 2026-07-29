@@ -15,8 +15,11 @@ export type Station = {
 export const STATIONS: Station[] = [
   { id: "rp-main", name: "Radio Paradise", mood: "eclectic", url: "https://stream.radioparadise.com/aac-128", attribution: "radioparadise.com — listener-supported" },
   { id: "rp-mellow", name: "RP Mellow", mood: "mellow focus", url: "https://stream.radioparadise.com/mellow-128", attribution: "radioparadise.com — listener-supported" },
-  { id: "laut-lofi", name: "laut.fm lofi", mood: "lofi beats", url: "https://stream.laut.fm/lofi", attribution: "lofi @ laut.fm" },
-  { id: "laut-ambient", name: "laut.fm ambient", mood: "ambient", url: "https://stream.laut.fm/ambient", attribution: "ambient @ laut.fm" },
+  // laut.fm: use the station's direct stream host — the stream.laut.fm/<name>
+  // redirector answers with a CORS-less 302, which a crossOrigin="anonymous"
+  // <audio> refuses to follow, so those stations never played.
+  { id: "laut-lofi", name: "laut.fm lofi", mood: "lofi beats", url: "https://lofi.stream.laut.fm/lofi", attribution: "lofi @ laut.fm" },
+  { id: "laut-ambient", name: "laut.fm ambient", mood: "ambient", url: "https://ambient.stream.laut.fm/ambient", attribution: "ambient @ laut.fm" },
 ];
 
 /** The station after `currentId`, wrapping; unknown ids (custom URLs) restart the dial. */

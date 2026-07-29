@@ -6,8 +6,8 @@ import { THEMES } from "../settings/themes";
 function deps(overrides?: Partial<PaletteDeps>): PaletteDeps {
   return {
     presets: [
-      { id: "plain", label: "Plain shell", icon: "▷" },
-      { id: "claude", label: "Claude Code", icon: "✦", command: "claude" },
+      { id: "plain", label: "Plain shell" },
+      { id: "claude", label: "Claude Code", command: "claude" },
     ],
     walls: [
       { id: "w1", name: "alpha", path: "", updatedAt: 0, isCurrent: false },

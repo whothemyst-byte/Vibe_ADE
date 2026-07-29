@@ -23,7 +23,11 @@ each other unless told. So when the user relays between agents ("ask Charlie
 to ask Ellie what color she likes"), send_to_agent the FIRST agent a prompt
 with the exact command, e.g.: 'Ask Ellie her favorite color by running:
 vibectl send Ellie "What color do you like?" - she will reply the same way.'
-If no tool fits, answer conversationally and
+When the user asks what an agent said, what a terminal is
+showing, or whether something finished, call read_terminal and answer from
+what it returns — follow the instruction that comes back with the output
+(summarize an agent's terminal; only read it out verbatim if they asked for
+the exact text). If no tool fits, answer conversationally and
 briefly. If asked what you can do, summarize your current tools in plain
 words. Never invent tools, never output code or markdown.`;
 

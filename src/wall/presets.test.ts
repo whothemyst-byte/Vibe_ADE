@@ -58,8 +58,8 @@ describe("findPresetByPhrase", () => {
 describe("upgradeLegacyPresets", () => {
   it("upgrades a stored claude preset still on the bare command", () => {
     const stored = [
-      { id: "plain", label: "Plain shell", icon: "▷" },
-      { id: "claude", label: "Claude Code", icon: "✦", command: "claude" },
+      { id: "plain", label: "Plain shell" },
+      { id: "claude", label: "Claude Code", command: "claude" },
     ];
     const up = upgradeLegacyPresets(stored);
     expect(up[1].command).toBe(CLAUDE_COMMAND);
@@ -67,7 +67,7 @@ describe("upgradeLegacyPresets", () => {
   });
 
   it("leaves a user-customized claude command alone", () => {
-    const stored = [{ id: "claude", label: "Claude Code", icon: "✦", command: "claude --model opus" }];
+    const stored = [{ id: "claude", label: "Claude Code", command: "claude --model opus" }];
     expect(upgradeLegacyPresets(stored)).toEqual(stored);
     expect(upgradeLegacyPresets(stored)[0]).toBe(stored[0]);
   });
@@ -82,8 +82,8 @@ describe("upgradeLegacyPresets", () => {
 describe("mergeNewDefaults", () => {
   it("appends defaults missing from a stored list, after the user's entries", () => {
     const stored = [
-      { id: "plain", label: "Plain shell", icon: "▷" },
-      { id: "claude", label: "Claude Code", icon: "✦", command: "claude --model opus" },
+      { id: "plain", label: "Plain shell" },
+      { id: "claude", label: "Claude Code", command: "claude --model opus" },
     ];
     const merged = mergeNewDefaults(stored);
     expect(merged.map((p) => p.id)).toEqual(["plain", "claude", "codex", "cursor", "gemini"]);

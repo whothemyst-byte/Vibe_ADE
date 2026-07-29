@@ -4,6 +4,11 @@ import { HEADER_H, type Camera, type Rect } from "./transform";
 export const CELL = { w: 600, h: 440 };
 export const GUTTER = 24;
 
+/** Rect a card is created with. Every managed card is positioned by the grid
+ *  layout on the next store tick, so the spawn site has nothing useful to say
+ *  about x/y — spread this instead of inventing coordinates. */
+export const PENDING_RECT = { x: 0, y: 0, w: CELL.w, h: CELL.h };
+
 export type Point = { x: number; y: number };
 
 /**
