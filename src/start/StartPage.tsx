@@ -3,10 +3,11 @@ import { loadIndex, saveIndex, pickFolder, deleteWall, loadThumbnailUrl, isDir }
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { WallMeta } from "../store/types";
 import { relativeTime } from "./relativeTime";
-import { CloseIcon, GridIcon, TeamsIcon } from "../wall/icons";
+import { CloseIcon, GearIcon, GridIcon, TeamsIcon, UserIcon } from "../wall/icons";
 import { useEntitlements } from "../entitlements";
 import { UpgradePill } from "../tasks/UpgradePill";
 import { spaceFromFolder } from "../store/spaceFromFolder";
+import { SettingsModal } from "../settings/SettingsModal";
 
 function WallCard({ meta, onOpen, onDelete }: { meta: WallMeta; onOpen: () => void; onDelete: () => void }) {
   const [thumb, setThumb] = useState<string | null>(null);
@@ -42,6 +43,9 @@ export function StartPage({ onOpen, onTasks, onTeams }: { onOpen: (id: string) =
   const ent = useEntitlements();
   const [walls, setWalls] = useState<WallMeta[]>([]);
   const [dragHover, setDragHover] = useState(false);
+  // Which settings pane the bottom-right dock opened, if any. "gear" lets the
+  // modal pick its own default section; "account" jumps straight to Account.
+  const [settings, setSettings] = useState<"gear" | "account" | null>(null);
   useEffect(() => {
     loadIndex().then(setWalls).catch(() => setWalls([]));
   }, []);
@@ -89,25 +93,40 @@ export function StartPage({ onOpen, onTasks, onTeams }: { onOpen: (id: string) =
 
   return (
     <div className={`start-page${dragHover ? " drag-over" : ""}`}>
-      <div className="start-head">
-        <div className="start-headings">
-          <h1 className="start-title">Spaces</h1>
-          <span className="start-sub">{walls.length} {walls.length === 1 ? "space" : "spaces"}</span>
+      <div className="start-inner">
+        <div className="start-head">
+          <div className="start-headings">
+            <h1 className="start-title">Home</h1>
+            <span className="start-sub">{walls.length} {walls.length === 1 ? "space" : "spaces"}</span>
+          </div>
+          <div className="start-actions">
+            <button className="start-tasks" onClick={onTasks}><GridIcon /> Taskboard</button>
+            <button className="start-tasks" onClick={onTeams}>
+              <TeamsIcon /> Teams{!ent.canUseTeams && <UpgradePill feature="Team collaboration" tier="Team" />}
+            </button>
+          </div>
         </div>
-        <button className="start-tasks" onClick={onTasks}><GridIcon /> Taskboard</button>
-        <button className="start-tasks" onClick={onTeams}>
-          <TeamsIcon /> Teams{!ent.canUseTeams && <UpgradePill feature="Team collaboration" tier="Team" />}
-        </button>
+        <div className="start-grid">
+          {walls.map((w) => (
+            <WallCard key={w.id} meta={w} onOpen={() => onOpen(w.id)} onDelete={() => remove(w.id)} />
+          ))}
+          <button className="wall-card new-canvas" onClick={newCanvas}>
+            <span className="new-plus">+</span>
+            <span>New space</span>
+          </button>
+        </div>
       </div>
-      <div className="start-grid">
-        {walls.map((w) => (
-          <WallCard key={w.id} meta={w} onOpen={() => onOpen(w.id)} onDelete={() => remove(w.id)} />
-        ))}
-        <button className="wall-card new-canvas" onClick={newCanvas}>
-          <span className="new-plus">+</span>
-          <span>New space</span>
-        </button>
+      <div className="start-dock">
+        <button className="start-dock-key" title="Account" onClick={() => setSettings("account")}><UserIcon /></button>
+        <button className="start-dock-key" title="Settings" onClick={() => setSettings("gear")}><GearIcon /></button>
       </div>
+      {settings && (
+        <SettingsModal
+          initialSection={settings === "account" ? "account" : undefined}
+          onClose={() => setSettings(null)}
+          onOpenWall={onOpen}
+        />
+      )}
     </div>
   );
 }

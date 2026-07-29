@@ -45,6 +45,14 @@ const SPACE_ONLY: Section[] = ["themes"];
 
 const extOf = (p: string) => p.split(".").pop()?.toLowerCase() ?? "bin";
 
+/** True when the signed-in user owns or admins the current org — the gate on
+ *  every member/invite/project mutation in the team panes. */
+function useIsOrgAdmin(): boolean {
+  const members = useOrgStore((s) => s.members);
+  const role = members.find((m) => m.user_id === currentUserId())?.role;
+  return role === "owner" || role === "admin";
+}
+
 /** Rough relative luminance of a #rrggbb color, for picking label contrast. */
 const isLightColor = (hex: string) => {
   const n = parseInt(hex.slice(1), 16);
@@ -164,7 +172,7 @@ function AgentsPane() {
       ))}
       <button
         className="set-btn set-add"
-        onClick={() => persist([...presets, { id: crypto.randomUUID(), label: "New agent", icon: "▷", command: "" }])}
+        onClick={() => persist([...presets, { id: crypto.randomUUID(), label: "New agent", command: "" }])}
       >
         <PlusIcon /> Add preset
       </button>
@@ -402,9 +410,7 @@ function OrganizationPane() {
   const currentOrgId = useOrgStore((s) => s.currentOrgId);
   const members = useOrgStore((s) => s.members);
   const org = orgs.find((o) => o.id === currentOrgId) ?? null;
-  const myId = currentUserId();
-  const myRole = members.find((m) => m.user_id === myId)?.role ?? null;
-  const isAdmin = myRole === "owner" || myRole === "admin";
+  const isAdmin = useIsOrgAdmin();
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
   if (!org) return null;
   const copy = (kind: "code" | "link", text: string) => {
@@ -442,8 +448,7 @@ function MembersPane() {
   const setRole = useOrgStore((s) => s.setRole);
   const removeMember = useOrgStore((s) => s.removeMember);
   const myId = currentUserId();
-  const myRole = members.find((m) => m.user_id === myId)?.role ?? null;
-  const isAdmin = myRole === "owner" || myRole === "admin";
+  const isAdmin = useIsOrgAdmin();
   if (!orgId) return null;
   return (
     <>
@@ -481,13 +486,11 @@ function MembersPane() {
 function InvitesPane() {
   const orgId = useOrgStore((s) => s.currentOrgId);
   const orgs = useOrgStore((s) => s.orgs);
-  const members = useOrgStore((s) => s.members);
   const invites = useOrgStore((s) => s.invites);
   const invite = useOrgStore((s) => s.invite);
   const revokeInvite = useOrgStore((s) => s.revokeInvite);
   const org = orgs.find((o) => o.id === orgId) ?? null;
-  const myRole = members.find((m) => m.user_id === currentUserId())?.role ?? null;
-  const isAdmin = myRole === "owner" || myRole === "admin";
+  const isAdmin = useIsOrgAdmin();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "member">("member");
   const [busy, setBusy] = useState(false);
@@ -544,12 +547,10 @@ function InvitesPane() {
 }
 function ProjectsPane({ onOpenWall }: { onOpenWall?: (id: string) => void }) {
   const orgId = useOrgStore((s) => s.currentOrgId);
-  const members = useOrgStore((s) => s.members);
   const projects = useOrgStore((s) => s.projects);
   const loadProjects = useOrgStore((s) => s.loadProjects);
   const myId = currentUserId();
-  const myRole = members.find((m) => m.user_id === myId)?.role ?? null;
-  const isAdmin = myRole === "owner" || myRole === "admin";
+  const isAdmin = useIsOrgAdmin();
   const [locals, setLocals] = useState<WallMeta[]>([]);
   const [pick, setPick] = useState("");
   const [busy, setBusy] = useState(false);
